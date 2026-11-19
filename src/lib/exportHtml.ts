@@ -221,7 +221,7 @@ dz.addEventListener('drop',e=>handle([...e.dataTransfer.files]));
 $('#q').oninput=()=>{S.p='';prod()};
 $('#bk').onclick=backup;$('#rs').onclick=()=>$('#rf').click();$('#wipe').onclick=wipe;
 $('#rf').onchange=e=>{if(e.target.files[0])restore(e.target.files[0]);e.target.value=''};
-try{const l=localStorage.getItem('so');if(l)DATA=JSON.parse(l)}catch(e){}
+try{const l=localStorage.getItem('so');if(l){const p=JSON.parse(l);if(p&&typeof p==='object'&&!Array.isArray(p)){for(const k in p){if(/^\\d{4}-\\d{2}-\\d{2}$/.test(k)&&Array.isArray(p[k]))DATA[k]=p[k]}}}}catch(e){DATA={}}
 render();
 </script></body></html>`;
 }

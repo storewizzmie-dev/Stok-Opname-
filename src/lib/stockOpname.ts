@@ -18,6 +18,21 @@ export type StockRow = [
 
 export type StockDataset = Record<string, StockRow[]>;
 
+export function sanitizeDataset(raw: unknown): StockDataset {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  const clean: StockDataset = {};
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key) && Array.isArray(val)) {
+      clean[key] = val.filter(
+        (row): row is StockRow => Array.isArray(row) && row.length >= 7
+      );
+    }
+  }
+  return clean;
+}
+
 interface ConversionRule {
   baseUnit: string;
   dosMultiplier: number;

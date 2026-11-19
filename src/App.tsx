@@ -22,6 +22,7 @@ import {
   formatSignedQty,
   getConvertedRows,
   parseExcelBuffer,
+  sanitizeDataset,
 } from './lib/stockOpname';
 
 const STORAGE_KEY = 'so';
@@ -36,7 +37,7 @@ export default function App() {
   const [data, setData] = useState<StockDataset>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw) as StockDataset;
+      if (raw) return sanitizeDataset(JSON.parse(raw));
     } catch {
       // Ignore corrupted localStorage
     }
