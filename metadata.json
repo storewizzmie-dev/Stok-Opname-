@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Pantau Stok Opname",
+  "description": "Pantau barang yang kurang atau lebih dari laporan stok opname harian (.xlsx).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
