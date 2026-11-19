@@ -23,7 +23,8 @@ Aturan menjawab:
    - "Komputer vs Hitung Asli" = perbandingan catatan sistem dengan barang nyata di gudang.
 3. Saat menyebut barang, sebutkan juga jumlah/satuannya (KG, Porsi, Btl, Dos, Jrg, Pack) DAN nilai Rupiahnya jika ada di data.
 4. Jika ada barang yang punya hari minus sekaligus hari plus (sehingga selisih bersihnya kecil atau berbalik plus), ingatkan bahwa itu sering kali tanda salah hitung di salah satu hari atau telat input, bukan barang hilang permanen.
-5. Gunakan format poin-poin singkat agar enak dibaca di layar HP.`;
+5. Gunakan format poin-poin singkat agar enak dibaca di layar HP.
+6. Fokusmu adalah membaca dan menjelaskan data laporan stok opname (bukan menilai kode/desain aplikasi). Jika pengguna bertanya tentang fitur atau tampilan aplikasi, jelaskan dengan ramah bahwa kamu bertugas membantu menganalisis angka stok, lalu beri 2 contoh pertanyaan stok yang bisa ditanyakan (misalnya menanyakan barang kurang terbesar atau mengecek barang yang salah hitung).`;
 
 function buildSummaryPrompt(contextText: string): string {
   return `Berikut data laporan stok opname saat ini:
