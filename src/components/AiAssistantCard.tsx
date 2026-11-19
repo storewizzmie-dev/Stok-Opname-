@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { RotateCcw, Send, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { RotateCcw, Send, Sparkles, X } from 'lucide-react';
 import {
+  StockDataset,
   SummaryResult,
   buildAiStockContext,
   formatDateId,
@@ -8,7 +9,7 @@ import {
 } from '../lib/stockOpname';
 import { InfoButton, InfoGuideKey } from './InfoGuide';
 
-interface ChatMessage {
+export interface AiChatMessage {
   role: 'user' | 'assistant';
   text: string;
 }
@@ -22,26 +23,43 @@ const QUICK_PROMPTS = [
 export function AiAssistantCard({
   summary,
   activeMonth,
+  data,
+  currentMenuLabel = 'Beranda',
+  messages,
+  onMessagesChange,
   onOpenInfo,
+  onClose,
 }: {
   summary: SummaryResult;
   activeMonth: string;
+  data: StockDataset;
+  currentMenuLabel?: string;
+  messages: AiChatMessage[];
+  onMessagesChange: React.Dispatch<React.SetStateAction<AiChatMessage[]>>;
   onOpenInfo: (key: InfoGuideKey) => void;
+  onClose?: () => void;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const periodLabel =
     summary.scope === 'month'
       ? `${formatMonthId(activeMonth)} (sebulan)`
       : `${formatDateId(summary.resolvedDate)} (1 hari)`;
 
-  const contextText = useMemo(
-    () => buildAiStockContext(summary, activeMonth),
-    [summary, activeMonth]
-  );
+  const totalProducts = Object.keys(summary.productMap).length;
+  const totalDates = summary.allMonthDates.length;
+
+  useEffect(() => {
+    if (messages.length > 0 || isLoading) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [messages, isLoading]);
 
   const callAiEndpoint = async (payload: Record<string, unknown>) => {
     const res = await fetch('/api/ai', {
@@ -57,29 +75,32 @@ export function AiAssistantCard({
       );
     }
 
-    const data = (await res.json()) as { reply?: string; error?: string };
-    if (!res.ok || data.error) {
-      throw new Error(data.error || 'Gagal mendapatkan jawaban AI.');
+    const resData = (await res.json()) as { reply?: string; error?: string };
+    if (!res.ok || resData.error) {
+      throw new Error(resData.error || 'Gagal mendapatkan jawaban AI.');
     }
-    return data.reply || 'Tidak ada jawaban dari AI.';
+    return resData.reply || 'Tidak ada jawaban dari AI.';
   };
 
   const handleAutoSummary = async () => {
     if (isLoading) return;
     setErrorMsg(null);
     setIsLoading(true);
-    const userNote: ChatMessage = {
+    const userNote: AiChatMessage = {
       role: 'user',
       text: `Buatkan ringkasan stok untuk ${periodLabel}`,
     };
-    setMessages((prev) => [...prev, userNote]);
+    onMessagesChange((prev) => [...prev, userNote]);
 
     try {
+      const contextText = buildAiStockContext(summary, activeMonth, data, {
+        currentMenu: currentMenuLabel,
+      });
       const reply = await callAiEndpoint({
         action: 'summary',
         contextText,
       });
-      setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+      onMessagesChange((prev) => [...prev, { role: 'assistant', text: reply }]);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Gagal menghubungi AI.');
     } finally {
@@ -94,17 +115,21 @@ export function AiAssistantCard({
     setErrorMsg(null);
     if (!questionText) setInput('');
     const historySnapshot = messages.slice(-8);
-    setMessages((prev) => [...prev, { role: 'user', text: q }]);
+    onMessagesChange((prev) => [...prev, { role: 'user', text: q }]);
     setIsLoading(true);
 
     try {
+      const contextText = buildAiStockContext(summary, activeMonth, data, {
+        question: q,
+        currentMenu: currentMenuLabel,
+      });
       const reply = await callAiEndpoint({
         action: 'chat',
         contextText,
         question: q,
         history: historySnapshot,
       });
-      setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+      onMessagesChange((prev) => [...prev, { role: 'assistant', text: reply }]);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Gagal menghubungi AI.');
     } finally {
@@ -113,8 +138,12 @@ export function AiAssistantCard({
   };
 
   return (
-    <section className="bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 space-y-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section
+      className={`bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 space-y-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
+        onClose ? 'flex flex-col max-h-[88vh]' : ''
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-1.5">
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
@@ -123,7 +152,8 @@ export function AiAssistantCard({
             <InfoButton guideKey="aiAssistant" onOpen={onOpenInfo} />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Membaca data: {periodLabel}
+            Membaca semua menu ({totalProducts} barang · {totalDates} hari di{' '}
+            {formatMonthId(activeMonth)})
           </p>
         </div>
 
@@ -132,10 +162,10 @@ export function AiAssistantCard({
             <button
               type="button"
               onClick={() => {
-                setMessages([]);
+                onMessagesChange([]);
                 setErrorMsg(null);
               }}
-              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 min-h-[40px] cursor-pointer"
+              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Hapus Chat</span>
@@ -150,11 +180,21 @@ export function AiAssistantCard({
             <Sparkles className="w-4 h-4" />
             <span>{isLoading ? 'AI Membaca...' : 'Ringkas Otomatis'}</span>
           </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Tutup jendela AI"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* 1-tap quick prompts */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 shrink-0">
         {QUICK_PROMPTS.map((prompt) => (
           <button
             key={prompt}
@@ -170,7 +210,11 @@ export function AiAssistantCard({
 
       {/* Chat Messages */}
       {(messages.length > 0 || isLoading) && (
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/90 max-h-[420px] overflow-y-auto pr-1">
+        <div
+          className={`space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/90 overflow-y-auto pr-1 ${
+            onClose ? 'flex-1 min-h-[160px]' : 'max-h-[520px]'
+          }`}
+        >
           {messages.map((msg, idx) => (
             <div
               key={idx}
@@ -197,15 +241,16 @@ export function AiAssistantCard({
           {isLoading && (
             <div className="flex justify-start">
               <div className="rounded-2xl px-4 py-3 text-sm bg-slate-50 dark:bg-[#182023] border border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                Sedang menganalisis laporan stok...
+                Sedang membaca seluruh data stok...
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
       )}
 
       {errorMsg && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 px-4 py-3 text-xs sm:text-sm text-red-800 dark:text-red-300">
+        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 px-4 py-3 text-xs sm:text-sm text-red-800 dark:text-red-300 shrink-0">
           {errorMsg}
         </div>
       )}
@@ -216,21 +261,21 @@ export function AiAssistantCard({
           e.preventDefault();
           void handleAsk();
         }}
-        className="flex items-center gap-2 pt-1"
+        className="flex items-center gap-2 pt-1 shrink-0"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading}
-          placeholder="Tanya apa saja soal stok ini, misal: kenapa udang keju minus?"
+          placeholder="Tanya barang/tanggal apa saja, misal: info udang keju tanggal 17"
           className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600 min-h-[44px]"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
           aria-label="Kirim pertanyaan ke AI"
-          className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 disabled:opacity-40 transition-colors flex items-center gap-1.5 min-h-[44px] shrink-0 cursor-pointer disabled:cursor-not-allowed"
+          className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 disabled:opacity-40 transition-colors flex items-center gap-1.5 min-h-[44px] shrink-0 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
         >
           <Send className="w-4 h-4" />
           <span className="hidden sm:inline">Kirim</span>
@@ -252,10 +297,7 @@ function FormattedAiText({ text }: { text: string }) {
           trimmed.startsWith('* ') ||
           /^\d+\.\s/.test(trimmed);
         return (
-          <p
-            key={idx}
-            className={isBullet ? 'pl-2' : undefined}
-          >
+          <p key={idx} className={isBullet ? 'pl-2' : undefined}>
             {renderInlineBold(trimmed)}
           </p>
         );

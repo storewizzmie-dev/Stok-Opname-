@@ -665,7 +665,9 @@ export type SummaryResult = ReturnType<typeof computeSummary>;
 
 export function buildAiStockContext(
   summary: SummaryResult,
-  monthKey: string
+  monthKey: string,
+  data?: StockDataset,
+  options?: { question?: string; currentMenu?: string }
 ): string {
   const periodLabel =
     summary.scope === 'month'
@@ -685,18 +687,49 @@ export function buildAiStockContext(
 
   const lines: string[] = [
     `Cabang: ${summary.branchName || 'Toko'}`,
-    `Periode dilihat: ${periodLabel}`,
+    ...(options?.currentMenu ? [`Menu dibuka: ${options.currentMenu}`] : []),
+    `Periode dipilih: ${periodLabel}`,
     `Hasil Akhir: ${netLabel}`,
     `Total Kurang (Minus): -${formatRupiah(summary.totalNeg)} (${summary.negProductCount} barang)`,
     `Total Lebih (Plus): +${formatRupiah(summary.totalPos)} (${summary.posProductCount} barang)`,
   ];
 
   if (summary.missingDays.length > 0) {
-    lines.push(`Tanggal belum diupload di bulan ini: tgl ${summary.missingDays.join(', ')}`);
+    lines.push(
+      `Tanggal belum diupload di bulan ini: tgl ${summary.missingDays.join(', ')}`
+    );
+  }
+
+  // All stored months overview (Menu Upload / Pengaturan)
+  if (data) {
+    const allDates = Object.keys(data).sort();
+    const months = Array.from(new Set(allDates.map((d) => d.slice(0, 7))));
+    if (months.length > 0) {
+      lines.push('\nDaftar Semua Bulan Tersimpan:');
+      for (const m of months) {
+        const mDates = allDates.filter((d) => d.startsWith(m));
+        let mNeg = 0;
+        let mPos = 0;
+        for (const d of mDates) {
+          for (const r of data[d]) {
+            if (r[6] < 0) mNeg += r[6];
+            else if (r[6] > 0) mPos += r[6];
+          }
+        }
+        const mNet = mNeg + mPos;
+        lines.push(
+          `- ${formatMonthId(m)} (${mDates.length} hari): Kurang -${formatRupiah(
+            mNeg
+          )}, Lebih +${formatRupiah(mPos)}, Hasil ${
+            mNet < 0 ? 'KURANG -' : 'LEBIH +'
+          }${formatRupiah(mNet)}`
+        );
+      }
+    }
   }
 
   if (summary.categoryStats.length > 0) {
-    lines.push('\nRingkasan Per Bagian:');
+    lines.push('\nRingkasan Per Bagian (Periode Dipilih):');
     for (const c of summary.categoryStats) {
       const cNet =
         c.netVal < -0.5
@@ -705,82 +738,164 @@ export function buildAiStockContext(
           ? `Lebih ${formatRupiah(c.netVal)}`
           : 'Pas Rp 0';
       lines.push(
-        `- ${c.category}: Kurang ${formatRupiah(c.negVal)}, Lebih ${formatRupiah(c.posVal)}, Hasil ${cNet}`
+        `- ${c.category}: Kurang ${formatRupiah(c.negVal)}, Lebih ${formatRupiah(
+          c.posVal
+        )}, Hasil ${cNet}`
       );
     }
   }
 
-  const allProducts = Object.values(summary.productMap);
-
-  const deficits = allProducts
-    .filter((p) => p.netVal < -0.5)
-    .sort((a, b) => a.netVal - b.netVal)
-    .slice(0, 15);
-  if (deficits.length > 0) {
-    lines.push('\nBarang Paling Kurang (Minus Terbesar):');
-    for (const p of deficits) {
+  // ALL products in active scope (Menu Cek Barang)
+  const allProducts = Object.values(summary.productMap).sort(
+    (a, b) => Math.abs(b.netVal) - Math.abs(a.netVal)
+  );
+  if (allProducts.length > 0) {
+    lines.push(`\nSemua Barang pada Periode Dipilih (${allProducts.length} barang):`);
+    for (const p of allProducts) {
+      const valStr =
+        p.netVal < -0.5
+          ? `-${formatRupiah(p.netVal)}`
+          : p.netVal > 0.5
+          ? `+${formatRupiah(p.netVal)}`
+          : 'Rp 0';
       lines.push(
-        `- ${p.name} [${p.category}]: ${formatQtyMap(p.qtyByUnit, p.name, true)} | -${formatRupiah(
-          p.netVal
-        )} (kurang ${p.negDays} hari)`
+        `- ${p.name} [${p.category}]: ${formatQtyMap(
+          p.qtyByUnit,
+          p.name,
+          true
+        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr`
       );
     }
   }
 
-  const surpluses = allProducts
-    .filter((p) => p.netVal > 0.5)
-    .sort((a, b) => b.netVal - a.netVal)
+  const flipFlop = allProducts
+    .filter(
+      (p) =>
+        p.negVal < -20000 &&
+        p.posVal > 20000 &&
+        Math.abs(p.netVal) < Math.abs(p.negVal) * 0.8
+    )
+    .sort((a, b) => a.negVal - b.negVal)
     .slice(0, 12);
-  if (surpluses.length > 0) {
-    lines.push('\nBarang Paling Lebih (Plus Terbesar):');
-    for (const p of surpluses) {
+  if (flipFlop.length > 0) {
+    lines.push(
+      '\nBarang Bolak-Balik (pernah kurang & pernah lebih, indikasi salah hitung / telat input):'
+    );
+    for (const p of flipFlop) {
       lines.push(
-        `- ${p.name} [${p.category}]: ${formatQtyMap(p.qtyByUnit, p.name, true)} | +${formatRupiah(
-          p.netVal
-        )} (lebih ${p.posDays} hari)`
+        `- ${p.name}: Saat kurang ${formatQtyMap(
+          p.negQtyByUnit,
+          p.name,
+          false
+        )} (-${formatRupiah(p.negVal)}), Saat lebih ${formatQtyMap(
+          p.posQtyByUnit,
+          p.name,
+          false
+        )} (+${formatRupiah(p.posVal)}) -> Hasil akhir ${formatQtyMap(
+          p.qtyByUnit,
+          p.name,
+          true
+        )}`
       );
     }
   }
 
-  if (summary.scope === 'month') {
-    const flipFlop = allProducts
-      .filter(
-        (p) =>
-          p.negVal < -20000 &&
-          p.posVal > 20000 &&
-          Math.abs(p.netVal) < Math.abs(p.negVal) * 0.8
-      )
-      .sort((a, b) => a.negVal - b.negVal)
-      .slice(0, 10);
-    if (flipFlop.length > 0) {
-      lines.push('\nBarang Bolak-Balik (pernah kurang & pernah lebih, indikasi salah hitung / telat input):');
-      for (const p of flipFlop) {
-        lines.push(
-          `- ${p.name}: Saat kurang ${formatQtyMap(
-            p.negQtyByUnit,
-            p.name,
-            false
-          )} (-${formatRupiah(p.negVal)}), Saat lebih ${formatQtyMap(
-            p.posQtyByUnit,
-            p.name,
-            false
-          )} (+${formatRupiah(p.posVal)}) -> Hasil akhir ${formatQtyMap(
-            p.qtyByUnit,
-            p.name,
-            true
-          )}`
-        );
+  lines.push('\nRingkasan Harian Bulan Aktif (Menu Harian):');
+  for (const d of summary.dailyStats) {
+    const net = d.negVal + d.posVal;
+    lines.push(
+      `- ${d.date} (${formatDateId(d.date)}): Kurang -${formatRupiah(
+        d.negVal
+      )}, Lebih +${formatRupiah(d.posVal)}, Hasil ${
+        net < 0 ? '-' : '+'
+      }${formatRupiah(net)} (${d.diffCount} barang selisih)`
+    );
+  }
+
+  // Full per-date item rows (Menu Harian + Cek Barang detail)
+  if (data) {
+    const activeMonthRowCount = summary.allMonthDates.reduce(
+      (sum, d) => sum + (data[d]?.length ?? 0),
+      0
+    );
+
+    const keywords = (options?.question ?? '')
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length >= 3);
+
+    const formatRowLine = (dateKey: string, r: StockRow): string => {
+      const unit = r[1] || 'Unit';
+      const diffQty = r[4];
+      const diffVal = r[6];
+      const statusStr =
+        diffQty < -1e-9 || diffVal < -0.5
+          ? `Kurang ${formatQty(diffQty)} ${unit}`
+          : diffQty > 1e-9 || diffVal > 0.5
+          ? `Lebih ${formatQty(diffQty)} ${unit}`
+          : `Pas 0 ${unit}`;
+      const valStr =
+        diffVal < -0.5
+          ? `-${formatRupiah(diffVal)}`
+          : diffVal > 0.5
+          ? `+${formatRupiah(diffVal)}`
+          : 'Rp 0';
+      return `${dateKey}|${r[0]}|${r[8] || 'Lainnya'}|Komp:${formatQty(
+        r[2]
+      )}|Asli:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}`;
+    };
+
+    const rowLines: string[] = [];
+    const includeAllRowsInMonth = activeMonthRowCount <= 1500;
+
+    for (const dateKey of summary.allMonthDates) {
+      const converted = getConvertedRows(data[dateKey] ?? []);
+      for (const r of converted) {
+        const isNonZero = Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5;
+        const matchesQuestion =
+          keywords.length > 0 &&
+          keywords.some(
+            (kw) =>
+              r[0].toLowerCase().includes(kw) ||
+              (r[8] || '').toLowerCase().includes(kw) ||
+              dateKey.includes(kw)
+          );
+        if (includeAllRowsInMonth || isNonZero || matchesQuestion) {
+          rowLines.push(formatRowLine(dateKey, r));
+        }
       }
     }
 
-    lines.push('\nRingkasan Harian di Bulan Ini:');
-    for (const d of summary.dailyStats) {
-      const net = d.negVal + d.posVal;
+    // If user asked about a product/date in other stored months too, attach matches
+    if (keywords.length > 0) {
+      const otherDates = Object.keys(data)
+        .filter((d) => !d.startsWith(monthKey))
+        .sort();
+      let extraCount = 0;
+      for (const dateKey of otherDates) {
+        if (extraCount >= 250) break;
+        const converted = getConvertedRows(data[dateKey] ?? []);
+        for (const r of converted) {
+          const matchesQuestion = keywords.some(
+            (kw) =>
+              r[0].toLowerCase().includes(kw) ||
+              (r[8] || '').toLowerCase().includes(kw) ||
+              dateKey.includes(kw)
+          );
+          if (matchesQuestion) {
+            rowLines.push(formatRowLine(dateKey, r));
+            extraCount++;
+            if (extraCount >= 250) break;
+          }
+        }
+      }
+    }
+
+    if (rowLines.length > 0) {
       lines.push(
-        `- ${formatDateId(d.date)}: Kurang -${formatRupiah(d.negVal)}, Lebih +${formatRupiah(
-          d.posVal
-        )}, Hasil ${net < 0 ? '-' : '+'}${formatRupiah(net)} (${d.diffCount} barang selisih)`
+        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Komputer|Hitung Asli|Selisih|Rupiah):'
       );
+      lines.push(...rowLines);
     }
   }
 

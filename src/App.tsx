@@ -12,12 +12,13 @@ import {
   PackageSearch,
   Search,
   Settings,
+  Sparkles,
   Sun,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
-import { AiAssistantCard } from './components/AiAssistantCard';
+import { AiAssistantCard, AiChatMessage } from './components/AiAssistantCard';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { buildStandaloneHtml } from './lib/exportHtml';
 import {
@@ -85,6 +86,8 @@ export default function App() {
   const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
   const [activeBarDate, setActiveBarDate] = useState<string>('');
   const [activeInfoKey, setActiveInfoKey] = useState<InfoGuideKey | null>(null);
+  const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -120,6 +123,15 @@ export default function App() {
       if (wipeTimerRef.current) window.clearTimeout(wipeTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!aiModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAiModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [aiModalOpen]);
 
   const allDates = useMemo(() => Object.keys(data).sort(), [data]);
   const allMonths = useMemo(
@@ -351,6 +363,8 @@ export default function App() {
     setOpenDays({});
     setActiveBarDate('');
     setLastUpload(null);
+    setAiMessages([]);
+    setAiModalOpen(false);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -771,6 +785,10 @@ export default function App() {
                 <AiAssistantCard
                   summary={summary}
                   activeMonth={activeMonth}
+                  data={data}
+                  currentMenuLabel="Beranda"
+                  messages={aiMessages}
+                  onMessagesChange={setAiMessages}
                   onOpenInfo={setActiveInfoKey}
                 />
 
@@ -1152,7 +1170,7 @@ export default function App() {
         {activeTab === 'upload' && (
           <div className="space-y-5 max-w-4xl">
             <section className="bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 space-y-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
@@ -1164,6 +1182,16 @@ export default function App() {
                     Pilih satu atau beberapa file Excel (.xlsx / .xls). Data tanggal dan bulan otomatis diperbarui.
                   </p>
                 </div>
+                {summary && (
+                  <button
+                    type="button"
+                    onClick={() => setAiModalOpen(true)}
+                    className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[40px] whitespace-nowrap self-start shrink-0 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Tanya AI</span>
+                  </button>
+                )}
               </div>
 
               <div
@@ -1364,6 +1392,15 @@ export default function App() {
                           ))}
                         </select>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => setAiModalOpen(true)}
+                        className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[42px] whitespace-nowrap cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Tanya AI</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1538,28 +1575,38 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl self-start">
+                    <div className="flex flex-wrap items-center gap-2 self-start">
+                      <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setViewScope('month')}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[38px] cursor-pointer ${
+                            viewScope === 'month'
+                              ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Bulan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewScope('day')}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[38px] cursor-pointer ${
+                            viewScope === 'day'
+                              ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Hari
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setViewScope('month')}
-                        className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[38px] cursor-pointer ${
-                          viewScope === 'month'
-                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
+                        onClick={() => setAiModalOpen(true)}
+                        className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[42px] whitespace-nowrap cursor-pointer"
                       >
-                        Bulan
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope('day')}
-                        className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[38px] cursor-pointer ${
-                          viewScope === 'day'
-                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        Hari
+                        <Sparkles className="w-4 h-4" />
+                        <span>Tanya AI</span>
                       </button>
                     </div>
                   </div>
@@ -1847,13 +1894,25 @@ export default function App() {
         {activeTab === 'pengaturan' && (
           <div className="space-y-5 max-w-3xl">
             <section className="bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 space-y-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Pengaturan & Cadangan Data
-                </h1>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Data tersimpan di browser perangkat ini. Unduh cadangan berkala agar aman jika ganti HP.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    Pengaturan & Cadangan Data
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Data tersimpan di browser perangkat ini. Unduh cadangan berkala agar aman jika ganti HP.
+                  </p>
+                </div>
+                {summary && (
+                  <button
+                    type="button"
+                    onClick={() => setAiModalOpen(true)}
+                    className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[40px] whitespace-nowrap self-start shrink-0 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Tanya AI</span>
+                  </button>
+                )}
               </div>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-800/90">
@@ -1986,6 +2045,43 @@ export default function App() {
           })}
         </div>
       </nav>
+
+      {/* AI Modal for Non-Beranda Menus */}
+      {aiModalOpen && summary && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Asisten AI Stok"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-slate-950/55 backdrop-blur-xs"
+          onClick={() => setAiModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AiAssistantCard
+              summary={summary}
+              activeMonth={activeMonth}
+              data={data}
+              currentMenuLabel={
+                activeTab === 'upload'
+                  ? 'Upload'
+                  : activeTab === 'harian'
+                  ? 'Harian'
+                  : activeTab === 'barang'
+                  ? 'Cek Barang'
+                  : activeTab === 'pengaturan'
+                  ? 'Pengaturan'
+                  : 'Beranda'
+              }
+              messages={aiMessages}
+              onMessagesChange={setAiMessages}
+              onOpenInfo={setActiveInfoKey}
+              onClose={() => setAiModalOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Global Info Guide Modal */}
       <InfoDialog
