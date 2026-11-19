@@ -17,6 +17,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { AiAssistantCard } from './components/AiAssistantCard';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { buildStandaloneHtml } from './lib/exportHtml';
 import {
@@ -733,10 +734,10 @@ export default function App() {
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {summary.netTotal < -0.5
-                          ? 'Nilai kurang lebih besar daripada lebih'
+                          ? 'Total kurang lebih besar dari total lebih'
                           : summary.netTotal > 0.5
-                          ? 'Nilai lebih masih menutup nilai kurang'
-                          : 'Nilai kurang dan lebih seimbang'}
+                          ? 'Total lebih masih menutupi total kurang'
+                          : 'Total kurang dan lebih seimbang'}
                       </div>
                     </div>
 
@@ -748,7 +749,7 @@ export default function App() {
                         - {formatRupiah(summary.totalNeg)}
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                        {summary.negProductCount} barang hasil akhirnya kurang
+                        {summary.negProductCount} barang di gudang kurang dari komputer
                       </div>
                     </div>
 
@@ -760,11 +761,18 @@ export default function App() {
                         + {formatRupiah(summary.totalPos)}
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                        {summary.posProductCount} barang hasil akhirnya lebih
+                        {summary.posProductCount} barang di gudang lebih dari komputer
                       </div>
                     </div>
                   </div>
                 </section>
+
+                {/* AI Stock Assistant */}
+                <AiAssistantCard
+                  summary={summary}
+                  activeMonth={activeMonth}
+                  onOpenInfo={setActiveInfoKey}
+                />
 
                 {/* Main Analytics Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -957,8 +965,8 @@ export default function App() {
                                       {cat.category}
                                     </span>
                                     <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums whitespace-nowrap">
-                                      -{formatCompactRupiah(cat.negVal)} / +
-                                      {formatCompactRupiah(cat.posVal)}
+                                      Kurang {formatCompactRupiah(cat.negVal)} ·
+                                      Lebih {formatCompactRupiah(cat.posVal)}
                                     </span>
                                   </div>
                                   <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -2100,14 +2108,14 @@ function ReadableStockRow({
           <strong className="font-mono text-slate-700 dark:text-slate-200">
             {formatQty(sysQty)}
           </strong>
-          {' → '}
-          Fisik:{' '}
+          {' · '}
+          Hitung Asli:{' '}
           <strong className="font-mono text-slate-700 dark:text-slate-200">
             {formatQty(opQty)} {unit}
           </strong>
           {wasConverted && (
             <span>
-              {' · '}asli {formatSignedQty(originalDiffQty)} {originalUnit}
+              {' · '}di file {formatSignedQty(originalDiffQty)} {originalUnit}
             </span>
           )}
           {info ? ` · ${info}` : ''}

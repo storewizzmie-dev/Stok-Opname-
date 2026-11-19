@@ -8,12 +8,13 @@ export type InfoGuideKey =
   | 'topProducts'
   | 'harian'
   | 'cekBarang'
-  | 'upload';
+  | 'upload'
+  | 'aiAssistant';
 
 export interface InfoGuideData {
   title: string;
   purpose: string;
-  steps: string[];
+  steps: { label: string; text: string }[];
   example: string;
 }
 
@@ -21,88 +22,174 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
   overview: {
     title: 'Ringkasan Stok Opname',
     purpose:
-      'Menunjukkan kondisi stok toko secara keseluruhan apakah lebih banyak barang yang kurang (rugi selisih) atau lebih (surplus), baik dalam 1 bulan penuh maupun di 1 hari tertentu.',
+      'Mengecek apakah barang di gudang toko lebih banyak yang hilang/kurang atau lebih banyak yang berlebih.',
     steps: [
-      'Pilih mode "Bulan" di kanan atas untuk melihat total selama sebulan penuh, atau pilih "Hari" untuk melihat total di 1 tanggal saja.',
-      'Total Kurang (Minus) adalah jumlah nilai barang yang stok fisiknya lebih sedikit daripada catatan komputer.',
-      'Total Lebih (Plus) adalah jumlah nilai barang yang stok fisiknya lebih banyak daripada catatan komputer.',
-      'Hasil Akhir adalah selisih bersih (Total Lebih dikurangi Total Kurang). Jika bertanda KURANG (-), total minus masih lebih besar.',
+      {
+        label: 'Merah = Kurang (Minus)',
+        text: 'Barang yang saat dihitung aslinya lebih sedikit daripada catatan di komputer.',
+      },
+      {
+        label: 'Hijau = Lebih (Plus)',
+        text: 'Barang yang saat dihitung aslinya lebih banyak daripada catatan di komputer.',
+      },
+      {
+        label: 'Hasil Akhir',
+        text: 'Total Lebih dikurangi Total Kurang. Kalau hasilnya masih bertanda KURANG (-), artinya nilai barang hilang masih lebih besar.',
+      },
+      {
+        label: 'Tombol Bulan / Hari',
+        text: 'Pilih "Bulan" untuk melihat total 1 bulan penuh, atau pilih "Hari" untuk mengecek 1 tanggal saja.',
+      },
     ],
     example:
-      'Misalnya Total Kurang - Rp 20 jt dan Total Lebih + Rp 21 jt, maka Hasil Akhirnya LEBIH + Rp 1 jt karena nilai kelebihannya masih menutup minus.',
+      'Kalau Total Kurang Rp 2 jt dan Total Lebih Rp 3 jt, berarti Hasil Akhirnya LEBIH Rp 1 jt (masih aman karena kelebihannya menutupi yang kurang).',
   },
   dailyChart: {
     title: 'Grafik Kurang Per Hari',
     purpose:
-      'Membantu Anda melihat tanggal mana saja yang mengalami kekurangan stok paling besar sepanjang bulan tanpa harus membuka laporan satu per satu.',
+      'Mencari tahu tanggal berapa saja barang di toko paling banyak kurangnya.',
     steps: [
-      'Setiap batang mewakili 1 tanggal di bulan tersebut (angka di bawah batang adalah tanggalnya).',
-      'Semakin tinggi batang merah, semakin besar nilai barang yang kurang di hari itu. Angka di atas batang ditulis ringkas dalam ribuan (rb) atau jutaan (jt).',
-      'Ketuk salah satu batang untuk melihat ringkasan hari itu atau langsung mengganti hari yang sedang dilihat.',
+      {
+        label: 'Tinggi batang merah',
+        text: 'Makin tinggi batangnya, makin besar uang barang yang kurang pada tanggal itu.',
+      },
+      {
+        label: 'Singkatan rb & jt',
+        text: '"rb" artinya ribuan, "jt" artinya jutaan. Contoh: 500rb = Rp 500.000, dan 2,5jt = Rp 2.500.000.',
+      },
+      {
+        label: 'Ketuk batang tanggal',
+        text: 'Untuk melihat berapa kurang dan lebih di tanggal tersebut, lalu langsung buka daftar barangnya.',
+      },
     ],
     example:
-      'Jika di atas tanggal 8 tertulis "3,2jt", artinya pada tanggal 8 total barang kurangnya sekitar Rp 3.200.000.',
+      'Kalau batang tanggal 8 paling tinggi dan di atasnya tertulis "3,2jt", artinya di tanggal 8 ada barang kurang senilai sekitar Rp 3,2 juta.',
   },
   categories: {
     title: 'Ringkasan Per Bagian',
     purpose:
-      'Mengelompokkan selisih barang berdasarkan bagian penyimpanan atau kategori (seperti Dry Store, WIP, Meat, Vegetable, DBL, Amenities) supaya tahu bagian mana yang paling perlu dicek.',
+      'Mengetahui bagian dapur atau gudang mana yang paling sering selisih (seperti WIP, Dry Store, Meat, atau Sayur).',
     steps: [
-      'Nama bagian ada di sebelah kiri, lengkap dengan nilai Kurang dan Lebihnya.',
-      'Angka di sebelah kanan adalah hasil bersih bagian tersebut (merah jika hasil akhirnya Kurang, hijau jika Lebih).',
-      'Ketuk salah satu bagian untuk langsung melihat daftar barangnya di menu Harian.',
+      {
+        label: 'Nama bagian di kiri',
+        text: 'Di bawahnya ada total Kurang dan Lebih milik bagian tersebut.',
+      },
+      {
+        label: 'Angka di kanan',
+        text: 'Kesimpulan bagian itu. Merah artinya secara total masih Kurang, Hijau artinya masih Lebih.',
+      },
+      {
+        label: 'Ketuk nama bagian',
+        text: 'Untuk langsung melihat barang apa saja di bagian tersebut yang tidak pas.',
+      },
     ],
     example:
-      'Jika bagian WIP bertuliskan "Kurang Rp 1.500.000", artinya seluruh barang WIP di periode ini total bersihnya kurang Rp 1,5 juta.',
+      'Jika baris "WIP" bertuliskan merah "Kurang Rp 1.200.000", artinya seluruh bahan WIP jika dijumlahkan masih kurang Rp 1,2 juta.',
   },
   topProducts: {
     title: 'Ringkasan Per Barang',
     purpose:
-      'Menampilkan 10 barang dengan selisih nilai paling besar agar tim toko bisa langsung fokus memeriksa barang yang paling berpengaruh.',
+      'Menunjukkan 10 barang dengan selisih uang paling besar supaya Anda langsung tahu barang mana yang harus dicek duluan.',
     steps: [
-      'Gunakan tombol "Paling Kurang" atau "Paling Lebih" untuk berganti daftar.',
-      'Di bawah nama barang tertera jumlah barang yang kurang/lebih lengkap dengan satuannya (KG, Porsi, Btl, Pack) serta perkiraan kemasannya dalam kurung.',
-      'Di sebelah kanan tertera total nilai Rupiah dari selisih barang tersebut.',
-      'Ketuk nama barang mana saja untuk melihat catatan komputer vs hitungan fisik dari hari ke hari.',
+      {
+        label: 'Jumlah & satuan di bawah nama',
+        text: 'Memberitahu berapa banyak barang yang kurang atau lebih (contoh: KG, Porsi, Btl, Pack) beserta perkiraan dos/jerigennya.',
+      },
+      {
+        label: 'Uang di sebelah kanan',
+        text: 'Nilai rupiah dari barang yang kurang (-) atau lebih (+) tersebut.',
+      },
+      {
+        label: 'Ketuk nama barang',
+        text: 'Untuk melihat di tanggal mana saja barang ini kurang atau lebih.',
+      },
     ],
     example:
-      'Jika tertulis "Kurang 28 KG (≈ 2 Dos)" dan "- Rp 850.000", artinya stok fisik barang itu kurang 28 KG atau sekitar 2 dos senilai Rp 850 ribu.',
+      'Tertulis "Minyak Goreng — Kurang 18 L (sekitar 1 Jrg) — - Rp 300.000". Artinya minyak goreng di gudang kurang 18 liter atau sekitar 1 jerigen senilai Rp 300 ribu.',
   },
   harian: {
     title: 'Laporan Harian',
     purpose:
-      'Melihat daftar lengkap semua barang yang hitungan fisiknya tidak cocok dengan catatan komputer pada setiap tanggal.',
+      'Melihat daftar semua barang yang hitungan aslinya tidak cocok dengan komputer di tiap tanggal.',
     steps: [
-      'Setiap kotak tanggal hanya menghitung Kurang, Lebih, dan Hasil untuk tanggal tersebut saja (tidak digabung hari lain).',
-      'Ketuk tanggal mana saja untuk membuka atau menutup daftar barangnya.',
-      'Di tiap baris barang tertera perbandingan "Komputer → Fisik". Komputer adalah stok di aplikasi kasir/gudang, sedangkan Fisik adalah hasil hitung nyata.',
+      {
+        label: 'Angka per tanggal berdiri sendiri',
+        text: 'Kurang, Lebih, dan Hasil pada tiap tanggal hanya menghitung hari itu saja (tidak dicampur tanggal lain).',
+      },
+      {
+        label: 'Komputer vs Hitung Asli',
+        text: '"Komputer" adalah stok menurut sistem kasir/gudang. "Hitung Asli" adalah barang nyata yang dihitung di toko.',
+      },
+      {
+        label: 'Ketuk tanggal',
+        text: 'Untuk membuka atau menutup daftar barang pada tanggal tersebut.',
+      },
     ],
     example:
-      'Jika tertulis "Komputer: 12 → Fisik: 10 KG" dan di kanan "Kurang 2 KG", artinya di komputer tercatat 12 KG tetapi barang nyatanya hanya ada 10 KG.',
+      'Tertulis "Komputer: 10 · Hitung Asli: 8 KG" dan di kanan "Kurang 2 KG". Artinya di komputer tercatat ada 10 KG, tapi barang nyatanya di dapur cuma ada 8 KG (kurang 2 KG).',
   },
   cekBarang: {
     title: 'Cek Riwayat Barang',
     purpose:
-      'Melacak riwayat satu barang tertentu untuk mengetahui apakah barang tersebut memang terus-terusan kurang atau hanya salah hitung di satu hari lalu kembali pas di hari berikutnya.',
+      'Mengecek satu barang dari hari ke hari supaya tahu apakah barang itu benar-benar hilang atau kemarin hanya salah hitung.',
     steps: [
-      'Ketik nama barang di kotak pencarian lalu ketuk barang yang muncul di daftar.',
-      'Kotak "Saat Kurang" menjumlahkan hari-hari ketika barang tersebut minus; kotak "Saat Lebih" menjumlahkan hari-hari ketika barang tersebut plus.',
-      'Kotak "Hasil Akhir" menggabungkan keduanya. Di bawahnya terdapat rincian tanggal demi tanggal.',
+      {
+        label: 'Saat Kurang',
+        text: 'Menjumlahkan hari-hari ketika barang tersebut minus.',
+      },
+      {
+        label: 'Saat Lebih',
+        text: 'Menjumlahkan hari-hari ketika barang tersebut plus.',
+      },
+      {
+        label: 'Hasil Akhir',
+        text: 'Gabungan keduanya. Jika kemarin minus lalu besoknya plus dengan jumlah sama, Hasil Akhirnya jadi 0 (Pas).',
+      },
     ],
     example:
-      'Jika tgl 5 Kurang 14 KG dan tgl 6 Lebih 14 KG, maka Hasil Akhirnya "0 (Pas)". Artinya barang tidak hilang, kemarin hanya salah hitung atau terlambat input.',
+      'Tgl 5 tepung kurang 14 KG karena lupa dihitung 1 dos, lalu tgl 6 dos itu ketemu jadi lebih 14 KG. Hasil Akhirnya "0 (Pas)" — berarti tepung tidak hilang, kemarin hanya salah hitung.',
   },
   upload: {
-    title: 'Aturan Upload File Excel',
+    title: 'Cara Kerja Upload Excel',
     purpose:
-      'Menjelaskan bagaimana sistem menyimpan dan memperbarui data saat Anda mengupload file laporan Stock Opname harian (.xlsx / .xls).',
+      'Supaya Anda aman mengupload file harian berkali-kali tanpa takut data dobel atau tercampur antar bulan.',
     steps: [
-      'Tanggal sama & bulan sama: data lama di tanggal tersebut otomatis diperbarui (ditimpa) oleh file terbaru agar tidak dihitung dua kali.',
-      'Tanggal berbeda & bulan sama: tanggal baru ditambahkan ke bulan tersebut dan total bulanan langsung dihitung ulang.',
-      'Bulan berbeda: otomatis dipisahkan ke menu bulan baru agar laporan antar bulan tidak tercampur.',
+      {
+        label: 'Tanggal sama, bulan sama',
+        text: 'Data lama di tanggal itu langsung diganti dengan file baru (tidak dihitung dobel).',
+      },
+      {
+        label: 'Tanggal baru, bulan sama',
+        text: 'Otomatis ditambahkan ke bulan tersebut dan totalnya langsung terhitung.',
+      },
+      {
+        label: 'Bulan berbeda',
+        text: 'Otomatis dibuatkan menu bulan baru yang terpisah.',
+      },
     ],
     example:
-      'Anda boleh mengupload ulang file rekap 1–17 Nov jika ada revisi di tgl 15; sistem akan otomatis memperbarui tanpa membuat data ganda.',
+      'Kalau file tanggal 15 ada perbaikan lalu Anda upload lagi, data tanggal 15 langsung diperbarui otomatis.',
+  },
+  aiAssistant: {
+    title: 'Asisten AI Stok',
+    purpose:
+      'Membantu Anda membaca angka laporan stok opname secara otomatis memakai bahasa sehari-hari yang gampang dipahami.',
+    steps: [
+      {
+        label: 'Tombol Ringkas Otomatis',
+        text: 'Sekali ketuk, AI langsung menyimpulkan barang mana yang aman, mana yang kurang besar, dan apa yang perlu dicek hari ini.',
+      },
+      {
+        label: 'Tanya Bebas',
+        text: 'Anda bisa bertanya dengan kalimat biasa, misalnya menanyakan barang tertentu atau bagian dapur yang sering selisih.',
+      },
+      {
+        label: 'Sesuai Pilihan Bulan / Hari',
+        text: 'AI membaca data sesuai tampilan yang sedang Anda pilih di atas (mode Bulan atau mode Hari).',
+      },
+    ],
+    example:
+      'Coba tanya: "Barang apa yang kemarin kurang lalu besoknya lebih?" — AI akan langsung mencarikan daftarnya.',
   },
 };
 
@@ -189,32 +276,39 @@ export function InfoDialog({
         <div className="p-5 space-y-4 overflow-y-auto text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
           <div>
             <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Apa fungsi data ini?
+              Untuk apa data ini?
             </div>
-            <p className="text-slate-800 dark:text-slate-200">{guide.purpose}</p>
+            <p className="text-slate-900 dark:text-slate-100 font-medium">
+              {guide.purpose}
+            </p>
           </div>
 
           <div>
             <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
               Cara membacanya:
             </div>
-            <ol className="space-y-2">
+            <ul className="space-y-2.5">
               {guide.steps.map((step, idx) => (
                 <li key={idx} className="flex items-start gap-2.5">
                   <span className="mt-0.5 w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-mono font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span>{step}</span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white">
+                      {step.label}:
+                    </strong>{' '}
+                    <span>{step.text}</span>
+                  </div>
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
 
-          <div className="rounded-xl bg-slate-50 dark:bg-[#1a2224] border border-slate-200/80 dark:border-slate-800 p-3.5">
+          <div className="rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-900/60 p-3.5">
             <div className="text-xs font-bold text-teal-800 dark:text-teal-300 mb-1">
-              Contoh membaca data
+              Contoh gampangnya
             </div>
-            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+            <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200">
               {guide.example}
             </p>
           </div>
@@ -226,7 +320,7 @@ export function InfoDialog({
             onClick={onClose}
             className="w-full py-2.5 px-4 text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 transition-colors min-h-[44px] cursor-pointer"
           >
-            Mengerti
+            Saya Mengerti
           </button>
         </div>
       </div>
