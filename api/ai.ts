@@ -38,6 +38,65 @@ Tolong buatkan ringkasan yang sangat gampang dibaca oleh orang awam dengan forma
 4. **Saran Langkah Hari Ini**: 2 langkah praktis untuk tim toko/dapur.`;
 }
 
+function isTransientModelError(rawMsg: string): boolean {
+  const lower = rawMsg.toLowerCase();
+  return (
+    lower.includes('503') ||
+    lower.includes('unavailable') ||
+    lower.includes('high demand') ||
+    lower.includes('overloaded') ||
+    lower.includes('temporarily') ||
+    lower.includes('timeout') ||
+    lower.includes('econnreset')
+  );
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function generateWithRetryAndFallback(
+  ai: GoogleGenAI,
+  contents: Parameters<GoogleGenAI['models']['generateContent']>[0]['contents']
+): Promise<string> {
+  const attempts: {
+    model: string;
+    thinkingLevel?: ThinkingLevel;
+    waitBeforeMs: number;
+  }[] = [
+    { model: 'gemini-4-hydrogen', thinkingLevel: ThinkingLevel.HIGH, waitBeforeMs: 0 },
+    { model: 'gemini-4-hydrogen', thinkingLevel: ThinkingLevel.HIGH, waitBeforeMs: 700 },
+    { model: 'gemini-3.1-flash-lite', waitBeforeMs: 300 },
+  ];
+
+  let lastError: unknown = null;
+
+  for (const attempt of attempts) {
+    if (attempt.waitBeforeMs > 0) {
+      await delay(attempt.waitBeforeMs);
+    }
+    try {
+      const response = await ai.models.generateContent({
+        model: attempt.model,
+        contents,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          ...(attempt.thinkingLevel
+            ? { thinkingConfig: { thinkingLevel: attempt.thinkingLevel } }
+            : {}),
+        },
+      });
+      return response.text?.trim() || 'Tidak ada jawaban dari AI.';
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isTransientModelError(msg)) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function processAiRequest(
   rawBody: unknown
 ): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -74,18 +133,13 @@ export async function processAiRequest(
 
   try {
     if (action === 'summary') {
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents: buildSummaryPrompt(contextText),
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
-      });
-
+      const reply = await generateWithRetryAndFallback(
+        ai,
+        buildSummaryPrompt(contextText)
+      );
       return {
         status: 200,
-        body: { reply: response.text?.trim() || 'Tidak ada jawaban dari AI.' },
+        body: { reply },
       };
     }
 
@@ -125,22 +179,23 @@ export async function processAiRequest(
       },
     ];
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
-      contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-      },
-    });
-
+    const reply = await generateWithRetryAndFallback(ai, contents);
     return {
       status: 200,
-      body: { reply: response.text?.trim() || 'Tidak ada jawaban dari AI.' },
+      body: { reply },
     };
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err);
     const lower = rawMsg.toLowerCase();
+    if (isTransientModelError(rawMsg)) {
+      return {
+        status: 503,
+        body: {
+          error:
+            'Server AI Gemini sedang sangat ramai sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
+        },
+      };
+    }
     if (lower.includes('429') || lower.includes('resource_exhausted') || lower.includes('quota')) {
       return {
         status: 429,
