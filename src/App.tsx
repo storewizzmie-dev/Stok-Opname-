@@ -44,8 +44,8 @@ const STORAGE_KEY = 'so';
 const THEME_KEY = 'so_theme';
 
 type MenuTab = 'beranda' | 'upload' | 'harian' | 'barang' | 'pengaturan';
-type DailyFilter = 'all' | 'neg' | 'pos';
-type ProductFilter = 'all' | 'neg' | 'pos';
+type DailyFilter = 'all' | 'diff' | 'neg' | 'pos' | 'pas';
+type ProductFilter = 'all' | 'neg' | 'pos' | 'pas';
 type RankMode = 'neg' | 'pos';
 
 interface StatusMessage {
@@ -58,6 +58,9 @@ interface UploadReport {
   updatedDates: string[];
   monthsAffected: string[];
   totalRows: number;
+  diffRows: number;
+  pasRows: number;
+  uniqueProducts: number;
 }
 
 export default function App() {
@@ -80,7 +83,11 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dailyFilter, setDailyFilter] = useState<DailyFilter>('all');
+  const [dailySearch, setDailySearch] = useState<string>('');
+  const [purposeFilter, setPurposeFilter] = useState<string>('ALL');
   const [productFilter, setProductFilter] = useState<ProductFilter>('all');
+  const [productCategoryFilter, setProductCategoryFilter] =
+    useState<string>('ALL');
   const [rankMode, setRankMode] = useState<RankMode>('neg');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
@@ -197,6 +204,9 @@ export default function App() {
       const addedDates: string[] = [];
       const updatedDates: string[] = [];
       let totalRows = 0;
+      let diffRows = 0;
+      let pasRows = 0;
+      const productSet = new Set<string>();
       const nextData: StockDataset = { ...data };
 
       for (const file of list) {
@@ -208,8 +218,14 @@ export default function App() {
           } else {
             if (!addedDates.includes(dateKey)) addedDates.push(dateKey);
           }
-          nextData[dateKey] = parsed[dateKey];
-          totalRows += parsed[dateKey].length;
+          const rowsForDate = parsed[dateKey];
+          nextData[dateKey] = rowsForDate;
+          totalRows += rowsForDate.length;
+          for (const r of rowsForDate) {
+            productSet.add(r[0]);
+            if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) diffRows++;
+            else pasRows++;
+          }
         }
       }
 
@@ -230,15 +246,21 @@ export default function App() {
       setSelectedDay(latestDate);
       setSelectedProduct('');
       setSearchQuery('');
+      setDailySearch('');
+      setPurposeFilter('ALL');
+      setProductCategoryFilter('ALL');
       setActiveBarDate('');
       setLastUpload({
         addedDates: addedDates.sort(),
         updatedDates: updatedDates.sort(),
         monthsAffected,
         totalRows,
+        diffRows,
+        pasRows,
+        uniqueProducts: productSet.size,
       });
       setStatus({
-        text: `Berhasil membaca ${totalRows} baris data: ${addedDates.length} tanggal baru ditambahkan, ${updatedDates.length} tanggal diperbarui.`,
+        text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updatedDates.length} tanggal diperbarui.`,
       });
       setActiveTab('upload');
     } catch (err) {
@@ -379,21 +401,38 @@ export default function App() {
     const q = searchQuery.trim().toLowerCase();
     let names = Object.keys(summary.productMap).filter((name) => {
       const stat = summary.productMap[name];
+      if (
+        productCategoryFilter !== 'ALL' &&
+        stat.category !== productCategoryFilter
+      ) {
+        return false;
+      }
       if (productFilter === 'neg') return stat.netVal < -0.5;
       if (productFilter === 'pos') return stat.netVal > 0.5;
+      if (productFilter === 'pas') return Math.abs(stat.netVal) <= 0.5;
       return true;
     });
     if (q) {
-      names = names.filter((name) => name.toLowerCase().includes(q));
+      names = names.filter((name) => {
+        const stat = summary.productMap[name];
+        return (
+          name.toLowerCase().includes(q) ||
+          stat.code.toLowerCase().includes(q) ||
+          stat.category.toLowerCase().includes(q) ||
+          stat.subcategory.toLowerCase().includes(q) ||
+          stat.purposes.some((p) => p.toLowerCase().includes(q))
+        );
+      });
     }
     names.sort((a, b) => {
       const sa = summary.productMap[a];
       const sb = summary.productMap[b];
       if (productFilter === 'pos') return sb.netVal - sa.netVal;
+      if (productFilter === 'pas') return a.localeCompare(b, 'id');
       return sa.netVal - sb.netVal;
     });
-    return names.slice(0, q ? 50 : 25);
-  }, [summary, searchQuery, productFilter]);
+    return names;
+  }, [summary, searchQuery, productFilter, productCategoryFilter]);
 
   const effectiveSelectedProduct = useMemo(() => {
     if (!summary) return '';
@@ -584,7 +623,7 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-teal-700 dark:text-teal-300">
-                        {summary.branchName || 'Laporan Stok Opname'}
+                        {summary.locationName || summary.branchName || 'Laporan Stok Opname'}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -607,12 +646,14 @@ export default function App() {
                                 summary.allMonthDates.length - 1
                               ]
                             )}
-                            )
+                            {' · '}
+                            {Object.keys(summary.productMap).length} barang ·{' '}
+                            {summary.totalRowsCount.toLocaleString('id-ID')} baris)
                           </>
                         ) : (
                           <>
                             Total khusus tanggal {formatDateId(activeDay)} ·{' '}
-                            {formatMonthId(activeMonth)}
+                            {summary.totalRowsCount} baris barang
                           </>
                         )}
                         {summary.missingDays.length > 0 && (
@@ -1246,8 +1287,8 @@ export default function App() {
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                       Ringkasan Upload Terakhir
                     </h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
-                      {lastUpload.totalRows} baris diproses ke{' '}
+                    <p className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
+                      Semua <strong>{lastUpload.totalRows} baris</strong> ({lastUpload.uniqueProducts} barang: {lastUpload.diffRows} selisih, {lastUpload.pasRows} pas) masuk ke{' '}
                       <strong>
                         {lastUpload.monthsAffected.map(formatMonthId).join(', ')}
                       </strong>
@@ -1349,17 +1390,42 @@ export default function App() {
                         />
                       </div>
                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                        Ketuk tanggal untuk melihat barang yang hitungan fisiknya tidak pas dengan komputer.
+                        Menampilkan seluruh data harian ({summary.totalRowsCount} baris masuk semua, termasuk yang Pas). Ketuk tanggal untuk membuka rinciannya.
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 self-start">
-                      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setAiModalOpen(true)}
+                      className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[42px] whitespace-nowrap self-start shrink-0 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>Tanya AI</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row md:items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={dailySearch}
+                        onChange={(e) => setDailySearch(e.target.value)}
+                        placeholder="Cari nama barang, kode (Dry 123), atau No. SP (SP2026...)..."
+                        autoComplete="off"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600 min-h-[42px]"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
                         {(
                           [
                             { id: 'all', label: 'Semua' },
+                            { id: 'diff', label: 'Selisih' },
                             { id: 'neg', label: 'Kurang' },
                             { id: 'pos', label: 'Lebih' },
+                            { id: 'pas', label: 'Pas' },
                           ] as const
                         ).map((tab) => (
                           <button
@@ -1379,7 +1445,7 @@ export default function App() {
 
                       {summary.categoryStats.length > 0 && (
                         <select
-                          aria-label="Filter kategori"
+                          aria-label="Filter bagian"
                           value={categoryFilter}
                           onChange={(e) => setCategoryFilter(e.target.value)}
                           className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
@@ -1393,16 +1459,29 @@ export default function App() {
                         </select>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => setAiModalOpen(true)}
-                        className="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100/70 dark:hover:bg-teal-950/70 transition-colors flex items-center gap-1.5 min-h-[42px] whitespace-nowrap cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Tanya AI</span>
-                      </button>
+                      {summary.allPurposes.length > 0 && (
+                        <select
+                          aria-label="Filter keperluan"
+                          value={purposeFilter}
+                          onChange={(e) => setPurposeFilter(e.target.value)}
+                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
+                        >
+                          <option value="ALL">Semua Keperluan</option>
+                          {summary.allPurposes.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
+
+                  {!summary.hasExtendedColumns && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Catatan: Data ini tersimpan sebelum pembaruan kolom lengkap. Upload ulang file Excel Anda sekali lagi untuk memunculkan Kode Barang, No. SP, Sub-bagian, Keperluan, Lokasi, dan Status.
+                    </p>
+                  )}
 
                   <MonthSelector
                     months={allMonths}
@@ -1411,6 +1490,7 @@ export default function App() {
                     onSelect={(m) => {
                       handleSelectMonth(m);
                       setCategoryFilter('ALL');
+                      setPurposeFilter('ALL');
                     }}
                   />
                 </section>
@@ -1422,27 +1502,58 @@ export default function App() {
                     .map((day, dayIndex) => {
                       const isOpen = openDays[day.date] ?? dayIndex === 0;
                       const dayNet = day.negVal + day.posVal;
+                      const dq = dailySearch.trim().toLowerCase();
                       const rows = isOpen
                         ? data[day.date]
                             .map(convertRowWithMeta)
                             .filter(({ row }) => {
-                              const hasDiff =
-                                Math.abs(row[4]) > 1e-9 ||
-                                Math.abs(row[6]) > 0.5;
-                              if (!hasDiff) return false;
+                              const isNeg = row[4] < -1e-9 || row[6] < -0.5;
+                              const isPos = !isNeg && (row[4] > 1e-9 || row[6] > 0.5);
+                              const isDiff = isNeg || isPos;
+
+                              if (dailyFilter === 'diff' && !isDiff) return false;
+                              if (dailyFilter === 'neg' && !isNeg) return false;
+                              if (dailyFilter === 'pos' && !isPos) return false;
+                              if (dailyFilter === 'pas' && isDiff) return false;
+
                               if (
                                 categoryFilter !== 'ALL' &&
                                 (row[8] || 'Lainnya') !== categoryFilter
                               ) {
                                 return false;
                               }
-                              if (dailyFilter === 'neg')
-                                return row[4] < -1e-9 || row[6] < -0.5;
-                              if (dailyFilter === 'pos')
-                                return row[4] > 1e-9 || row[6] > 0.5;
+                              if (
+                                purposeFilter !== 'ALL' &&
+                                (row[12] || '') !== purposeFilter
+                              ) {
+                                return false;
+                              }
+                              if (dq) {
+                                const hit =
+                                  row[0].toLowerCase().includes(dq) ||
+                                  (row[13] || '').toLowerCase().includes(dq) ||
+                                  (row[10] || '').toLowerCase().includes(dq) ||
+                                  (row[12] || '').toLowerCase().includes(dq) ||
+                                  (row[8] || '').toLowerCase().includes(dq) ||
+                                  (row[14] || '').toLowerCase().includes(dq) ||
+                                  (row[7] || '').toLowerCase().includes(dq);
+                                if (!hit) return false;
+                              }
                               return true;
                             })
-                            .sort((a, b) => a.row[6] - b.row[6])
+                            .sort((a, b) => {
+                              const aDiff =
+                                Math.abs(a.row[4]) > 1e-9 ||
+                                Math.abs(a.row[6]) > 0.5;
+                              const bDiff =
+                                Math.abs(b.row[4]) > 1e-9 ||
+                                Math.abs(b.row[6]) > 0.5;
+                              if (aDiff !== bDiff) return aDiff ? -1 : 1;
+                              if (a.row[6] !== b.row[6]) {
+                                return a.row[6] - b.row[6];
+                              }
+                              return a.row[0].localeCompare(b.row[0], 'id');
+                            })
                         : [];
 
                       return (
@@ -1472,7 +1583,8 @@ export default function App() {
                                   {formatDateId(day.date)}
                                 </div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                                  {day.diffCount} barang selisih
+                                  {day.totalCount} baris ({day.diffCount} selisih ·{' '}
+                                  {day.pasCount} pas)
                                 </div>
                               </div>
                             </div>
@@ -1647,33 +1759,52 @@ export default function App() {
                           setSearchQuery(e.target.value);
                           setSelectedProduct('');
                         }}
-                        placeholder="Ketik nama barang, misal: udang keju, minyak, beras..."
+                        placeholder="Ketik nama atau kode barang, misal: udang keju, Dry 123, beras..."
                         autoComplete="off"
                         className="w-full pl-10 pr-4 py-3 text-sm sm:text-base rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
                       />
                     </div>
 
-                    <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl self-start sm:self-auto">
-                      {(
-                        [
-                          { id: 'all', label: 'Semua' },
-                          { id: 'neg', label: 'Kurang' },
-                          { id: 'pos', label: 'Lebih' },
-                        ] as const
-                      ).map((tab) => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setProductFilter(tab.id)}
-                          className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[40px] cursor-pointer ${
-                            productFilter === tab.id
-                              ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
-                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-                          }`}
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
+                        {(
+                          [
+                            { id: 'all', label: 'Semua' },
+                            { id: 'neg', label: 'Kurang' },
+                            { id: 'pos', label: 'Lebih' },
+                            { id: 'pas', label: 'Pas' },
+                          ] as const
+                        ).map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setProductFilter(tab.id)}
+                            className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[40px] cursor-pointer ${
+                              productFilter === tab.id
+                                ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {summary.categoryStats.length > 0 && (
+                        <select
+                          aria-label="Filter bagian di Cek Barang"
+                          value={productCategoryFilter}
+                          onChange={(e) => setProductCategoryFilter(e.target.value)}
+                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
                         >
-                          {tab.label}
-                        </button>
-                      ))}
+                          <option value="ALL">Semua Bagian</option>
+                          {summary.categoryStats.map((cat) => (
+                            <option key={cat.category} value={cat.category}>
+                              {cat.category}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -1681,14 +1812,16 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                   {/* Matching list */}
                   <section className="lg:col-span-5 bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 tabular-nums">
                       {searchQuery.trim()
                         ? `Hasil pencarian (${matchingProducts.length})`
                         : productFilter === 'pos'
-                        ? 'Daftar barang paling lebih'
-                        : viewScope === 'month'
-                        ? 'Daftar selisih terbesar bulan ini'
-                        : `Daftar selisih terbesar (${formatDateId(activeDay)})`}
+                        ? `Semua barang lebih (${matchingProducts.length})`
+                        : productFilter === 'pas'
+                        ? `Semua barang pas (${matchingProducts.length})`
+                        : productFilter === 'neg'
+                        ? `Semua barang kurang (${matchingProducts.length})`
+                        : `Semua barang tercatat (${matchingProducts.length})`}
                     </h2>
 
                     {matchingProducts.length === 0 ? (
@@ -1696,7 +1829,7 @@ export default function App() {
                         Barang tidak ditemukan pada periode ini.
                       </p>
                     ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/90 max-h-[460px] overflow-y-auto">
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800/90 max-h-[540px] overflow-y-auto">
                         {matchingProducts.map((name) => {
                           const stat = summary.productMap[name];
                           const isPicked = effectiveSelectedProduct === name;
@@ -1737,8 +1870,12 @@ export default function App() {
                                 >
                                   {netQtyText}
                                 </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                  {stat.code ? `${stat.code} · ` : ''}
                                   {stat.category}
+                                  {stat.subcategory && stat.subcategory !== stat.category
+                                    ? ` / ${stat.subcategory}`
+                                    : ''}
                                 </div>
                               </div>
                               <div
@@ -1767,27 +1904,55 @@ export default function App() {
                   <section className="lg:col-span-7 bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                     {!selectedProductStat ? (
                       <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                        Ketuk salah satu barang di daftar untuk melihat rincian jumlah unit (Pack, Porsi, Btl, Dos, KG, L) dan riwayat per tanggalnya.
+                        Ketuk salah satu barang di daftar untuk melihat rincian kode, harga satuan, jumlah unit (Pack, Porsi, Btl, Dos, KG, L), dan riwayat per tanggalnya.
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                              {selectedProductStat.name}
-                            </h2>
-                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                                {selectedProductStat.name}
+                              </h2>
+                              {selectedProductStat.code && (
+                                <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                                  {selectedProductStat.code}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               Bagian:{' '}
                               <strong className="text-slate-700 dark:text-slate-200">
                                 {selectedProductStat.category}
+                                {selectedProductStat.subcategory &&
+                                selectedProductStat.subcategory !==
+                                  selectedProductStat.category
+                                  ? ` / ${selectedProductStat.subcategory}`
+                                  : ''}
                               </strong>
+                              {selectedProductStat.lastUnitPrice > 0 && (
+                                <>
+                                  {' · '}Harga/unit:{' '}
+                                  <strong className="font-mono text-slate-700 dark:text-slate-200">
+                                    {formatRupiah(selectedProductStat.lastUnitPrice)}
+                                  </strong>
+                                </>
+                              )}
+                              {selectedProductStat.purposes.length > 0 && (
+                                <>
+                                  {' · '}Keperluan:{' '}
+                                  <strong className="text-slate-700 dark:text-slate-200">
+                                    {selectedProductStat.purposes.join(', ')}
+                                  </strong>
+                                </>
+                              )}
                             </p>
                           </div>
 
                           <button
                             type="button"
                             onClick={() => setSelectedProduct('')}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1 min-h-[36px] cursor-pointer"
+                            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1 min-h-[36px] shrink-0 cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                             <span>Tutup</span>
@@ -2177,28 +2342,59 @@ function ReadableStockRow({
   const sysQty = row[2];
   const opQty = row[3];
   const diffQty = row[4];
+  const valUnit = row[5];
   const diffVal = row[6];
   const unit = row[1];
   const info = row[7];
-  const state = diffQty < -1e-9 ? 'neg' : diffQty > 1e-9 ? 'pos' : 'eq';
+  const category = row[8];
+  const opnameNumber = row[10];
+  const purpose = row[12];
+  const productCode = row[13];
+  const subcategory = row[14];
+  const rowStatus = row[15];
+
+  const state = diffQty < -1e-9 || diffVal < -0.5
+    ? 'neg'
+    : diffQty > 1e-9 || diffVal > 0.5
+    ? 'pos'
+    : 'eq';
   const packEquiv = formatPackEquivalent(Math.abs(diffQty), unit, row[0]);
+
+  const metaParts = [
+    opnameNumber ? `No. ${opnameNumber}` : '',
+    category
+      ? subcategory && subcategory !== category
+        ? `${category} / ${subcategory}`
+        : category
+      : '',
+    purpose ? `Keperluan: ${purpose}` : '',
+    rowStatus || '',
+    info || '',
+  ].filter(Boolean);
 
   return (
     <div className="py-3 flex items-start justify-between gap-3">
       <div className="min-w-0 flex-1 space-y-0.5">
-        {onTitleClick ? (
-          <button
-            type="button"
-            onClick={onTitleClick}
-            className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white hover:text-teal-700 dark:hover:text-teal-300 text-left break-words cursor-pointer"
-          >
-            {title}
-          </button>
-        ) : (
-          <div className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white break-words">
-            {title}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {onTitleClick ? (
+            <button
+              type="button"
+              onClick={onTitleClick}
+              className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white hover:text-teal-700 dark:hover:text-teal-300 text-left break-words cursor-pointer"
+            >
+              {title}
+            </button>
+          ) : (
+            <div className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white break-words">
+              {title}
+            </div>
+          )}
+          {productCode && (
+            <span className="px-1.5 py-0.5 text-[11px] font-mono rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {productCode}
+            </span>
+          )}
+        </div>
         <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
           Komputer:{' '}
           <strong className="font-mono text-slate-700 dark:text-slate-200">
@@ -2209,13 +2405,23 @@ function ReadableStockRow({
           <strong className="font-mono text-slate-700 dark:text-slate-200">
             {formatQty(opQty)} {unit}
           </strong>
+          {valUnit > 0 && (
+            <span>
+              {' · '}Harga/unit:{' '}
+              <span className="font-mono">{formatRupiah(valUnit)}</span>
+            </span>
+          )}
           {wasConverted && (
             <span>
               {' · '}di file {formatSignedQty(originalDiffQty)} {originalUnit}
             </span>
           )}
-          {info ? ` · ${info}` : ''}
         </div>
+        {metaParts.length > 0 && (
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
+            {metaParts.join(' · ')}
+          </div>
+        )}
       </div>
 
       <div className="text-right shrink-0 font-mono tabular-nums">
@@ -2232,7 +2438,7 @@ function ReadableStockRow({
             ? `Kurang ${formatQty(diffQty)} ${unit}`
             : state === 'pos'
             ? `Lebih ${formatQty(diffQty)} ${unit}`
-            : 'Pas'}
+            : `Pas (0 ${unit})`}
           {packEquiv ? ` (${packEquiv})` : ''}
         </div>
         <div

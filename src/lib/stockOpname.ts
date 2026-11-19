@@ -4,7 +4,9 @@ import * as XLSX from 'xlsx';
  * Tuple layout kept backward-compatible with localStorage('so') and JSON backups:
  * [0] product, [1] unit, [2] systemStock, [3] opnameStock,
  * [4] diffQty, [5] valuePerUnit, [6] diffValue, [7] additionalInfo,
- * [8]? category, [9]? branch
+ * [8]? category, [9]? branch,
+ * [10]? opnameNumber, [11]? location, [12]? purpose,
+ * [13]? productCode, [14]? subcategory, [15]? status
  */
 export type StockRow = [
   string,
@@ -15,6 +17,12 @@ export type StockRow = [
   number,
   number,
   string,
+  string?,
+  string?,
+  string?,
+  string?,
+  string?,
+  string?,
   string?,
   string?
 ];
@@ -315,6 +323,12 @@ export function convertRowWithMeta(row: StockRow): ConvertedStockRow {
       row[7],
       row[8],
       row[9],
+      row[10],
+      row[11],
+      row[12],
+      row[13],
+      row[14],
+      row[15],
     ],
     wasConverted: true,
     originalUnit: row[1],
@@ -335,9 +349,27 @@ function parseCellNumber(val: unknown): number {
     return Math.round(val * 1e4) / 1e4;
   }
   if (typeof val === 'string') {
-    const cleaned = val.trim().replace(/\s+/g, '');
+    let cleaned = val.trim().replace(/\s+/g, '');
     if (!cleaned) return 0;
-    const parsed = Number(cleaned.replace(/,/g, ''));
+    const hasComma = cleaned.includes(',');
+    const hasDot = cleaned.includes('.');
+    if (hasComma && hasDot) {
+      if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+        // Indonesian style: 3.810,00 -> 3810.00
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else {
+        // US style: 3,810.00 -> 3810.00
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    } else if (hasComma) {
+      // Single or decimal comma (e.g. -2,50) vs US thousands (1,000)
+      if (/^-?\d{1,3}(,\d{3})+$/.test(cleaned)) {
+        cleaned = cleaned.replace(/,/g, '');
+      } else {
+        cleaned = cleaned.replace(/,/g, '.');
+      }
+    }
+    const parsed = Number(cleaned);
     if (Number.isFinite(parsed)) {
       return Math.round(parsed * 1e4) / 1e4;
     }
@@ -379,88 +411,123 @@ function parseExcelDate(val: unknown): string | null {
 
 export function parseExcelBuffer(buffer: ArrayBuffer): StockDataset {
   const wb = XLSX.read(buffer, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  if (!ws) {
-    throw new Error('Sheet pertama tidak ditemukan di file.');
-  }
-
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-    header: 1,
-    raw: true,
-    defval: null,
-  });
-
-  const headerIdx = rows.findIndex(
-    (r) =>
-      Array.isArray(r) &&
-      r.some(
-        (cell) => String(cell ?? '').trim().toLowerCase() === 'stock opname date'
-      )
-  );
-
-  if (headerIdx < 0) {
-    throw new Error('Baris judul kolom "Stock Opname date" tidak ditemukan.');
-  }
-
-  const headers = rows[headerIdx].map((c) =>
-    String(c ?? '').trim().toLowerCase()
-  );
-  const idx = (name: string) => headers.indexOf(name);
-
-  const cols = {
-    date: idx('stock opname date'),
-    branch: idx('branch'),
-    product: idx('product'),
-    category: idx('category'),
-    unit: idx('unit'),
-    system: idx('period system stock'),
-    opname: idx('opname stock'),
-    diffQty: idx('difference qty'),
-    valUnit: idx('value per unit'),
-    diffVal: idx('difference value'),
-    info: idx('additional information'),
-  };
-
-  if (cols.product < 0 || cols.diffVal < 0 || cols.diffQty < 0) {
-    throw new Error(
-      'Kolom Product, Difference Qty, atau Difference Value tidak ada.'
-    );
+  if (!wb.SheetNames.length) {
+    throw new Error('Tidak ada sheet di file Excel.');
   }
 
   const out: StockDataset = {};
-  for (const row of rows.slice(headerIdx + 1)) {
-    if (!Array.isArray(row)) continue;
-    const dateKey = parseExcelDate(row[cols.date]);
-    const productRaw = row[cols.product];
-    if (!dateKey || !productRaw) continue;
+  let foundHeaderInAnySheet = false;
 
-    const product = String(productRaw).trim();
-    if (!product) continue;
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
 
-    const unit = cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '';
-    const sysStock = cols.system >= 0 ? parseCellNumber(row[cols.system]) : 0;
-    const opStock = cols.opname >= 0 ? parseCellNumber(row[cols.opname]) : 0;
-    const diffQty = parseCellNumber(row[cols.diffQty]);
-    const valUnit = cols.valUnit >= 0 ? parseCellNumber(row[cols.valUnit]) : 0;
-    const diffVal = Math.round(parseCellNumber(row[cols.diffVal]) * 100) / 100;
-    const info = cols.info >= 0 ? String(row[cols.info] ?? '').trim() : '';
-    const category =
-      cols.category >= 0 ? String(row[cols.category] ?? '').trim() : '';
-    const branch = cols.branch >= 0 ? String(row[cols.branch] ?? '').trim() : '';
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+      header: 1,
+      raw: true,
+      defval: null,
+    });
 
-    if (!out[dateKey]) out[dateKey] = [];
-    out[dateKey].push([
-      product,
-      unit,
-      sysStock,
-      opStock,
-      diffQty,
-      valUnit,
-      diffVal,
-      info,
-      category,
-      branch,
-    ]);
+    const headerIdx = rows.findIndex(
+      (r) =>
+        Array.isArray(r) &&
+        r.some(
+          (cell) =>
+            String(cell ?? '').trim().toLowerCase() === 'stock opname date'
+        )
+    );
+
+    if (headerIdx < 0) continue;
+    foundHeaderInAnySheet = true;
+
+    const headers = rows[headerIdx].map((c) =>
+      String(c ?? '').trim().toLowerCase()
+    );
+    const idx = (name: string) => headers.indexOf(name);
+
+    const cols = {
+      opnameNumber: idx('stock opname number'),
+      date: idx('stock opname date'),
+      branch: idx('branch'),
+      location: idx('location'),
+      purpose: idx('purpose'),
+      product: idx('product'),
+      productCode: idx('product code'),
+      category: idx('category'),
+      subcategory: idx('subcategory'),
+      unit: idx('unit'),
+      system: idx('period system stock'),
+      opname: idx('opname stock'),
+      diffQty: idx('difference qty'),
+      valUnit: idx('value per unit'),
+      diffVal: idx('difference value'),
+      status: idx('status'),
+      info: idx('additional information'),
+    };
+
+    if (cols.product < 0 || cols.diffVal < 0 || cols.diffQty < 0) {
+      throw new Error(
+        'Kolom Product, Difference Qty, atau Difference Value tidak ada.'
+      );
+    }
+
+    for (const row of rows.slice(headerIdx + 1)) {
+      if (!Array.isArray(row)) continue;
+      const dateKey = parseExcelDate(row[cols.date]);
+      const productRaw = row[cols.product];
+      if (!dateKey || !productRaw) continue;
+
+      const product = String(productRaw).trim();
+      if (!product) continue;
+
+      const unit = cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '';
+      const sysStock = cols.system >= 0 ? parseCellNumber(row[cols.system]) : 0;
+      const opStock = cols.opname >= 0 ? parseCellNumber(row[cols.opname]) : 0;
+      const diffQty = parseCellNumber(row[cols.diffQty]);
+      const valUnit = cols.valUnit >= 0 ? parseCellNumber(row[cols.valUnit]) : 0;
+      const diffVal = Math.round(parseCellNumber(row[cols.diffVal]) * 100) / 100;
+      const info = cols.info >= 0 ? String(row[cols.info] ?? '').trim() : '';
+      const category =
+        cols.category >= 0 ? String(row[cols.category] ?? '').trim() : '';
+      const branch = cols.branch >= 0 ? String(row[cols.branch] ?? '').trim() : '';
+      const opnameNumber =
+        cols.opnameNumber >= 0
+          ? String(row[cols.opnameNumber] ?? '').trim()
+          : '';
+      const location =
+        cols.location >= 0 ? String(row[cols.location] ?? '').trim() : '';
+      const purpose =
+        cols.purpose >= 0 ? String(row[cols.purpose] ?? '').trim() : '';
+      const productCode =
+        cols.productCode >= 0 ? String(row[cols.productCode] ?? '').trim() : '';
+      const subcategory =
+        cols.subcategory >= 0 ? String(row[cols.subcategory] ?? '').trim() : '';
+      const status = cols.status >= 0 ? String(row[cols.status] ?? '').trim() : '';
+
+      if (!out[dateKey]) out[dateKey] = [];
+      out[dateKey].push([
+        product,
+        unit,
+        sysStock,
+        opStock,
+        diffQty,
+        valUnit,
+        diffVal,
+        info,
+        category,
+        branch,
+        opnameNumber,
+        location,
+        purpose,
+        productCode,
+        subcategory,
+        status,
+      ]);
+    }
+  }
+
+  if (!foundHeaderInAnySheet) {
+    throw new Error('Baris judul kolom "Stock Opname date" tidak ditemukan.');
   }
 
   return out;
@@ -472,16 +539,25 @@ export interface DailyStat {
   posVal: number;
   cumNegVal: number;
   diffCount: number;
+  pasCount: number;
+  totalCount: number;
 }
 
 export interface ProductStat {
   name: string;
+  code: string;
   category: string;
+  subcategory: string;
+  purposes: string[];
+  location: string;
+  lastUnitPrice: number;
   negVal: number;
   posVal: number;
   netVal: number;
   negDays: number;
   posDays: number;
+  pasDays: number;
+  totalDays: number;
   negQtyByUnit: Record<string, number>;
   posQtyByUnit: Record<string, number>;
   qtyByUnit: Record<string, number>;
@@ -493,6 +569,7 @@ export interface CategoryStat {
   posVal: number;
   netVal: number;
   diffItems: number;
+  totalItems: number;
 }
 
 export type ViewScope = 'month' | 'day';
@@ -520,52 +597,78 @@ export function computeSummary(
       : allMonthDates;
 
   let branchName = '';
+  let locationName = '';
   let cumNeg = 0;
   const dailyStats: DailyStat[] = allMonthDates.map((date) => {
     let negVal = 0;
     let posVal = 0;
     let diffCount = 0;
-    for (const r of data[date]) {
+    const dayRows = data[date] ?? [];
+    for (const r of dayRows) {
       if (!branchName && r[9]) branchName = r[9];
+      if (!locationName && r[11]) locationName = r[11];
       if (r[6] < 0) negVal += r[6];
       else if (r[6] > 0) posVal += r[6];
       if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) diffCount++;
     }
     cumNeg += negVal;
+    const totalCount = dayRows.length;
     return {
       date,
       negVal,
       posVal,
       cumNegVal: cumNeg,
       diffCount,
+      pasCount: Math.max(0, totalCount - diffCount),
+      totalCount,
     };
   });
 
   const productMap: Record<string, ProductStat> = {};
   const categoryMap: Record<string, CategoryStat> = {};
+  const purposeSet = new Set<string>();
   let totalNeg = 0;
   let totalPos = 0;
+  let totalRowsCount = 0;
+  let totalPasRowsCount = 0;
+  let hasExtendedColumns = false;
 
   for (const date of activeDates) {
     const converted = getConvertedRows(data[date]);
     const dayNegSeen = new Set<string>();
     const dayPosSeen = new Set<string>();
+    const dayPasSeen = new Set<string>();
     for (const r of converted) {
+      totalRowsCount++;
+      if (r[10] || r[13]) hasExtendedColumns = true;
+      if (r[12]) purposeSet.add(r[12]);
+
       if (r[6] < 0) totalNeg += r[6];
       else if (r[6] > 0) totalPos += r[6];
 
       const name = r[0];
       const cat = r[8] || 'Lainnya';
+      const subcat = r[14] || '';
+      const code = r[13] || '';
+      const purpose = r[12] || '';
+      const loc = r[11] || '';
 
       if (!productMap[name]) {
         productMap[name] = {
           name,
+          code,
           category: cat,
+          subcategory: subcat,
+          purposes: purpose ? [purpose] : [],
+          location: loc,
+          lastUnitPrice: r[5] || 0,
           negVal: 0,
           posVal: 0,
           netVal: 0,
           negDays: 0,
           posDays: 0,
+          pasDays: 0,
+          totalDays: 0,
           negQtyByUnit: {},
           posQtyByUnit: {},
           qtyByUnit: {},
@@ -575,41 +678,60 @@ export function computeSummary(
       if (!stat.category || stat.category === 'Lainnya') {
         stat.category = cat;
       }
+      if (!stat.code && code) stat.code = code;
+      if (!stat.subcategory && subcat) stat.subcategory = subcat;
+      if (!stat.location && loc) stat.location = loc;
+      if (r[5] > 0) stat.lastUnitPrice = r[5];
+      if (purpose && !stat.purposes.includes(purpose)) {
+        stat.purposes.push(purpose);
+      }
+      stat.totalDays++;
+
       const unit = r[1] || 'Unit';
-      if (r[6] < 0 || r[4] < -1e-9) {
+      const isNeg = r[6] < 0 || r[4] < -1e-9;
+      const isPos = !isNeg && (r[6] > 0 || r[4] > 1e-9);
+      const isDiff = isNeg || isPos;
+
+      if (isNeg) {
         stat.negVal += r[6];
         stat.negQtyByUnit[unit] = (stat.negQtyByUnit[unit] ?? 0) + r[4];
         if (!dayNegSeen.has(name)) {
           stat.negDays++;
           dayNegSeen.add(name);
         }
-      } else if (r[6] > 0 || r[4] > 1e-9) {
+      } else if (isPos) {
         stat.posVal += r[6];
         stat.posQtyByUnit[unit] = (stat.posQtyByUnit[unit] ?? 0) + r[4];
         if (!dayPosSeen.has(name)) {
           stat.posDays++;
           dayPosSeen.add(name);
         }
+      } else {
+        totalPasRowsCount++;
+        if (!dayPasSeen.has(name)) {
+          stat.pasDays++;
+          dayPasSeen.add(name);
+        }
       }
       stat.netVal += r[6];
       stat.qtyByUnit[unit] = (stat.qtyByUnit[unit] ?? 0) + r[4];
 
-      if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) {
-        if (!categoryMap[cat]) {
-          categoryMap[cat] = {
-            category: cat,
-            negVal: 0,
-            posVal: 0,
-            netVal: 0,
-            diffItems: 0,
-          };
-        }
-        const cStat = categoryMap[cat];
-        if (r[6] < 0) cStat.negVal += r[6];
-        else if (r[6] > 0) cStat.posVal += r[6];
-        cStat.netVal += r[6];
-        cStat.diffItems++;
+      if (!categoryMap[cat]) {
+        categoryMap[cat] = {
+          category: cat,
+          negVal: 0,
+          posVal: 0,
+          netVal: 0,
+          diffItems: 0,
+          totalItems: 0,
+        };
       }
+      const cStat = categoryMap[cat];
+      cStat.totalItems++;
+      if (r[6] < 0) cStat.negVal += r[6];
+      else if (r[6] > 0) cStat.posVal += r[6];
+      cStat.netVal += r[6];
+      if (isDiff) cStat.diffItems++;
     }
   }
 
@@ -628,6 +750,9 @@ export function computeSummary(
   const products = Object.values(productMap);
   const negProductCount = products.filter((p) => p.netVal < -0.5).length;
   const posProductCount = products.filter((p) => p.netVal > 0.5).length;
+  const pasProductCount = products.filter(
+    (p) => Math.abs(p.netVal) <= 0.5
+  ).length;
   const topDeficits = products
     .filter((p) => p.netVal < -0.5)
     .sort((a, b) => a.netVal - b.netVal)
@@ -645,17 +770,23 @@ export function computeSummary(
     scope,
     resolvedDate,
     branchName,
+    locationName,
     allMonthDates,
     activeDates,
     dailyStats,
     productMap,
     categoryStats,
+    allPurposes: Array.from(purposeSet).sort(),
     missingDays,
     totalNeg,
     totalPos,
     netTotal,
+    totalRowsCount,
+    totalPasRowsCount,
+    hasExtendedColumns,
     negProductCount,
     posProductCount,
+    pasProductCount,
     topDeficits,
     topSurpluses,
   };
@@ -758,12 +889,16 @@ export function buildAiStockContext(
           : p.netVal > 0.5
           ? `+${formatRupiah(p.netVal)}`
           : 'Rp 0';
+      const codeStr = p.code ? `${p.code} ` : '';
+      const subStr = p.subcategory && p.subcategory !== p.category ? `/${p.subcategory}` : '';
+      const purpStr = p.purposes.length ? ` | Kep:${p.purposes.join(',')}` : '';
+      const priceStr = p.lastUnitPrice > 0 ? ` | Hrg:${formatRupiah(p.lastUnitPrice)}` : '';
       lines.push(
-        `- ${p.name} [${p.category}]: ${formatQtyMap(
+        `- ${codeStr}${p.name} [${p.category}${subStr}]: ${formatQtyMap(
           p.qtyByUnit,
           p.name,
           true
-        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr`
+        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr, pas ${p.pasDays}hr${priceStr}${purpStr}`
       );
     }
   }
@@ -808,7 +943,7 @@ export function buildAiStockContext(
         d.negVal
       )}, Lebih +${formatRupiah(d.posVal)}, Hasil ${
         net < 0 ? '-' : '+'
-      }${formatRupiah(net)} (${d.diffCount} barang selisih)`
+      }${formatRupiah(net)} (${d.totalCount} baris: ${d.diffCount} selisih, ${d.pasCount} pas)`
     );
   }
 
@@ -840,9 +975,20 @@ export function buildAiStockContext(
           : diffVal > 0.5
           ? `+${formatRupiah(diffVal)}`
           : 'Rp 0';
+      const extraParts = [
+        r[13] ? `Kode:${r[13]}` : '',
+        r[10] ? `SP:${r[10]}` : '',
+        r[12] ? `Kep:${r[12]}` : '',
+        r[5] > 0 ? `Hrg:${formatRupiah(r[5])}` : '',
+        r[15] ? r[15] : '',
+      ]
+        .filter(Boolean)
+        .join(',');
       return `${dateKey}|${r[0]}|${r[8] || 'Lainnya'}|Komp:${formatQty(
         r[2]
-      )}|Asli:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}`;
+      )}|Asli:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}${
+        extraParts ? `|${extraParts}` : ''
+      }`;
     };
 
     const rowLines: string[] = [];
@@ -858,6 +1004,10 @@ export function buildAiStockContext(
             (kw) =>
               r[0].toLowerCase().includes(kw) ||
               (r[8] || '').toLowerCase().includes(kw) ||
+              (r[10] || '').toLowerCase().includes(kw) ||
+              (r[12] || '').toLowerCase().includes(kw) ||
+              (r[13] || '').toLowerCase().includes(kw) ||
+              (r[14] || '').toLowerCase().includes(kw) ||
               dateKey.includes(kw)
           );
         if (includeAllRowsInMonth || isNonZero || matchesQuestion) {
@@ -880,6 +1030,10 @@ export function buildAiStockContext(
             (kw) =>
               r[0].toLowerCase().includes(kw) ||
               (r[8] || '').toLowerCase().includes(kw) ||
+              (r[10] || '').toLowerCase().includes(kw) ||
+              (r[12] || '').toLowerCase().includes(kw) ||
+              (r[13] || '').toLowerCase().includes(kw) ||
+              (r[14] || '').toLowerCase().includes(kw) ||
               dateKey.includes(kw)
           );
           if (matchesQuestion) {
@@ -893,7 +1047,7 @@ export function buildAiStockContext(
 
     if (rowLines.length > 0) {
       lines.push(
-        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Komputer|Hitung Asli|Selisih|Rupiah):'
+        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Komputer|Hitung Asli|Selisih|Rupiah|Info Tambahan):'
       );
       lines.push(...rowLines);
     }
