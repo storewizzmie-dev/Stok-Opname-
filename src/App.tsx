@@ -38,6 +38,10 @@ import {
   X,
 } from 'lucide-react';
 import { AiAssistantCard, AiChatMessage } from './components/AiAssistantCard';
+import {
+  BerandaDetailModal,
+  BerandaModalType,
+} from './components/BerandaDetailModal';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
 import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
@@ -114,6 +118,7 @@ export default function App() {
   const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
   const [activeBarDate, setActiveBarDate] = useState<string>('');
   const [activeInfoKey, setActiveInfoKey] = useState<InfoGuideKey | null>(null);
+  const [berandaModal, setBerandaModal] = useState<BerandaModalType>(null);
   const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
@@ -476,16 +481,6 @@ export default function App() {
     return Math.max(1, ...summary.dailyStats.map((d) => Math.abs(d.negVal)));
   }, [summary]);
 
-  const maxCategoryMagnitude = useMemo(() => {
-    if (!summary || !summary.categoryStats.length) return 1;
-    return Math.max(
-      1,
-      ...summary.categoryStats.map((c) =>
-        Math.max(Math.abs(c.negVal), Math.abs(c.posVal))
-      )
-    );
-  }, [summary]);
-
   const worstDay = useMemo(() => {
     if (!summary || !summary.dailyStats.length) return null;
     return summary.dailyStats.reduce(
@@ -842,8 +837,12 @@ export default function App() {
                 {/* 2-Column KPI Cards: Kekurangan Stok & Kelebihan Stok */}
                 <section className="grid grid-cols-2 gap-3 sm:gap-4">
                   {/* Kekurangan Stok */}
-                  <div className="rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#181B34] dark:to-[#0F1426] border border-rose-200 dark:border-rose-900/45 flex flex-col justify-between shadow-sm">
-                    <div className="flex flex-col items-center text-center">
+                  <button
+                    type="button"
+                    onClick={() => setBerandaModal('neg')}
+                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#181B34] dark:to-[#0F1426] border border-rose-200 dark:border-rose-900/45 hover:border-rose-400 dark:hover:border-rose-500/70 flex flex-col justify-between shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+                  >
+                    <div className="flex flex-col items-center text-center w-full">
                       <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2">
                         <ArrowDown className="w-5 h-5 stroke-[2.5]" />
                       </div>
@@ -858,22 +857,32 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="mt-3 stat-badge-loss rounded-xl px-2.5 py-2 flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                          Nilai Kekurangan
-                        </div>
-                        <div className="text-xs sm:text-sm font-extrabold font-mono text-rose-600 dark:text-rose-400 truncate tabular-nums">
-                          - {formatRupiah(summary.totalNeg)}
+                    <div className="mt-3 space-y-2 w-full">
+                      <div className="stat-badge-loss rounded-xl px-2.5 py-2 flex items-center gap-2">
+                        <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                            Nilai Kekurangan
+                          </div>
+                          <div className="text-xs sm:text-sm font-extrabold font-mono text-rose-600 dark:text-rose-400 truncate tabular-nums">
+                            - {formatRupiah(summary.totalNeg)}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-300 group-hover:underline">
+                        <span>Ketuk lihat daftar barang</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </div>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Kelebihan Stok */}
-                  <div className="rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#0F262B] dark:to-[#0A1A22] border border-emerald-200 dark:border-emerald-900/45 flex flex-col justify-between shadow-sm">
-                    <div className="flex flex-col items-center text-center">
+                  <button
+                    type="button"
+                    onClick={() => setBerandaModal('pos')}
+                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#0F262B] dark:to-[#0A1A22] border border-emerald-200 dark:border-emerald-900/45 hover:border-emerald-400 dark:hover:border-emerald-500/70 flex flex-col justify-between shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+                  >
+                    <div className="flex flex-col items-center text-center w-full">
                       <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
                         <ArrowUp className="w-5 h-5 stroke-[2.5]" />
                       </div>
@@ -888,27 +897,42 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="mt-3 stat-badge-gain rounded-xl px-2.5 py-2 flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                          Nilai Kelebihan
-                        </div>
-                        <div className="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
-                          + {formatRupiah(summary.totalPos)}
+                    <div className="mt-3 space-y-2 w-full">
+                      <div className="stat-badge-gain rounded-xl px-2.5 py-2 flex items-center gap-2">
+                        <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                            Nilai Kelebihan
+                          </div>
+                          <div className="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+                            + {formatRupiah(summary.totalPos)}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-300 group-hover:underline">
+                        <span>Ketuk lihat daftar barang</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 </section>
 
                 {/* Banner Hasil Selisih Akhir + Info Alert Notice */}
                 <section className="space-y-2.5">
                   <div
-                    className={`rounded-2xl p-4 sm:p-5 flex items-center gap-3.5 sm:gap-4 ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setBerandaModal('net')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setBerandaModal('net');
+                      }
+                    }}
+                    className={`group rounded-2xl p-4 sm:p-5 flex items-center gap-3.5 sm:gap-4 transition-all active:scale-[0.995] cursor-pointer ${
                       summary.netTotal < -0.5
-                        ? 'wizzmie-loss-banner text-rose-950 dark:text-rose-100'
-                        : 'wizzmie-gold-card text-amber-950 dark:text-amber-100'
+                        ? 'wizzmie-loss-banner text-rose-950 dark:text-rose-100 hover:brightness-110'
+                        : 'wizzmie-gold-card text-amber-950 dark:text-amber-100 hover:brightness-110'
                     }`}
                   >
                     <div
@@ -962,14 +986,26 @@ export default function App() {
                           ? `+ ${formatRupiah(summary.netTotal)}`
                           : 'Pas Rp 0'}
                       </div>
-                      <div
-                        className={`text-[11px] font-mono mt-0.5 tabular-nums ${
-                          summary.netTotal < -0.5
-                            ? 'text-rose-800/80 dark:text-rose-200/80'
-                            : 'text-amber-900/75 dark:text-amber-200/80'
-                        }`}
-                      >
-                        Hitungan: (+ {formatCompactRupiah(summary.totalPos)}) − (- {formatCompactRupiah(summary.totalNeg)})
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                        <span
+                          className={`text-[11px] font-mono tabular-nums ${
+                            summary.netTotal < -0.5
+                              ? 'text-rose-800/80 dark:text-rose-200/80'
+                              : 'text-amber-900/75 dark:text-amber-200/80'
+                          }`}
+                        >
+                          Hitungan: (+ {formatCompactRupiah(summary.totalPos)}) − (- {formatCompactRupiah(summary.totalNeg)})
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold group-hover:underline ${
+                            summary.netTotal < -0.5
+                              ? 'text-rose-700 dark:text-rose-200'
+                              : 'text-amber-800 dark:text-amber-300'
+                          }`}
+                        >
+                          <span>Ketuk lihat rumus &amp; asal angka</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -2529,6 +2565,26 @@ export default function App() {
       <InfoDialog
         guideKey={activeInfoKey}
         onClose={() => setActiveInfoKey(null)}
+      />
+
+      {/* Beranda Detail Modals (Kekurangan / Kelebihan / Hasil Gabungan) */}
+      <BerandaDetailModal
+        modalType={berandaModal}
+        onChangeModalType={setBerandaModal}
+        onClose={() => setBerandaModal(null)}
+        onOpenProductInCekBarang={(name) => {
+          setBerandaModal(null);
+          handlePickProduct(name);
+        }}
+        onOpenDayInHarian={(date) => {
+          setBerandaModal(null);
+          handleOpenDayInHarian(date);
+        }}
+        summary={summary}
+        data={data}
+        activeMonth={activeMonth}
+        activeDay={activeDay}
+        viewScope={viewScope}
       />
     </div>
   );
