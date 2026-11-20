@@ -212,7 +212,7 @@ export function InfoButton({
       }}
       title={`Penjelasan: ${guide.title}`}
       aria-label={`Info cara membaca ${guide.title}`}
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-teal-700 dark:hover:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors min-h-[32px] cursor-pointer shrink-0"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-[#16294C] transition-colors min-h-[32px] cursor-pointer shrink-0"
     >
       <Info className="w-4 h-4" />
       {label && <span>{label}</span>}
@@ -244,16 +244,16 @@ export function InfoDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="info-dialog-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/35 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="surface-3d w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[88vh] flex flex-col"
       >
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-[#1E355D] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+            <span className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
               <HelpCircle className="w-4 h-4" />
             </span>
             <h2
@@ -267,7 +267,7 @@ export function InfoDialog({
             type="button"
             onClick={onClose}
             aria-label="Tutup panduan"
-            className="btn-3d-soft p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
+            className="btn-3d-soft p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -290,7 +290,7 @@ export function InfoDialog({
             <ul className="space-y-2.5">
               {guide.steps.map((step, idx) => (
                 <li key={idx} className="flex items-start gap-2.5">
-                  <span className="mt-0.5 w-5 h-5 rounded-md bg-teal-50 dark:bg-slate-800 text-teal-800 dark:text-slate-200 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                  <span className="mt-0.5 w-5 h-5 rounded-md bg-amber-100 dark:bg-[#16294C] text-amber-800 dark:text-amber-300 text-xs font-mono font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
                   <div>
@@ -304,8 +304,8 @@ export function InfoDialog({
             </ul>
           </div>
 
-          <div className="rounded-2xl bg-teal-50/75 dark:bg-teal-950/30 p-4">
-            <div className="text-xs font-bold text-teal-800 dark:text-teal-300 mb-1">
+          <div className="rounded-2xl bg-amber-50/80 dark:bg-[#0D1C34] border border-amber-200/70 dark:border-[#1E355D] p-4">
+            <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
               Contoh gampangnya
             </div>
             <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200">
@@ -314,11 +314,11 @@ export function InfoDialog({
           </div>
         </div>
 
-        <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#101517]">
+        <div className="px-5 py-3.5 border-t border-slate-100 dark:border-[#1E355D] bg-slate-50/70 dark:bg-[#081226]">
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-primary w-full py-2.5 px-4 text-sm font-semibold rounded-xl min-h-[44px] cursor-pointer"
+            className="btn-3d-primary w-full py-2.5 px-4 text-sm font-bold rounded-xl min-h-[44px] cursor-pointer"
           >
             Saya Mengerti
           </button>

@@ -22,50 +22,125 @@
   }
 }
 
-/* Bright sunlit atmospheric canvas with subtle depth */
+/* Canvas background: sunlit light mode & Wizzmie deep navy default dark mode */
 .app-canvas-bg {
   background-color: #f3f7fb;
   background-image:
-    radial-gradient(960px 420px at 8% -4%, rgba(20, 184, 166, 0.12), transparent 65%),
-    radial-gradient(820px 380px at 92% 0%, rgba(56, 189, 248, 0.11), transparent 60%),
+    radial-gradient(960px 420px at 8% -4%, rgba(245, 158, 11, 0.08), transparent 65%),
+    radial-gradient(820px 380px at 92% 0%, rgba(37, 99, 235, 0.08), transparent 60%),
     linear-gradient(180deg, #f8fbff 0%, #f1f6fa 52%, #edf3f8 100%);
 }
 
 .dark .app-canvas-bg {
-  background-color: #0b1014;
+  background-color: #060b18;
   background-image:
-    radial-gradient(900px 400px at 10% -5%, rgba(20, 184, 166, 0.09), transparent 65%),
-    linear-gradient(180deg, #0d1317 0%, #0a0f12 100%);
+    radial-gradient(920px 440px at 10% -6%, rgba(37, 99, 235, 0.16), transparent 62%),
+    radial-gradient(760px 360px at 90% 2%, rgba(245, 158, 11, 0.1), transparent 58%),
+    linear-gradient(180deg, #070d1e 0%, #060b18 100%);
 }
 
-/* Tactile 3D elevated white card surface */
+/* Elevated card surface */
 .surface-3d {
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border: 1px solid rgba(203, 213, 225, 0.85);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     0 2px 4px rgba(15, 23, 42, 0.03),
-    0 10px 26px -6px rgba(15, 23, 42, 0.07),
-    0 22px 44px -18px rgba(13, 148, 136, 0.12);
+    0 10px 26px -6px rgba(15, 23, 42, 0.07);
 }
 
 .dark .surface-3d {
-  background: linear-gradient(180deg, #141c20 0%, #11171b 100%);
-  border: 1px solid rgba(51, 65, 85, 0.72);
+  background: linear-gradient(180deg, #10213f 0%, #0b172e 100%);
+  border: 1px solid #1e355d;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 12px 28px -8px rgba(0, 0, 0, 0.48);
+    inset 0 1px 0 rgba(148, 163, 184, 0.08),
+    0 14px 32px -10px rgba(2, 6, 23, 0.65);
 }
 
-/* Tactile 3D push buttons */
-.btn-3d-primary {
-  background: linear-gradient(180deg, #14b8a6 0%, #0d9488 100%);
-  color: #ffffff;
-  border: 1px solid #0f766e;
+/* Wizzmie Dashboard Signature Cards */
+.wizzmie-hero-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  box-shadow: 0 12px 28px -10px rgba(15, 23, 42, 0.1);
+}
+
+.dark .wizzmie-hero-card {
+  background: linear-gradient(135deg, #122448 0%, #0e1c38 52%, #081226 100%);
+  border: 1px solid #1e3764;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 3px 0 #0f766e,
-    0 8px 18px -4px rgba(13, 148, 136, 0.34);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 36px -14px rgba(2, 6, 23, 0.72);
+}
+
+.wizzmie-glass-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.08);
+}
+
+.dark .wizzmie-glass-card {
+  background: linear-gradient(180deg, #10213f 0%, #0b172e 100%);
+  border: 1px solid #1e355d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 30px -10px rgba(2, 6, 23, 0.65);
+}
+
+.wizzmie-gold-card {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+}
+
+.dark .wizzmie-gold-card {
+  background: linear-gradient(135deg, #b45309 0%, #78350f 52%, #451a03 100%);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 12px 28px -10px rgba(120, 53, 15, 0.55);
+}
+
+.wizzmie-loss-banner {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border: 1px solid #ef4444;
+}
+
+.dark .wizzmie-loss-banner {
+  background: linear-gradient(135deg, #991b1b 0%, #6b141a 55%, #3b0a12 100%);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  box-shadow: 0 12px 28px -10px rgba(127, 29, 29, 0.55);
+}
+
+.stat-badge-loss {
+  background: rgba(254, 226, 226, 0.7);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.dark .stat-badge-loss {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(239, 68, 68, 0.05) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.stat-badge-gain {
+  background: rgba(209, 250, 229, 0.7);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.dark .stat-badge-gain {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.chart-active-glow {
+  box-shadow: 0 0 16px 2px rgba(245, 158, 11, 0.55);
+}
+
+/* Tactile push buttons */
+.btn-3d-primary {
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+  color: #090d16;
+  border: 1px solid #d97706;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 3px 0 #b45309,
+    0 8px 18px -4px rgba(245, 158, 11, 0.32);
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1), filter 160ms ease;
 }
 
@@ -73,27 +148,17 @@
   filter: brightness(1.04);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 4px 0 #0f766e,
-    0 12px 22px -4px rgba(13, 148, 136, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 0 #b45309,
+    0 12px 22px -4px rgba(245, 158, 11, 0.42);
 }
 
 .btn-3d-primary:active:not(:disabled) {
   transform: translateY(1.5px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 1px 0 #0f766e,
-    0 3px 8px -2px rgba(13, 148, 136, 0.25);
-}
-
-.dark .btn-3d-primary {
-  background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
-  color: #042f2e;
-  border-color: #0d9488;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 3px 0 #0f766e,
-    0 8px 18px -4px rgba(20, 184, 166, 0.28);
+    0 1px 0 #b45309,
+    0 3px 8px -2px rgba(245, 158, 11, 0.28);
 }
 
 .btn-3d-soft {
@@ -123,58 +188,35 @@
 }
 
 .dark .btn-3d-soft {
-  background: linear-gradient(180deg, #1d272c 0%, #172024 100%);
-  border-color: #334155;
+  background: linear-gradient(180deg, #132548 0%, #0d1c36 100%);
+  border-color: #1f3763;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 2px 0 #0f172a;
+    0 2px 0 #070f21;
 }
 
-/* 3D extruded daily chart columns */
-.bar-3d-red {
-  background: linear-gradient(135deg, #fb7185 0%, #e11d48 56%, #be123c 100%);
+.dark .btn-3d-soft:hover:not(:disabled) {
+  background: linear-gradient(180deg, #182e59 0%, #102243 100%);
   box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.38),
-    inset -3px 0 0 rgba(136, 19, 55, 0.28),
-    0 6px 14px -3px rgba(225, 29, 72, 0.32);
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), filter 180ms ease;
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 3px 0 #070f21;
 }
 
-.group:hover .bar-3d-red,
-.bar-3d-red-active {
-  transform: translateY(-2px);
-  filter: saturate(1.08);
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.45),
-    inset -3px 0 0 rgba(136, 19, 55, 0.32),
-    0 10px 18px -4px rgba(225, 29, 72, 0.42);
-}
-
-.bar-3d-neutral {
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.6);
-}
-
-.dark .bar-3d-neutral {
-  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
-  box-shadow: none;
-}
-
-/* 3D recessed progress groove */
+/* Recessed progress & toggle track */
 .track-3d {
   background: #e9eff5;
   box-shadow: inset 0 1.5px 3px rgba(15, 23, 42, 0.09);
 }
 
 .dark .track-3d {
-  background: #1e293b;
-  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.4);
+  background: #0a162b;
+  border: 1px solid #182c4c;
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .btn-3d-primary,
-  .btn-3d-soft,
-  .bar-3d-red {
+  .btn-3d-soft {
     transition: none;
     transform: none !important;
   }

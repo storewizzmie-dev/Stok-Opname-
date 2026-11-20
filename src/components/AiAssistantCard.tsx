@@ -194,13 +194,13 @@ export function AiAssistantCard({
 
       {/* 1-tap quick prompts */}
       <div className="flex flex-wrap gap-2 shrink-0">
-        {QUICK_PROMPTS.map((prompt) => (
+          {QUICK_PROMPTS.map((prompt) => (
           <button
             key={prompt}
             type="button"
             disabled={isLoading}
             onClick={() => void handleAsk(prompt)}
-            className="btn-3d-soft px-3.5 py-2 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 disabled:opacity-50 min-h-[38px] text-left cursor-pointer"
+            className="btn-3d-soft px-3.5 py-2 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 min-h-[38px] text-left cursor-pointer"
           >
             {prompt}
           </button>
@@ -210,7 +210,7 @@ export function AiAssistantCard({
       {/* Chat Messages */}
       {(messages.length > 0 || isLoading) && (
         <div
-          className={`space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/90 overflow-y-auto pr-1 ${
+          className={`space-y-3 pt-3 border-t border-slate-100 dark:border-[#1E355D] overflow-y-auto pr-1 ${
             onClose ? 'flex-1 min-h-[160px]' : 'max-h-[520px]'
           }`}
         >
@@ -224,8 +224,8 @@ export function AiAssistantCard({
               <div
                 className={`max-w-[92%] sm:max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-teal-600 text-white dark:bg-teal-500 dark:text-slate-950 font-medium shadow-sm'
-                    : 'bg-slate-100/80 dark:bg-[#1a2328] text-slate-800 dark:text-slate-200'
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-semibold shadow-sm'
+                    : 'bg-slate-100/80 dark:bg-[#0D1C34] border border-slate-200/70 dark:border-[#1E355D] text-slate-800 dark:text-slate-200'
                 }`}
               >
                 {msg.role === 'user' ? (
@@ -239,7 +239,7 @@ export function AiAssistantCard({
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="rounded-2xl px-4 py-3 text-sm bg-slate-100/80 dark:bg-[#1a2328] text-slate-500 dark:text-slate-400">
+              <div className="rounded-2xl px-4 py-3 text-sm bg-slate-100/80 dark:bg-[#0D1C34] border border-slate-200/70 dark:border-[#1E355D] text-slate-500 dark:text-slate-400">
                 Sedang membaca seluruh catatan stok Anda...
               </div>
             </div>
@@ -268,7 +268,7 @@ export function AiAssistantCard({
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading}
           placeholder="Tulis pertanyaan biasa di sini, misal: info udang keju tanggal 17"
-          className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
+          className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-[#1E355D] bg-slate-50/70 dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[44px]"
         />
         <button
           type="submit"

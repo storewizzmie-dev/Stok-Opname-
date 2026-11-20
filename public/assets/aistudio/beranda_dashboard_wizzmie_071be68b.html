@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Wizzmie - Dashboard Inventaris Stok</title>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#F59E0B',
+              'gold-light': '#FDE047',
+              dark: '#070D1E',
+              card: '#0D1B33',
+              cardDark: '#0A1529',
+              border: '#1A2C4E',
+              borderLight: '#264273',
+              loss: '#EF4444',
+              gain: '#10B981',
+            }
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="custom-styling">
+    body {
+      background-color: #060B18;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070D1E;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e335a;
+      border-radius: 4px;
+    }
+    .gold-glow {
+      box-shadow: 0 0 25px -4px rgba(245, 158, 11, 0.45);
+    }
+    .stat-badge-loss {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .stat-badge-gain {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .glass-card {
+      background: linear-gradient(180deg, #10213F 0%, #0B172E 100%);
+      border: 1px solid #1E355D;
+    }
+    .gold-card {
+      background: linear-gradient(135deg, #B45309 0%, #78350F 50%, #451A03 100%);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .chart-active-glow {
+      box-shadow: 0 0 16px 2px rgba(245, 158, 11, 0.65);
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex justify-center bg-[#050914]">
+<!-- Mobile Screen Container -->
+<div class="w-full max-w-md min-h-screen bg-[#070D1E] pb-28 relative flex flex-col shadow-2xl border-x border-slate-900/60 overflow-x-hidden">
+<!-- BEGIN: TopStatusBar -->
+<header class="pt-4 px-4 pb-2" data-purpose="top-navigation">
+<div class="flex items-center justify-between">
+<!-- Logo and Location -->
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center font-black text-black text-xl shadow-lg shadow-amber-500/20">
+            W
+          </div>
+<div>
+<h1 class="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
+              Wizzmie
+            </h1>
+<p class="text-xs text-slate-400 font-medium">Bandar Padang</p>
+</div>
+</div>
+<!-- System Sync Badge -->
+<div class="px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 flex items-center gap-1.5 text-[11px] text-slate-300">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span>ESB Terhubung</span>
+</div>
+</div>
+</header>
+<!-- END: TopStatusBar -->
+<!-- BEGIN: HeroSection -->
+<section class="px-4 pt-3 pb-2" data-purpose="hero-banner">
+<div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#122448] via-[#0E1C38] to-[#081226] border border-[#1E3764] p-4">
+<!-- Background subtle glow -->
+<div class="absolute -right-10 -bottom-10 w-44 h-44 bg-blue-600/10 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-center gap-4 relative z-10">
+<!-- 3D Style Clipboard & Box Badge -->
+<div class="relative shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 p-0.5 shadow-xl shadow-blue-900/40 flex items-center justify-center">
+<div class="w-full h-full rounded-2xl bg-[#0F2244] flex flex-col items-center justify-center relative overflow-hidden">
+<svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+<!-- Small 3D Package Indicator -->
+<div class="absolute -bottom-1 -right-1 w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center shadow-md rotate-6">
+<svg class="w-4 h-4 text-amber-950" fill="currentColor" viewbox="0 0 20 20">
+<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path>
+<path clip-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Hero Text -->
+<div class="flex-1">
+<div class="text-xs uppercase font-extrabold tracking-wider text-amber-400">Pemeriksaan Harian</div>
+<h2 class="text-2xl font-black text-white leading-tight mt-0.5">Cek Stok</h2>
+<div class="text-xl font-bold text-amber-400 tracking-tight">15 Nov 2026</div>
+<p class="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
+              Menampilkan catatan hasil perhitungan stok berdasarkan data sistem ESB.
+            </p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: HeroSection -->
+<!-- BEGIN: PeriodSelectorAndDate -->
+<section class="px-4 py-2 space-y-2.5" data-purpose="filter-controls">
+<!-- Rekap Sebulan vs Cek 1 Hari Toggle -->
+<div class="grid grid-cols-2 gap-2.5">
+<button class="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#0D1C36] border border-[#1C3259] text-slate-300 font-semibold text-xs active:scale-95 transition-all" type="button">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+          Rekap Sebulan
+        </button>
+<button class="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/25 active:scale-95 transition-all" type="button">
+<svg class="w-4 h-4 text-slate-950" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+          Cek 1 Hari
+        </button>
+</div>
+<!-- Date Dropdown Bar -->
+<button class="w-full py-2.5 px-4 rounded-xl bg-[#0F2244] border border-[#1F3763] flex items-center justify-between text-xs text-slate-200 active:bg-[#142a54] transition-colors" type="button">
+<div class="flex items-center gap-2 font-semibold">
+<svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>15 Nov 2026</span>
+</div>
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</section>
+<!-- END: PeriodSelectorAndDate -->
+<!-- BEGIN: KpiSummaryCards -->
+<section class="px-4 py-2" data-purpose="kpi-shortage-surplus">
+<div class="grid grid-cols-2 gap-3">
+<!-- Kekurangan Stok (Shortage Card) -->
+<div class="rounded-2xl p-3.5 bg-gradient-to-b from-[#181B34] to-[#0F1426] border border-rose-900/40 relative overflow-hidden flex flex-col justify-between">
+<div class="flex flex-col items-center text-center">
+<div class="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 mb-2">
+<svg class="w-5 h-5 stroke-[2.5]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<span class="text-xs font-semibold text-slate-300">Kekurangan Stok</span>
+<div class="text-2xl font-black text-rose-400 tracking-tight mt-0.5">73 Barang</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-rose-950/60 stat-badge-loss rounded-xl px-2 py-2 flex items-center gap-2">
+<!-- Coins Icon -->
+<div class="shrink-0 text-amber-400">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 7a1 1 0 012 0v1h1a1 1 0 110 2H9v1h2a2 2 0 110 4H9v1a1 1 0 11-2 0v-1H6a1 1 0 110-2h2v-1H6a2 2 0 110-4h2V7z"></path>
+</svg>
+</div>
+<div class="min-w-0">
+<div class="text-[9px] uppercase tracking-wider text-slate-400 font-medium">Nilai Kekurangan</div>
+<div class="text-xs font-extrabold text-rose-400 truncate">Rp 13.388.348</div>
+</div>
+</div>
+</div>
+<!-- Kelebihan Stok (Surplus Card) -->
+<div class="rounded-2xl p-3.5 bg-gradient-to-b from-[#0F262B] to-[#0A1A22] border border-emerald-900/40 relative overflow-hidden flex flex-col justify-between">
+<div class="flex flex-col items-center text-center">
+<div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mb-2">
+<svg class="w-5 h-5 stroke-[2.5]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M5 10l7-7m0 0l7 7m-7-7v18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<span class="text-xs font-semibold text-slate-300">Kelebihan Stok</span>
+<div class="text-2xl font-black text-emerald-400 tracking-tight mt-0.5">52 Barang</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-emerald-950/60 stat-badge-gain rounded-xl px-2 py-2 flex items-center gap-2">
+<!-- Coins Icon -->
+<div class="shrink-0 text-amber-400">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 7a1 1 0 012 0v1h1a1 1 0 110 2H9v1h2a2 2 0 110 4H9v1a1 1 0 11-2 0v-1H6a1 1 0 110-2h2v-1H6a2 2 0 110-4h2V7z"></path>
+</svg>
+</div>
+<div class="min-w-0">
+<div class="text-[9px] uppercase tracking-wider text-slate-400 font-medium">Nilai Kelebihan</div>
+<div class="text-xs font-extrabold text-emerald-400 truncate">Rp 13.648.824</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: KpiSummaryCards -->
+<!-- BEGIN: BannerSelisihAkhir -->
+<section class="px-4 py-1.5" data-purpose="net-difference-banner">
+<!-- Trophy Net Margin Banner -->
+<div class="rounded-2xl p-4 gold-card text-amber-100 flex items-center gap-3.5 relative overflow-hidden shadow-lg shadow-amber-950/40">
+<div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center shrink-0 text-amber-300 text-3xl">
+          🏆
+        </div>
+<div class="border-l border-amber-400/30 pl-3.5 flex-1">
+<span class="text-xs font-semibold text-amber-200 tracking-wide uppercase">Hasil Selisih Akhir</span>
+<div class="text-2xl font-black text-amber-300 tracking-tight leading-tight mt-0.5">
+            + Rp 260.477
+          </div>
+</div>
+</div>
+<!-- Info Alert Notice -->
+<div class="mt-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-blue-200">
+<div class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+<svg class="w-3.5 h-3.5" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<span class="text-[11px] font-medium leading-relaxed">
+          Kelebihan stok lebih besar daripada kekurangan stok.
+        </span>
+</div>
+</section>
+<!-- END: BannerSelisihAkhir -->
+<!-- BEGIN: AnalisisSelisihStok -->
+<section class="px-4 pt-3 pb-2" data-purpose="chart-section">
+<div class="glass-card rounded-2xl p-4">
+<!-- Section Header -->
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
+</svg>
+</div>
+<div>
+<h3 class="font-bold text-sm text-white leading-tight">Analisis Selisih Stok</h3>
+<p class="text-[11px] text-slate-400">Perbandingan stok fisik dengan catatan sistem</p>
+</div>
+</div>
+</div>
+<!-- Filter Pill -->
+<div class="mt-3">
+<span class="inline-block px-3 py-1 rounded-full text-[11px] font-semibold bg-[#16294C] text-slate-300 border border-[#223F74]">
+            Selisih per Kategori
+          </span>
+</div>
+<!-- Daily Bar Chart Graphic -->
+<div class="mt-4 pt-4 pb-1 border-t border-slate-800/60">
+<div class="flex items-end justify-between gap-1 h-36 px-1">
+<!-- Day 7 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">7rb</span>
+<div class="w-full max-w-[20px] h-7 bg-gradient-to-t from-blue-700/40 to-blue-500/40 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">7</span>
+</div>
+<!-- Day 8 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">551rb</span>
+<div class="w-full max-w-[20px] h-12 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">8</span>
+</div>
+<!-- Day 9 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">494rb</span>
+<div class="w-full max-w-[20px] h-11 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">9</span>
+</div>
+<!-- Day 10 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">729rb</span>
+<div class="w-full max-w-[20px] h-16 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">10</span>
+</div>
+<!-- Day 11 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">209rb</span>
+<div class="w-full max-w-[20px] h-9 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">11</span>
+</div>
+<!-- Day 12 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">290rb</span>
+<div class="w-full max-w-[20px] h-10 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">12</span>
+</div>
+<!-- Day 13 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">534rb</span>
+<div class="w-full max-w-[20px] h-12 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">13</span>
+</div>
+<!-- Day 14 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">695rb</span>
+<div class="w-full max-w-[20px] h-15 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">14</span>
+</div>
+<!-- Day 15 (ACTIVE HIGHLIGHT) -->
+<div class="flex flex-col items-center gap-1 flex-1 relative -top-1">
+<span class="text-[10px] font-bold text-amber-300">13,4jt</span>
+<div class="w-full max-w-[24px] h-28 bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-lg chart-active-glow"></div>
+<div class="w-6 h-5 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px] flex items-center justify-center mt-0.5">
+                15
+              </div>
+</div>
+<!-- Day 16 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">798rb</span>
+<div class="w-full max-w-[20px] h-16 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">16</span>
+</div>
+<!-- Day 17 -->
+<div class="flex flex-col items-center gap-1.5 flex-1">
+<span class="text-[8px] text-slate-400">182rb</span>
+<div class="w-full max-w-[20px] h-8 bg-gradient-to-t from-blue-700/50 to-blue-500/50 rounded-t-md"></div>
+<span class="text-[10px] text-slate-400">17</span>
+</div>
+</div>
+</div>
+<!-- Date Detail Strip & CTA Button -->
+<div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 text-left">
+<div class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<div class="text-[11px] font-bold text-white leading-tight">Tanggal 15 Nov 2026</div>
+<div class="text-[10px] text-slate-400 leading-tight">
+<span class="text-rose-400 font-semibold">Kurang -13,3jt</span> | <span class="text-emerald-400 font-semibold">Lebih +13,6jt</span>
+</div>
+</div>
+</div>
+<button class="shrink-0 px-3 py-2 rounded-xl bg-amber-400 text-slate-950 font-bold text-[11px] flex items-center gap-1 shadow-sm active:scale-95 transition-all" type="button">
+<span>Daftar Barang</span>
+<svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</section>
+<!-- END: AnalisisSelisihStok -->
+<!-- BEGIN: KondisiPerBagian -->
+<section class="px-4 py-2" data-purpose="category-breakdown">
+<div class="glass-card rounded-2xl p-4">
+<!-- Section Header -->
+<div class="flex items-center gap-2.5 pb-3 border-b border-slate-800/80">
+<div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<h3 class="font-bold text-sm text-white leading-tight">Kondisi Per Bagian</h3>
+<p class="text-[11px] text-slate-400">Detail selisih stok berdasarkan kategori</p>
+</div>
+</div>
+<!-- Category Breakdown List -->
+<div class="divide-y divide-slate-800/60 text-xs">
+<!-- Item 1: Ameniti -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M10 2a1 1 0 011 1v1.07A7.002 7.002 0 0117 11v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1a7.002 7.002 0 016-6.93V3a1 1 0 011-1zm6 10a5.002 5.002 0 00-10 0h10z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">Ameniti</span>
+<span class="text-[10px] text-slate-400">Kurang 6,2jt · Lebih 878rb</span>
+</div>
+<!-- Dual Progress Bar -->
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-rose-500" style="width: 85%;"></div>
+<div class="h-full bg-emerald-500" style="width: 15%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20">
+                Kurang Rp 5.362.094
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 2: Dry Store -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M5 2a1 1 0 011-1h8a1 1 0 011 1v1h1a2 2 0 012 2v2a5 5 0 01-5 5h-1a5 5 0 01-5-5V4H6a2 2 0 01-2-2V2zm2 2v3a3 3 0 003 3h1a3 3 0 003-3V4H7z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">Dry Store</span>
+<span class="text-[10px] text-slate-400">Kurang 4,7jt · Lebih 6,5jt</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-blue-500" style="width: 42%;"></div>
+<div class="h-full bg-emerald-500" style="width: 58%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                Lebih Rp 1.761.390
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 3: Vegetable -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                🥕
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">Vegetable</span>
+<span class="text-[10px] text-slate-400">Kurang 1,2jt · Lebih 3,2jt</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-rose-500" style="width: 28%;"></div>
+<div class="h-full bg-emerald-500" style="width: 72%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                Lebih Rp 2.001.519
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 4: WIP -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                👨‍🍳
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">WIP</span>
+<span class="text-[10px] text-slate-400">Kurang 891rb · Lebih 2,9jt</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-purple-500" style="width: 25%;"></div>
+<div class="h-full bg-emerald-500" style="width: 75%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                Lebih Rp 2.017.520
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 5: Meat -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-amber-600/20 text-amber-500 flex items-center justify-center shrink-0">
+                🥩
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">Meat</span>
+<span class="text-[10px] text-slate-400">Kurang 204rb · Lebih 75rb</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-amber-500" style="width: 73%;"></div>
+<div class="h-full bg-emerald-500" style="width: 27%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20">
+                Kurang Rp 128.856
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 6: DBL -->
+<div class="py-3 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 flex-1 min-w-0">
+<div class="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                🍶
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between text-slate-300 mb-1">
+<span class="font-bold text-slate-100 truncate">DBL</span>
+<span class="text-[10px] text-slate-400">Kurang 143rb · Lebih 114rb</span>
+</div>
+<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
+<div class="h-full bg-cyan-500" style="width: 56%;"></div>
+<div class="h-full bg-emerald-500" style="width: 44%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-1 rounded-md text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20">
+                Kurang Rp 29.002
+              </span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Warning Callout Box -->
+<div class="mt-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-yellow-600/10 border border-amber-500/30 flex items-start gap-2.5">
+<div class="w-6 h-6 rounded-lg bg-amber-400/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14H8v-2h4v2z"></path>
+</svg>
+</div>
+<div class="text-[11px] leading-relaxed">
+<strong class="text-amber-300 font-bold block">Informasi Penting</strong>
+<span class="text-slate-300">Terdapat selisih stok pada beberapa kategori. Pastikan data fisik di gudang sudah sesuai dengan catatan sistem.</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: KondisiPerBagian -->
+<!-- BEGIN: BarangPrioritasCek -->
+<section class="px-4 pt-3 pb-4" data-purpose="priority-stock-check">
+<!-- Section Title & Badge -->
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg">
+            📋
+          </div>
+<div>
+<h3 class="font-bold text-sm text-white leading-tight">Barang yang Perlu Dicek Duluan</h3>
+<p class="text-[11px] text-slate-400">Barang dengan selisih terbesar tgl 15 Nov 2026</p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-slate-200" type="button">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" fill-rule="evenodd"></path>
+</svg>
+</button>
+</div>
+<!-- Segmented Buttons: Kurangnya Terbesar vs Lebihnya Terbesar -->
+<div class="p-1 rounded-xl bg-[#0A162B] border border-[#182C4C] flex gap-1 mb-3">
+<button class="flex-1 py-2 text-center text-xs font-semibold text-slate-400 rounded-lg active:scale-95 transition-all" type="button">
+          Kurangnya Terbesar
+        </button>
+<button class="flex-1 py-2 text-center text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all" type="button">
+<svg class="w-3.5 h-3.5 text-slate-950" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+          Lebihnya Terbesar
+        </button>
+</div>
+<!-- Top 10 Priority Items List -->
+<div class="space-y-2">
+<!-- Item 01 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">01</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Whipping Cream Powder</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 13,19 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bahan Bakery</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 1.962.013</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 02 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">02</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Selada</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 58,13 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Sayur &amp; Buah</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 1.511.380</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 03 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">03</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Air Galon</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 614,07 L</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Minuman</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 1.309.690</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 04 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">04</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">WIP - Cuka Sushi</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 24,6 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bahan WIP</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 962.160</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 05 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">05</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">WIP - Minyak Bawang</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 16,14 L</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bumbu</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 831.879</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 06 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">06</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Tepung Roti</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 36,72 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bahan Roti</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 807.730</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 07 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">07</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">WIP - Bawang Goreng</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 4,87 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bumbu</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 758.229</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 08 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">08</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Sumpit</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 6.000 Pcs</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Alat Makan</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 685.715</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 09 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">09</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Green Tea Powder</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 3,92 GR</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Bahan Minuman</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 647.790</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Item 10 -->
+<div class="p-2.5 rounded-xl bg-[#0D1C34] border border-[#1A3157] flex items-center justify-between gap-2.5">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">10</span>
+<div class="min-w-0">
+<h4 class="font-bold text-xs text-white truncate">Daun Bawang</h4>
+<div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+<span class="text-emerald-400 font-semibold">📦 Lebih 10,26 KG</span>
+<span>•</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px]">Sayur</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="text-xs font-black text-emerald-400">+ Rp 512.800</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Action Footer Banner: Lihat Semua Barang -->
+<button class="w-full mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-[#11244A] to-[#0D1C38] border border-[#23437A] flex items-center justify-between gap-3 active:scale-[0.98] transition-transform text-left" type="button">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center shrink-0">
+            💡
+          </div>
+<div>
+<div class="text-xs font-bold text-white">Lihat Semua Barang Tanggal 15 Nov 2026</div>
+<div class="text-[11px] text-slate-400">Klik tombol untuk melihat daftar lengkap.</div>
+</div>
+</div>
+<div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</button>
+</section>
+<!-- END: BarangPrioritasCek -->
+<!-- BEGIN: FixedBottomNavBar -->
+<nav class="fixed bottom-0 max-w-md w-full bg-[#081226]/95 backdrop-blur-md border-t border-[#1C3259] z-50 px-2 py-2" data-purpose="tab-navigation">
+<div class="grid grid-cols-6 items-center text-center">
+<!-- Tab 1: Beranda (Active) -->
+<a class="flex flex-col items-center gap-1 py-1 text-amber-400 font-bold group" href="#beranda">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="currentColor" viewbox="0 0 20 20">
+<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Beranda</span>
+</a>
+<!-- Tab 2: Upload -->
+<a class="flex flex-col items-center gap-1 py-1 text-slate-400 hover:text-slate-200 group" href="#upload">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Upload</span>
+</a>
+<!-- Tab 3: Harian -->
+<a class="flex flex-col items-center gap-1 py-1 text-slate-400 hover:text-slate-200 group" href="#harian">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Harian</span>
+</a>
+<!-- Tab 4: Batch -->
+<a class="flex flex-col items-center gap-1 py-1 text-slate-400 hover:text-slate-200 group" href="#batch">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Batch</span>
+</a>
+<!-- Tab 5: Cetak -->
+<a class="flex flex-col items-center gap-1 py-1 text-slate-400 hover:text-slate-200 group" href="#cetak">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Cetak</span>
+</a>
+<!-- Tab 6: Setelan -->
+<a class="flex flex-col items-center gap-1 py-1 text-slate-400 hover:text-slate-200 group" href="#setelan">
+<svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] tracking-tight">Setelan</span>
+</a>
+</div>
+</nav>
+<!-- END: FixedBottomNavBar -->
+</div>
+</body></html>

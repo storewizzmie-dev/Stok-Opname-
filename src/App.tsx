@@ -1,21 +1,40 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
+  BarChart3,
+  Beef,
+  Boxes,
   CalendarDays,
+  ChefHat,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  Coins,
   Download,
   FileSpreadsheet,
   Home,
+  Info,
+  Leaf,
+  Lightbulb,
   Moon,
+  Package,
   PackageSearch,
+  RefreshCw,
+  Scale,
   Search,
   Settings,
   Sparkles,
   Sun,
   Trash2,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
   Upload,
+  Utensils,
   X,
 } from 'lucide-react';
 import { AiAssistantCard, AiChatMessage } from './components/AiAssistantCard';
@@ -43,7 +62,7 @@ import {
 } from './lib/stockOpname';
 
 const STORAGE_KEY = 'so';
-const THEME_KEY = 'so_theme';
+const THEME_KEY = 'so_theme_v2';
 
 type MenuTab = 'beranda' | 'upload' | 'harian' | 'barang' | 'ai' | 'pengaturan';
 type DailyFilter = 'all' | 'diff' | 'neg' | 'pos' | 'pas';
@@ -100,13 +119,12 @@ export default function App() {
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [wipeArmed, setWipeArmed] = useState(false);
-  const [heroImgFailed, setHeroImgFailed] = useState(false);
   const [uploadImgFailed, setUploadImgFailed] = useState(false);
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(THEME_KEY) === 'dark';
+      return localStorage.getItem(THEME_KEY) !== 'light';
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -566,14 +584,26 @@ export default function App() {
       />
 
       {/* Top Navigation Bar (Clean 3-Zone Contract) */}
-      <header className="md:sticky md:top-0 z-30 bg-white/85 dark:bg-[#101517]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/90 shadow-[0_4px_20px_-10px_rgba(15,23,42,0.08)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 md:h-16 flex items-center justify-between gap-8">
+      <header className="md:sticky md:top-0 z-30 bg-white/90 dark:bg-[#081226]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-[#1C3259] shadow-[0_4px_20px_-10px_rgba(15,23,42,0.12)]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 md:h-16 flex items-center justify-between gap-6">
           <button
             type="button"
             onClick={() => setActiveTab('beranda')}
-            className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="flex items-center gap-2.5 text-left whitespace-nowrap shrink-0 cursor-pointer"
           >
-            Pantau Stok Opname
+            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center font-black text-slate-950 text-base shadow-md shadow-amber-500/20 shrink-0">
+              W
+            </span>
+            <span className="leading-tight">
+              <span className="font-display block text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                Pantau Stok Opname
+              </span>
+              {summary?.locationName || summary?.branchName ? (
+                <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[155px] sm:max-w-[220px]">
+                  {summary.locationName || summary.branchName}
+                </span>
+              ) : null}
+            </span>
           </button>
 
           <nav className="hidden md:flex items-center gap-6 h-full">
@@ -586,13 +616,13 @@ export default function App() {
                   onClick={() => setActiveTab(item.id)}
                   className={`relative h-full px-1 text-sm font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     isActive
-                      ? 'text-teal-700 dark:text-teal-300'
+                      ? 'text-amber-700 dark:text-amber-400'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <span>{item.label}</span>
                   {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 dark:bg-teal-400 rounded-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 dark:bg-amber-400 rounded-full" />
                   )}
                 </button>
               );
@@ -603,7 +633,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="btn-3d-primary px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[40px] cursor-pointer"
+              className="btn-3d-primary px-4 py-2 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[40px] cursor-pointer"
             >
               <Upload className="w-4 h-4" />
               <span>Upload Excel</span>
@@ -636,7 +666,7 @@ export default function App() {
 
         {/* PAGE 1: BERANDA */}
         {activeTab === 'beranda' && (
-          <div className="space-y-5">
+          <div className="space-y-4 sm:space-y-5">
             {!summary ? (
               <EmptyStateCard
                 onUploadClick={() => fileInputRef.current?.click()}
@@ -644,326 +674,439 @@ export default function App() {
               />
             ) : (
               <>
-                {/* Hero Overview Card */}
-                <section className="surface-3d rounded-3xl p-5 sm:p-7 space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                    <div className="lg:col-span-8 flex flex-col justify-between gap-5">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div className="space-y-1.5">
-                          <div className="text-xs font-semibold text-teal-700 dark:text-teal-300">
-                            {summary.locationName || summary.branchName || 'Laporan Stok Opname'}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white text-balance">
-                              {viewScope === 'month'
-                                ? `Rekap Stok ${formatMonthId(activeMonth)}`
-                                : `Cek Stok ${formatDateId(activeDay)}`}
-                            </h1>
-                            <InfoButton
-                              guideKey="overview"
-                              onOpen={setActiveInfoKey}
-                            />
-                          </div>
-                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
-                            {viewScope === 'month' ? (
-                              <>
-                                Semua catatan dari {summary.allMonthDates.length} hari sudah masuk (
-                                {Object.keys(summary.productMap).length} jenis barang ·{' '}
-                                {summary.totalRowsCount.toLocaleString('id-ID')} catatan stok)
-                              </>
-                            ) : (
-                              <>
-                                Menampilkan catatan khusus tanggal {formatDateId(activeDay)} ({summary.totalRowsCount} barang tercatat)
-                              </>
-                            )}
-                            {summary.missingDays.length > 0 && (
-                              <span className="text-red-700 dark:text-red-400 font-semibold">
-                                {' '}
-                                · Tanggal {summary.missingDays.join(', ')} belum diupload
-                              </span>
-                            )}
-                          </p>
+                {/* Hero Banner */}
+                <section className="wizzmie-hero-card relative overflow-hidden rounded-2xl p-4 sm:p-6">
+                  <div className="hidden dark:block absolute -right-10 -bottom-10 w-44 h-44 bg-blue-600/15 rounded-full blur-2xl pointer-events-none" />
+                  <div className="flex items-center gap-4 sm:gap-5 relative z-10">
+                    {/* 3D Style Clipboard & Box Badge */}
+                    <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 p-0.5 shadow-xl shadow-blue-900/40 flex items-center justify-center">
+                      <div className="w-full h-full rounded-2xl bg-slate-900 dark:bg-[#0F2244] flex flex-col items-center justify-center relative">
+                        <ClipboardCheck className="w-10 h-10 sm:w-11 sm:h-11 text-blue-400" />
+                        <div className="absolute -bottom-1 -right-1 w-7 h-7 sm:w-8 sm:h-8 bg-amber-400 rounded-lg flex items-center justify-center shadow-md rotate-6">
+                          <Package className="w-4 h-4 text-slate-950" />
                         </div>
-
-                        {/* Month vs Day Toggle */}
-                        <div
-                          role="group"
-                          aria-label="Pilih tampilan bulan atau hari"
-                          className="grid grid-cols-2 gap-1 p-1 bg-slate-100/90 dark:bg-[#1a2328] rounded-xl shrink-0 self-stretch sm:self-auto"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setViewScope('month')}
-                            className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[42px] whitespace-nowrap cursor-pointer ${
-                              viewScope === 'month'
-                                ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            Rekap Sebulan
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setViewScope('day')}
-                            className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[42px] whitespace-nowrap cursor-pointer ${
-                              viewScope === 'day'
-                                ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            Cek 1 Hari
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Period Selectors */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <MonthSelector
-                          months={allMonths}
-                          activeMonth={activeMonth}
-                          monthCounts={monthCounts}
-                          onSelect={handleSelectMonth}
-                        />
-
-                        {viewScope === 'day' && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              aria-label="Tanggal sebelumnya"
-                              disabled={activeDayIndex <= 0}
-                              onClick={() => {
-                                if (activeDayIndex > 0) {
-                                  setSelectedDay(
-                                    activeMonthDates[activeDayIndex - 1]
-                                  );
-                                }
-                              }}
-                              className="btn-3d-soft p-2 rounded-xl text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </button>
-
-                            <select
-                              aria-label="Pilih tanggal"
-                              value={activeDay}
-                              onChange={(e) => setSelectedDay(e.target.value)}
-                              className="px-3.5 py-2 text-sm font-semibold rounded-xl border border-teal-600/35 dark:border-teal-500/40 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px] shadow-xs"
-                            >
-                              {activeMonthDates
-                                .slice()
-                                .reverse()
-                                .map((d) => (
-                                  <option key={d} value={d}>
-                                    {formatDateId(d)}
-                                  </option>
-                                ))}
-                            </select>
-
-                            <button
-                              type="button"
-                              aria-label="Tanggal berikutnya"
-                              disabled={
-                                activeDayIndex < 0 ||
-                                activeDayIndex >= activeMonthDates.length - 1
-                              }
-                              onClick={() => {
-                                if (
-                                  activeDayIndex >= 0 &&
-                                  activeDayIndex < activeMonthDates.length - 1
-                                ) {
-                                  setSelectedDay(
-                                    activeMonthDates[activeDayIndex + 1]
-                                  );
-                                }
-                              }}
-                              className="btn-3d-soft p-2 rounded-xl text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
 
-                    {/* 3D Architectural Studio Visual */}
-                    <div className="lg:col-span-4 rounded-2xl overflow-hidden bg-gradient-to-br from-teal-50/90 via-white to-sky-50/90 dark:from-teal-950/30 dark:via-[#172025] dark:to-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_-10px_rgba(13,148,136,0.22)] h-44 sm:h-52 lg:h-full min-h-[176px]">
-                      {!heroImgFailed ? (
-                        <img
-                          src={heroInventory3d}
-                          alt="Ilustrasi 3D rak penyimpanan stok produksi / operasional dan tablet pemantau"
-                          referrerPolicy="no-referrer"
-                          onError={() => setHeroImgFailed(true)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center text-teal-800 dark:text-teal-300">
-                          <PackageSearch className="w-10 h-10 mb-2 opacity-80" />
-                          <span className="text-xs font-semibold">
-                            Rekap Stok Toko
-                          </span>
+                    {/* Hero Text */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-700 dark:text-amber-400 truncate">
+                          {viewScope === 'month'
+                            ? 'Rekap Stok Bulanan'
+                            : 'Pemeriksaan Harian'}
+                          {summary.locationName || summary.branchName
+                            ? ` · ${summary.locationName || summary.branchName}`
+                            : ''}
                         </div>
-                      )}
+                        <InfoButton
+                          guideKey="overview"
+                          onOpen={setActiveInfoKey}
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                          {viewScope === 'month' ? 'Rekap Stok' : 'Cek Stok'}
+                        </h1>
+                        <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
+                          {viewScope === 'month'
+                            ? formatMonthId(activeMonth)
+                            : formatDateId(activeDay)}
+                        </span>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 mt-1 leading-relaxed tabular-nums">
+                        {viewScope === 'month' ? (
+                          <>
+                            Gabungan hitungan gudang dari {summary.allMonthDates.length} hari vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
+                          </>
+                        ) : (
+                          <>
+                            Menampilkan perbandingan hitungan gudang tanggal {formatDateId(activeDay)} dengan catatan sistem ESB ({summary.totalRowsCount} baris).
+                          </>
+                        )}
+                        {summary.missingDays.length > 0 && (
+                          <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                            {' '}
+                            · Tgl {summary.missingDays.join(', ')} belum diupload
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Period Toggle, Month Selector & Date Selector */}
+                <section className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setViewScope('month')}
+                      className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
+                        viewScope === 'month'
+                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
+                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
+                      }`}
+                    >
+                      <RefreshCw className="w-4 h-4 shrink-0" />
+                      <span>Rekap Sebulan</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewScope('day')}
+                      className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
+                        viewScope === 'day'
+                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
+                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
+                      }`}
+                    >
+                      <CalendarDays className="w-4 h-4 shrink-0" />
+                      <span>Cek 1 Hari</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <MonthSelector
+                      months={allMonths}
+                      activeMonth={activeMonth}
+                      monthCounts={monthCounts}
+                      onSelect={handleSelectMonth}
+                    />
+
+                    {viewScope === 'day' && (
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          aria-label="Tanggal sebelumnya"
+                          disabled={activeDayIndex <= 0}
+                          onClick={() => {
+                            if (activeDayIndex > 0) {
+                              setSelectedDay(
+                                activeMonthDates[activeDayIndex - 1]
+                              );
+                            }
+                          }}
+                          className="p-2.5 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        <div className="relative flex-1 sm:min-w-[200px]">
+                          <CalendarDays className="w-4 h-4 text-amber-600 dark:text-amber-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <select
+                            aria-label="Pilih tanggal"
+                            value={activeDay}
+                            onChange={(e) => setSelectedDay(e.target.value)}
+                            className="w-full appearance-none pl-10 pr-9 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1F3763] bg-white dark:bg-[#0F2244] text-slate-900 dark:text-slate-200 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                          >
+                            {activeMonthDates
+                              .slice()
+                              .reverse()
+                              .map((d) => (
+                                <option key={d} value={d}>
+                                  {formatDateId(d)}
+                                </option>
+                              ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        <button
+                          type="button"
+                          aria-label="Tanggal berikutnya"
+                          disabled={
+                            activeDayIndex < 0 ||
+                            activeDayIndex >= activeMonthDates.length - 1
+                          }
+                          onClick={() => {
+                            if (
+                              activeDayIndex >= 0 &&
+                              activeDayIndex < activeMonthDates.length - 1
+                            ) {
+                              setSelectedDay(
+                                activeMonthDates[activeDayIndex + 1]
+                              );
+                            }
+                          }}
+                          className="p-2.5 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* 2-Column KPI Cards: Kekurangan Stok & Kelebihan Stok */}
+                <section className="grid grid-cols-2 gap-3 sm:gap-4">
+                  {/* Kekurangan Stok */}
+                  <div className="rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#181B34] dark:to-[#0F1426] border border-rose-200 dark:border-rose-900/45 flex flex-col justify-between shadow-sm">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2">
+                        <ArrowDown className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Kekurangan Stok
+                      </span>
+                      <div className="text-xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight mt-0.5 tabular-nums">
+                        {summary.negProductCount} Barang
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Hitungan Gudang &lt; Sistem ESB
+                      </span>
+                    </div>
+
+                    <div className="mt-3 stat-badge-loss rounded-xl px-2.5 py-2 flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                          Nilai Kekurangan
+                        </div>
+                        <div className="text-xs sm:text-sm font-extrabold font-mono text-rose-600 dark:text-rose-400 truncate tabular-nums">
+                          - {formatRupiah(summary.totalNeg)}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Clean 3-Metric Strip: Kurang -> Lebih -> Hasil Gabungan */}
-                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800/90 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-0 md:divide-x divide-slate-100 dark:divide-slate-800/90">
-                    <div className="md:pr-6">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        1. Barang Kurang (Hitungan Gudang &lt; Sistem ESB)
+                  {/* Kelebihan Stok */}
+                  <div className="rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#0F262B] dark:to-[#0A1A22] border border-emerald-200 dark:border-emerald-900/45 flex flex-col justify-between shadow-sm">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
+                        <ArrowUp className="w-5 h-5 stroke-[2.5]" />
                       </div>
-                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-red-600 dark:text-red-400">
-                        - {formatRupiah(summary.totalNeg)}
+                      <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Kelebihan Stok
+                      </span>
+                      <div className="text-xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight mt-0.5 tabular-nums">
+                        {summary.posProductCount} Barang
                       </div>
-                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
-                        Ada {summary.negProductCount} barang yang jumlah nyatanya lebih sedikit daripada catatan sistem ESB.
-                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Hitungan Gudang &gt; Sistem ESB
+                      </span>
                     </div>
 
-                    <div className="md:px-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        2. Barang Lebih (Hitungan Gudang &gt; Sistem ESB)
-                      </div>
-                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                        + {formatRupiah(summary.totalPos)}
-                      </div>
-                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
-                        Ada {summary.posProductCount} barang yang jumlah nyatanya lebih banyak daripada catatan sistem ESB.
-                      </div>
-                    </div>
-
-                    <div className="md:pl-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        {viewScope === 'month'
-                          ? '3. Hasil Gabungan Bulan Ini (Lebih − Kurang)'
-                          : '3. Hasil Gabungan Hari Ini (Lebih − Kurang)'}
-                      </div>
-                      <div
-                        className={`mt-1.5 text-2xl sm:text-3xl font-bold font-mono tabular-nums tracking-tight ${
-                          summary.netTotal < -0.5
-                            ? 'text-red-600 dark:text-red-400'
-                            : summary.netTotal > 0.5
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-slate-900 dark:text-white'
-                        }`}
-                      >
-                        {summary.netTotal < -0.5
-                          ? `Kurang - ${formatRupiah(summary.netTotal)}`
-                          : summary.netTotal > 0.5
-                          ? `Lebih + ${formatRupiah(summary.netTotal)}`
-                          : 'Pas Rp 0'}
-                      </div>
-                      <div className="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
-                        Hitungan: (+ {formatCompactRupiah(summary.totalPos)}) − (- {formatCompactRupiah(summary.totalNeg)})
-                      </div>
-                      <div className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {summary.netTotal < -0.5
-                          ? 'Fungsinya mengecek apakah total nilai stok masih tekor. Saat ini total rupiah barang kurang masih lebih besar dari yang lebih. Cek daftar barang kurang di bawah.'
-                          : summary.netTotal > 0.5
-                          ? 'Fungsinya mengecek total selisih uang: nilai barang lebih lebih besar dari yang kurang. Namun tetap cek daftar barang kurang di bawah agar jelas penyebabnya.'
-                          : 'Fungsinya mengecek total selisih uang: catatan sistem ESB dan hitungan gudang sudah seimbang.'}
+                    <div className="mt-3 stat-badge-gain rounded-xl px-2.5 py-2 flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                          Nilai Kelebihan
+                        </div>
+                        <div className="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+                          + {formatRupiah(summary.totalPos)}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </section>
 
+                {/* Banner Hasil Selisih Akhir + Info Alert Notice */}
+                <section className="space-y-2.5">
+                  <div
+                    className={`rounded-2xl p-4 sm:p-5 flex items-center gap-3.5 sm:gap-4 ${
+                      summary.netTotal < -0.5
+                        ? 'wizzmie-loss-banner text-rose-950 dark:text-rose-100'
+                        : 'wizzmie-gold-card text-amber-950 dark:text-amber-100'
+                    }`}
+                  >
+                    <div
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                        summary.netTotal < -0.5
+                          ? 'bg-rose-500/20 border border-rose-400/35 text-rose-700 dark:text-rose-300'
+                          : 'bg-amber-500/20 border border-amber-400/35 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      {summary.netTotal < -0.5 ? (
+                        <Scale className="w-7 h-7" />
+                      ) : (
+                        <Trophy className="w-7 h-7" />
+                      )}
+                    </div>
+
+                    <div
+                      className={`border-l pl-3.5 sm:pl-4 flex-1 min-w-0 ${
+                        summary.netTotal < -0.5
+                          ? 'border-rose-400/35'
+                          : 'border-amber-500/35 dark:border-amber-400/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`text-xs font-bold tracking-wide uppercase ${
+                            summary.netTotal < -0.5
+                              ? 'text-rose-800 dark:text-rose-200'
+                              : 'text-amber-800 dark:text-amber-200'
+                          }`}
+                        >
+                          {viewScope === 'month'
+                            ? 'Hasil Gabungan Bulan Ini (Lebih − Kurang)'
+                            : 'Hasil Selisih Akhir (Lebih − Kurang)'}
+                        </span>
+                        <InfoButton
+                          guideKey="overview"
+                          onOpen={setActiveInfoKey}
+                        />
+                      </div>
+                      <div
+                        className={`text-2xl sm:text-3xl font-black font-mono tracking-tight leading-tight mt-0.5 tabular-nums ${
+                          summary.netTotal < -0.5
+                            ? 'text-rose-700 dark:text-rose-200'
+                            : 'text-amber-900 dark:text-amber-300'
+                        }`}
+                      >
+                        {summary.netTotal < -0.5
+                          ? `- ${formatRupiah(summary.netTotal)}`
+                          : summary.netTotal > 0.5
+                          ? `+ ${formatRupiah(summary.netTotal)}`
+                          : 'Pas Rp 0'}
+                      </div>
+                      <div
+                        className={`text-[11px] font-mono mt-0.5 tabular-nums ${
+                          summary.netTotal < -0.5
+                            ? 'text-rose-800/80 dark:text-rose-200/80'
+                            : 'text-amber-900/75 dark:text-amber-200/80'
+                        }`}
+                      >
+                        Hitungan: (+ {formatCompactRupiah(summary.totalPos)}) − (- {formatCompactRupiah(summary.totalNeg)})
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info Alert Notice */}
+                  <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-3.5 py-2.5 flex items-start sm:items-center gap-2.5 text-xs text-slate-700 dark:text-blue-200">
+                    <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                      <Info className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-medium leading-relaxed">
+                      {summary.netTotal < -0.5
+                        ? 'Fungsinya mengecek total selisih uang: nilai kekurangan stok masih lebih besar dari kelebihannya. Cek daftar barang kurang di bawah.'
+                        : summary.netTotal > 0.5
+                        ? 'Fungsinya mengecek total selisih uang: nilai kelebihan stok lebih besar daripada kekurangan stok. Tetap cek barang kurang di bawah untuk memastikan tidak ada salah hitung.'
+                        : 'Fungsinya mengecek total selisih uang: hitungan gudang dan catatan sistem ESB sudah seimbang.'}
+                    </span>
+                  </div>
+                </section>
+
                 {/* Main Analytics Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Daily Chart + Category Breakdown */}
-                  <div className="lg:col-span-7 space-y-6">
-                    <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Left Column: Analisis Selisih Stok + Kondisi Per Bagian */}
+                  <div className="lg:col-span-7 space-y-5">
+                    {/* Analisis Selisih Stok (Daily Bar Chart) */}
+                    <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                              Tanggal Mana yang Paling Banyak Kurang?
-                            </h2>
-                            <InfoButton
-                              guideKey="dailyChart"
-                              onOpen={setActiveInfoKey}
-                            />
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300/60 dark:border-amber-500/25 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                            <BarChart3 className="w-4 h-4" />
                           </div>
-                          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                            {formatMonthId(activeMonth)} · ketuk batang tanggal untuk melihat rinciannya
-                          </p>
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
+                                Analisis Selisih Stok Per Tanggal
+                              </h2>
+                              <InfoButton
+                                guideKey="dailyChart"
+                                onOpen={setActiveInfoKey}
+                              />
+                            </div>
+                            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+                              Perbandingan hitungan gudang dengan catatan sistem ESB · {formatMonthId(activeMonth)}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-end gap-1.5 overflow-x-auto pb-2 pt-3 border-b border-slate-100 dark:border-slate-800/90">
-                        {summary.dailyStats.map((day) => {
-                          const barHeight =
-                            day.negVal < 0
-                              ? Math.max(
-                                  14,
-                                  Math.round(
-                                    (Math.abs(day.negVal) / maxDailyDeficit) *
-                                      108
+                      <div className="pt-3 pb-1 border-t border-slate-100 dark:border-slate-800/70">
+                        <div className="flex items-end justify-between gap-1.5 overflow-x-auto pb-2 pt-3">
+                          {summary.dailyStats.map((day) => {
+                            const barHeight =
+                              day.negVal < 0
+                                ? Math.max(
+                                    16,
+                                    Math.round(
+                                      (Math.abs(day.negVal) / maxDailyDeficit) *
+                                        112
+                                    )
                                   )
-                                )
-                              : 6;
-                          const isSelected =
-                            highlightedBarStat?.date === day.date;
-                          return (
-                            <button
-                              key={day.date}
-                              type="button"
-                              onClick={() => {
-                                if (viewScope === 'day') {
-                                  setSelectedDay(day.date);
-                                } else {
-                                  setActiveBarDate(day.date);
-                                }
-                              }}
-                              className={`group flex-1 min-w-[40px] h-[162px] flex flex-col justify-end items-center rounded-2xl py-2 transition-colors cursor-pointer ${
-                                isSelected
-                                  ? 'bg-teal-50/95 dark:bg-teal-950/50 ring-1 ring-teal-500/70'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                              }`}
-                            >
-                              {day.negVal < 0 && (
-                                <span className="mb-1.5 text-[10px] leading-none font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                                  {formatCompactRupiah(day.negVal)}
-                                </span>
-                              )}
-                              <span
-                                className={`block w-3/4 max-w-[26px] rounded-t-lg ${
-                                  day.negVal < 0
-                                    ? isSelected
-                                      ? 'bar-3d-red bar-3d-red-active'
-                                      : 'bar-3d-red opacity-90 group-hover:opacity-100'
-                                    : 'bar-3d-neutral'
-                                }`}
-                                style={{ height: `${barHeight}px` }}
-                              />
-                              <span
-                                className={`mt-2 text-[11px] leading-none font-mono tabular-nums ${
+                                : 6;
+                            const isSelected =
+                              highlightedBarStat?.date === day.date;
+                            return (
+                              <button
+                                key={day.date}
+                                type="button"
+                                onClick={() => {
+                                  if (viewScope === 'day') {
+                                    setSelectedDay(day.date);
+                                  } else {
+                                    setActiveBarDate(day.date);
+                                  }
+                                }}
+                                className={`group flex-1 min-w-[36px] h-[160px] flex flex-col justify-end items-center rounded-xl py-1.5 transition-all cursor-pointer ${
                                   isSelected
-                                    ? 'font-bold text-teal-800 dark:text-teal-300'
-                                    : 'font-medium text-slate-500 dark:text-slate-400'
+                                    ? 'bg-amber-50/70 dark:bg-transparent'
+                                    : 'hover:bg-slate-100/70 dark:hover:bg-[#132548]/60'
                                 }`}
                               >
-                                {Number(day.date.slice(8))}
-                              </span>
-                            </button>
-                          );
-                        })}
+                                {day.negVal < 0 && (
+                                  <span
+                                    className={`mb-1.5 text-[9px] sm:text-[10px] leading-none font-mono tabular-nums ${
+                                      isSelected
+                                        ? 'font-bold text-amber-700 dark:text-amber-300'
+                                        : 'text-slate-500 dark:text-slate-400'
+                                    }`}
+                                  >
+                                    {formatCompactRupiah(day.negVal)}
+                                  </span>
+                                )}
+                                <span
+                                  className={`block w-3/4 max-w-[24px] transition-all ${
+                                    day.negVal < 0
+                                      ? isSelected
+                                        ? 'bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-lg chart-active-glow'
+                                        : 'bg-gradient-to-t from-blue-600/60 to-blue-400/70 dark:from-blue-700/50 dark:to-blue-500/60 rounded-t-md opacity-85 group-hover:opacity-100'
+                                      : 'bg-slate-200 dark:bg-slate-700/60 rounded-t-md'
+                                  }`}
+                                  style={{ height: `${barHeight}px` }}
+                                />
+                                <span
+                                  className={`mt-1.5 text-[10px] leading-none font-mono tabular-nums flex items-center justify-center ${
+                                    isSelected
+                                      ? 'w-6 h-5 rounded-full bg-amber-400 text-slate-950 font-extrabold'
+                                      : 'h-5 font-medium text-slate-500 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {Number(day.date.slice(8))}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {highlightedBarStat && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                          <div className="space-y-0.5 text-sm tabular-nums">
-                            <div className="font-bold text-slate-900 dark:text-white">
-                              Tanggal {formatDateId(highlightedBarStat.date)}
+                        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 text-left">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                              <CalendarDays className="w-4 h-4" />
                             </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sm:text-sm font-mono">
-                              <span className="text-red-600 dark:text-red-400 font-semibold">
-                                Kurang - {formatRupiah(highlightedBarStat.negVal)}
-                              </span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                Lebih + {formatRupiah(highlightedBarStat.posVal)}
-                              </span>
+                            <div className="tabular-nums">
+                              <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                                Tanggal {formatDateId(highlightedBarStat.date)}
+                              </div>
+                              <div className="text-[11px] sm:text-xs font-mono leading-tight mt-0.5">
+                                <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                                  Kurang -{formatCompactRupiah(highlightedBarStat.negVal)}
+                                </span>
+                                <span className="text-slate-400 mx-1.5">|</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  Lebih +{formatCompactRupiah(highlightedBarStat.posVal)}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
                           <div className="flex flex-wrap gap-2">
                             {viewScope === 'month' && (
                               <button
@@ -973,9 +1116,9 @@ export default function App() {
                                   setViewScope('day');
                                   window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
-                                className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 min-h-[40px] whitespace-nowrap cursor-pointer"
+                                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-200 font-semibold text-xs min-h-[38px] whitespace-nowrap cursor-pointer"
                               >
-                                Lihat Total Hari Ini
+                                Total Hari Ini
                               </button>
                             )}
                             <button
@@ -983,22 +1126,26 @@ export default function App() {
                               onClick={() =>
                                 handleOpenDayInHarian(highlightedBarStat.date)
                               }
-                              className="btn-3d-primary px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
+                              className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all min-h-[38px] cursor-pointer"
                             >
-                              <span>Buka Daftar Barang</span>
-                              <ArrowRight className="w-4 h-4" />
+                              <span>Daftar Barang</span>
+                              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
                             </button>
                           </div>
                         </div>
                       )}
                     </section>
 
+                    {/* Kondisi Per Bagian (Produksi / Operasional) */}
                     {summary.categoryStats.length > 0 && (
-                      <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
+                      <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3">
+                        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                            <Boxes className="w-4 h-4" />
+                          </div>
                           <div>
-                            <div className="flex items-center gap-1.5">
-                              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-1">
+                              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
                                 Kondisi Per Bagian (Produksi / Operasional)
                               </h2>
                               <InfoButton
@@ -1006,7 +1153,7 @@ export default function App() {
                                 onOpen={setActiveInfoKey}
                               />
                             </div>
-                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                               {viewScope === 'month'
                                 ? formatMonthId(activeMonth)
                                 : formatDateId(activeDay)}{' '}
@@ -1015,7 +1162,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800/90">
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                           {summary.categoryStats.map((cat) => {
                             const netState =
                               cat.netVal < -0.5
@@ -1023,17 +1170,13 @@ export default function App() {
                                 : cat.netVal > 0.5
                                 ? 'pos'
                                 : 'eq';
-                            const barPct = Math.max(
-                              6,
-                              Math.round(
-                                (Math.max(
-                                  Math.abs(cat.negVal),
-                                  Math.abs(cat.posVal)
-                                ) /
-                                  maxCategoryMagnitude) *
-                                  100
-                              )
-                            );
+                            const absNeg = Math.abs(cat.negVal);
+                            const absPos = Math.abs(cat.posVal);
+                            const totalPair = absNeg + absPos || 1;
+                            const negShare = Math.round((absNeg / totalPair) * 100);
+                            const posShare = 100 - negShare;
+                            const lowerName = cat.category.toLowerCase();
+
                             return (
                               <button
                                 key={cat.category}
@@ -1050,40 +1193,67 @@ export default function App() {
                                     });
                                   }
                                 }}
-                                className="w-full py-3.5 px-2.5 flex items-center justify-between gap-4 text-left rounded-2xl hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors min-h-[58px] cursor-pointer"
+                                className="w-full py-3 px-1.5 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 dark:hover:bg-[#132548]/60 transition-colors min-h-[58px] cursor-pointer"
                               >
-                                <div className="min-w-0 flex-1 space-y-2">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                      {cat.category}
-                                    </span>
-                                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums whitespace-nowrap">
-                                      Kurang {formatCompactRupiah(cat.negVal)} ·
-                                      Lebih {formatCompactRupiah(cat.posVal)}
-                                    </span>
+                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                      netState === 'neg'
+                                        ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                        : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                    }`}
+                                  >
+                                    {lowerName.includes('veg') ||
+                                    lowerName.includes('sayur') ? (
+                                      <Leaf className="w-4 h-4" />
+                                    ) : lowerName.includes('wip') ? (
+                                      <ChefHat className="w-4 h-4" />
+                                    ) : lowerName.includes('meat') ||
+                                      lowerName.includes('daging') ? (
+                                      <Beef className="w-4 h-4" />
+                                    ) : lowerName.includes('dry') ||
+                                      lowerName.includes('amen') ? (
+                                      <Package className="w-4 h-4" />
+                                    ) : (
+                                      <Utensils className="w-4 h-4" />
+                                    )}
                                   </div>
-                                  <div className="w-full h-2.5 rounded-full track-3d overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full ${
-                                        netState === 'neg'
-                                          ? 'bg-gradient-to-r from-rose-400 to-red-600 dark:from-rose-500 dark:to-red-400'
-                                          : netState === 'pos'
-                                          ? 'bg-gradient-to-r from-emerald-400 to-teal-600 dark:from-emerald-500 dark:to-teal-400'
-                                          : 'bg-slate-400'
-                                      }`}
-                                      style={{ width: `${barPct}%` }}
-                                    />
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 truncate">
+                                        {cat.category}
+                                      </span>
+                                      <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">
+                                        Kurang {formatCompactRupiah(cat.negVal)} · Lebih{' '}
+                                        {formatCompactRupiah(cat.posVal)}
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                                      {negShare > 0 && (
+                                        <div
+                                          className="h-full bg-rose-500"
+                                          style={{ width: `${negShare}%` }}
+                                        />
+                                      )}
+                                      {posShare > 0 && (
+                                        <div
+                                          className="h-full bg-emerald-500"
+                                          style={{ width: `${posShare}%` }}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   <span
-                                    className={`text-sm font-mono font-bold tabular-nums ${
+                                    className={`text-xs sm:text-sm font-mono font-bold tabular-nums ${
                                       netState === 'neg'
-                                        ? 'text-red-600 dark:text-red-400'
+                                        ? 'text-rose-600 dark:text-rose-400'
                                         : netState === 'pos'
                                         ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-slate-500'
+                                        : 'text-slate-500 dark:text-slate-400'
                                     }`}
                                   >
                                     {netState === 'neg'
@@ -1092,57 +1262,80 @@ export default function App() {
                                       ? `Lebih ${formatRupiah(cat.netVal)}`
                                       : 'Pas Rp 0'}
                                   </span>
-                                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                                 </div>
                               </button>
                             );
                           })}
                         </div>
+
+                        {/* Warning Callout Box */}
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-gradient-to-r dark:from-amber-500/15 dark:to-yellow-600/10 border border-amber-200 dark:border-amber-500/30 flex items-start gap-2.5">
+                          <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-400/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <Lightbulb className="w-4 h-4" />
+                          </div>
+                          <div className="text-[11px] sm:text-xs leading-relaxed">
+                            <strong className="text-amber-800 dark:text-amber-300 font-bold block">
+                              Informasi Penting
+                            </strong>
+                            <span className="text-slate-700 dark:text-slate-300">
+                              Jika ada bagian dengan selisih besar, pastikan hitungan gudang pada bagian produksi / operasional tersebut sudah sesuai dengan catatan sistem ESB.
+                            </span>
+                          </div>
+                        </div>
                       </section>
                     )}
                   </div>
 
-                  {/* Right Column: Ringkasan Per Barang */}
-                  <section className="lg:col-span-5 surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                          Barang yang Perlu Dicek Duluan
-                        </h2>
-                        <InfoButton
-                          guideKey="topProducts"
-                          onOpen={setActiveInfoKey}
-                        />
+                  {/* Right Column: Barang yang Perlu Dicek Duluan */}
+                  <section className="lg:col-span-5 wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 border border-amber-300/60 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                          <ClipboardList className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
+                            Barang yang Perlu Dicek Duluan
+                          </h2>
+                          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+                            {viewScope === 'month'
+                              ? `10 selisih terbesar bulan ${formatMonthId(activeMonth)}`
+                              : `Barang selisih terbesar tgl ${formatDateId(activeDay)}`}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                        {viewScope === 'month'
-                          ? `10 barang dengan selisih nilai terbesar bulan ${formatMonthId(activeMonth)}`
-                          : `Barang dengan selisih terbesar tgl ${formatDateId(activeDay)}`}
-                      </p>
+                      <InfoButton
+                        guideKey="topProducts"
+                        onOpen={setActiveInfoKey}
+                      />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100/90 dark:bg-[#1a2328] rounded-xl">
+                    {/* Segmented Buttons: Kurangnya Terbesar vs Lebihnya Terbesar */}
+                    <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#0A162B] border border-slate-200 dark:border-[#182C4C] grid grid-cols-2 gap-1">
                       <button
                         type="button"
                         onClick={() => setRankMode('neg')}
-                        className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[40px] whitespace-nowrap cursor-pointer ${
+                        className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           rankMode === 'neg'
-                            ? 'bg-white dark:bg-red-500/20 text-red-700 dark:text-red-300 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-300'
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
                       >
-                        Kurangnya Terbesar
+                        <TrendingDown className="w-3.5 h-3.5 shrink-0" />
+                        <span>Kurangnya Terbesar</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setRankMode('pos')}
-                        className={`py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-colors min-h-[40px] whitespace-nowrap cursor-pointer ${
+                        className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           rankMode === 'pos'
-                            ? 'bg-white dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-300'
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
                       >
-                        Lebihnya Terbesar
+                        <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                        <span>Lebihnya Terbesar</span>
                       </button>
                     </div>
 
@@ -1150,13 +1343,13 @@ export default function App() {
                       ? summary.topDeficits
                       : summary.topSurpluses
                     ).length === 0 ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400 py-4">
+                      <p className="text-sm text-slate-500 dark:text-slate-400 py-4 text-center">
                         {rankMode === 'neg'
                           ? 'Bagus! Tidak ada barang yang hasil akhirnya kurang pada periode ini.'
                           : 'Tidak ada barang yang hasil akhirnya lebih pada periode ini.'}
                       </p>
                     ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/90">
+                      <div className="space-y-2">
                         {(rankMode === 'neg'
                           ? summary.topDeficits
                           : summary.topSurpluses
@@ -1172,47 +1365,46 @@ export default function App() {
                               key={item.name}
                               type="button"
                               onClick={() => handlePickProduct(item.name)}
-                              className="w-full flex items-center justify-between gap-3 py-3 px-2 text-left rounded-2xl hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors min-h-[60px] cursor-pointer"
+                              className="w-full p-2.5 sm:p-3 rounded-xl bg-slate-50/90 dark:bg-[#0D1C34] border border-slate-200/80 dark:border-[#1A3157] hover:border-amber-400/70 dark:hover:border-amber-500/50 flex items-center justify-between gap-2.5 text-left transition-colors min-h-[58px] cursor-pointer"
                             >
-                              <div className="flex items-start gap-3 min-w-0">
-                                <span className="mt-0.5 w-7 h-7 rounded-xl bg-gradient-to-b from-slate-50 to-slate-200/80 dark:from-slate-800 dark:to-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.08)] text-slate-700 dark:text-slate-200 text-xs font-mono font-bold tabular-nums flex items-center justify-center shrink-0">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="w-7 h-7 rounded-lg bg-white dark:bg-[#16294C] border border-slate-200 dark:border-[#223F74] text-slate-700 dark:text-slate-200 font-mono font-bold text-xs flex items-center justify-center shrink-0 tabular-nums">
                                   {String(index + 1).padStart(2, '0')}
                                 </span>
                                 <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                  <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                                     {item.name}
                                   </div>
-                                  <div
-                                    className={`text-xs font-semibold tabular-nums ${
-                                      isNeg
-                                        ? 'text-red-600 dark:text-red-400'
-                                        : 'text-emerald-600 dark:text-emerald-400'
-                                    }`}
-                                  >
-                                    {qtyLabel}
-                                  </div>
-                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                                    Bagian {item.category}
-                                    {viewScope === 'month' &&
-                                      ` · ${
+                                  <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                                    <span
+                                      className={`font-semibold inline-flex items-center gap-1 ${
                                         isNeg
-                                          ? `${item.negDays} hari kurang`
-                                          : `${item.posDays} hari lebih`
+                                          ? 'text-rose-600 dark:text-rose-400'
+                                          : 'text-emerald-600 dark:text-emerald-400'
                                       }`}
+                                    >
+                                      <Package className="w-3 h-3 shrink-0" />
+                                      {qtyLabel}
+                                    </span>
+                                    <span>·</span>
+                                    <span className="truncate">
+                                      Bagian {item.category}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right shrink-0">
-                                <div
-                                  className={`text-sm font-mono font-bold tabular-nums ${
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span
+                                  className={`text-xs sm:text-sm font-mono font-extrabold tabular-nums ${
                                     isNeg
-                                      ? 'text-red-600 dark:text-red-400'
+                                      ? 'text-rose-600 dark:text-rose-400'
                                       : 'text-emerald-600 dark:text-emerald-400'
                                   }`}
                                 >
-                                  {isNeg ? '-' : '+'}{' '}
-                                  {formatRupiah(item.netVal)}
-                                </div>
+                                  {isNeg ? '-' : '+'} {formatRupiah(item.netVal)}
+                                </span>
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                               </div>
                             </button>
                           );
@@ -1220,20 +1412,38 @@ export default function App() {
                       </div>
                     )}
 
-                    {viewScope === 'day' && activeDay && (
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/90">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDayInHarian(activeDay)}
-                          className="btn-3d-soft w-full py-2.5 px-3 text-xs sm:text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 min-h-[42px] cursor-pointer"
-                        >
-                          <span>
-                            Lihat Semua Barang Tanggal {formatDateId(activeDay)}
-                          </span>
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
+                    {/* Action Footer Banner: Lihat Semua Barang */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (viewScope === 'day' && activeDay) {
+                          handleOpenDayInHarian(activeDay);
+                        } else {
+                          setActiveTab('barang');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }}
+                      className="w-full p-3.5 rounded-2xl bg-slate-100 dark:bg-gradient-to-r dark:from-[#11244A] dark:to-[#0D1C38] border border-slate-200 dark:border-[#23437A] hover:border-amber-400/70 flex items-center justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-400/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                          <Lightbulb className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {viewScope === 'day' && activeDay
+                              ? `Lihat Semua Barang Tgl ${formatDateId(activeDay)}`
+                              : `Lihat Semua Barang (${Object.keys(summary.productMap).length} Jenis)`}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Ketuk untuk membuka daftar lengkap
+                          </div>
+                        </div>
                       </div>
-                    )}
+                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </button>
                   </section>
                 </div>
               </>
@@ -1286,15 +1496,15 @@ export default function App() {
                 }}
                 className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 cursor-pointer transition-colors grid grid-cols-1 md:grid-cols-12 gap-6 items-center ${
                   isDragging
-                    ? 'border-teal-600 bg-teal-50/70 dark:border-teal-400 dark:bg-teal-950/30'
-                    : 'border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-[#171e21] hover:border-teal-600 dark:hover:border-teal-500'
+                    ? 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25'
+                    : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-amber-500 dark:hover:border-amber-400'
                 }`}
               >
                 <div className="md:col-span-7 text-center md:text-left space-y-2.5">
-                  <div className="mx-auto md:mx-0 w-12 h-12 rounded-2xl bg-teal-100/90 dark:bg-teal-950 text-teal-800 dark:text-teal-300 flex items-center justify-center shadow-xs">
+                  <div className="mx-auto md:mx-0 w-12 h-12 rounded-2xl bg-amber-100/90 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-xs">
                     <FileSpreadsheet className="w-6 h-6" />
                   </div>
-                  <p className="text-base sm:text-lg font-bold text-teal-800 dark:text-teal-300">
+                  <p className="text-base sm:text-lg font-bold text-amber-800 dark:text-amber-300">
                     Ketuk di sini untuk pilih file Excel (.xlsx / .xls)
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -1302,7 +1512,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="md:col-span-5 rounded-2xl overflow-hidden bg-white dark:bg-[#141c20] h-40 sm:h-48 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.18)]">
+                <div className="md:col-span-5 rounded-2xl overflow-hidden bg-white dark:bg-[#0D1C34] h-40 sm:h-48 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.18)]">
                   {!uploadImgFailed ? (
                     <img
                       src={uploadExcel3d}
@@ -1312,7 +1522,7 @@ export default function App() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-teal-700 dark:text-teal-300">
+                    <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
                       <FileSpreadsheet className="w-12 h-12 opacity-75" />
                     </div>
                   )}
@@ -1357,7 +1567,7 @@ export default function App() {
                     </p>
                   </div>
                   <div>
-                    <div className="font-semibold text-teal-700 dark:text-teal-300">
+                    <div className="font-semibold text-amber-700 dark:text-amber-300">
                       Tanggal diperbarui ({lastUpload.updatedDates.length})
                     </div>
                     <p className="mt-1 text-slate-600 dark:text-slate-300">
@@ -1442,12 +1652,12 @@ export default function App() {
                         onChange={(e) => setDailySearch(e.target.value)}
                         placeholder="Cari nama barang, kode (Dry 123), atau No. SP (SP2026...)..."
                         autoComplete="off"
-                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600 min-h-[42px]"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px]"
                       />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
+                      <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-[#0A162B] dark:border dark:border-[#182C4C] rounded-xl">
                         {(
                           [
                             { id: 'all', label: 'Semua' },
@@ -1463,8 +1673,8 @@ export default function App() {
                             onClick={() => setDailyFilter(tab.id)}
                             className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[36px] cursor-pointer ${
                               dailyFilter === tab.id
-                                ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                                ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
                             {tab.label}
@@ -1477,7 +1687,7 @@ export default function App() {
                           aria-label="Filter bagian"
                           value={categoryFilter}
                           onChange={(e) => setCategoryFilter(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
+                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[42px]"
                         >
                           <option value="ALL">Semua Bagian</option>
                           {summary.categoryStats.map((cat) => (
@@ -1723,7 +1933,7 @@ export default function App() {
                           onClick={() => setViewScope('month')}
                           className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                             viewScope === 'month'
-                              ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
@@ -1734,7 +1944,7 @@ export default function App() {
                           onClick={() => setViewScope('day')}
                           className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                             viewScope === 'day'
-                              ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
@@ -1756,7 +1966,7 @@ export default function App() {
                         aria-label="Pilih tanggal di Cek Barang"
                         value={activeDay}
                         onChange={(e) => setSelectedDay(e.target.value)}
-                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[40px]"
+                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
                       >
                         {activeMonthDates
                           .slice()
@@ -1782,12 +1992,12 @@ export default function App() {
                         }}
                         placeholder="Ketik nama atau kode barang, misal: udang keju, Dry 123, beras..."
                         autoComplete="off"
-                        className="w-full pl-10 pr-4 py-3 text-sm sm:text-base rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                        className="w-full pl-10 pr-4 py-3 text-sm sm:text-base rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
                       />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#1a2124] rounded-xl">
+                      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#0A162B] dark:border dark:border-[#182C4C] rounded-xl">
                         {(
                           [
                             { id: 'all', label: 'Semua' },
@@ -1802,8 +2012,8 @@ export default function App() {
                             onClick={() => setProductFilter(tab.id)}
                             className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[40px] cursor-pointer ${
                               productFilter === tab.id
-                                ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                                ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
                             {tab.label}
@@ -1816,7 +2026,7 @@ export default function App() {
                           aria-label="Filter bagian di Cek Barang"
                           value={productCategoryFilter}
                           onChange={(e) => setProductCategoryFilter(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
+                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[42px]"
                         >
                           <option value="ALL">Semua Bagian</option>
                           {summary.categoryStats.map((cat) => (
@@ -1872,8 +2082,8 @@ export default function App() {
                               onClick={() => setSelectedProduct(name)}
                               className={`w-full flex items-center justify-between gap-3 py-3 px-2.5 text-left rounded-xl transition-colors min-h-[56px] cursor-pointer ${
                                 isPicked
-                                  ? 'bg-teal-50 dark:bg-teal-950/50'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                  ? 'bg-amber-50 dark:bg-[#16294C]'
+                                  : 'hover:bg-slate-50 dark:hover:bg-[#132548]/50'
                               }`}
                             >
                               <div className="min-w-0">
@@ -2107,7 +2317,7 @@ export default function App() {
                         onClick={() => setViewScope('month')}
                         className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                           viewScope === 'month'
-                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                            ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                             : 'text-slate-600 dark:text-slate-300'
                         }`}
                       >
@@ -2118,7 +2328,7 @@ export default function App() {
                         onClick={() => setViewScope('day')}
                         className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                           viewScope === 'day'
-                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                            ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                             : 'text-slate-600 dark:text-slate-300'
                         }`}
                       >
@@ -2139,7 +2349,7 @@ export default function App() {
                         aria-label="Pilih tanggal untuk dibaca AI"
                         value={activeDay}
                         onChange={(e) => setSelectedDay(e.target.value)}
-                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[40px]"
+                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
                       >
                         {activeMonthDates
                           .slice()
@@ -2188,7 +2398,7 @@ export default function App() {
                       Tema Tampilan
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Pilih tampilan cerah (siang) atau gelap (malam).
+                      Pilih tampilan Navy &amp; Gold (Wizzmie) atau tampilan cerah.
                     </div>
                   </div>
                   <button
@@ -2197,12 +2407,12 @@ export default function App() {
                     className="btn-3d-soft px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 flex items-center gap-2 self-start sm:self-auto min-h-[44px] cursor-pointer"
                   >
                     {isDark ? (
-                      <Sun className="w-4 h-4 text-amber-500" />
+                      <Sun className="w-4 h-4 text-amber-400" />
                     ) : (
                       <Moon className="w-4 h-4 text-slate-600" />
                     )}
                     <span>
-                      {isDark ? 'Pakai Tema Cerah' : 'Pakai Tema Gelap'}
+                      {isDark ? 'Ganti ke Tema Cerah' : 'Pakai Tema Wizzmie (Navy & Gold)'}
                     </span>
                   </button>
                 </div>
@@ -2288,7 +2498,7 @@ export default function App() {
       {/* Mobile Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Menu utama"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/92 dark:bg-[#101517]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800/90 shadow-[0_-8px_24px_-6px_rgba(15,23,42,0.08)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#1C3259] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
       >
         <div className="grid grid-cols-6 h-16">
           {navItems.map((item) => {
@@ -2301,8 +2511,8 @@ export default function App() {
                 onClick={() => setActiveTab(item.id)}
                 className={`flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
                   isActive
-                    ? 'text-teal-700 dark:text-teal-300 font-bold'
-                    : 'text-slate-500 dark:text-slate-400 font-medium'
+                    ? 'text-amber-600 dark:text-amber-400 font-bold'
+                    : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 {item.icon}
@@ -2398,7 +2608,7 @@ function EmptyStateCard({
           </div>
         </div>
 
-        <div className="lg:col-span-5 rounded-2xl overflow-hidden bg-gradient-to-br from-teal-50 via-white to-sky-50 dark:from-teal-950/30 dark:via-[#172025] dark:to-slate-900 shadow-[0_12px_28px_-12px_rgba(13,148,136,0.25)] min-h-[220px]">
+        <div className="lg:col-span-5 rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 via-white to-sky-50 dark:from-[#0D1C34] dark:via-[#10213F] dark:to-[#070D1E] border border-slate-200 dark:border-[#1E355D] shadow-[0_12px_28px_-12px_rgba(245,158,11,0.22)] min-h-[220px]">
           {!imgFailed ? (
             <img
               src={heroInventory3d}
@@ -2408,7 +2618,7 @@ function EmptyStateCard({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-teal-700 dark:text-teal-300">
+            <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
               <PackageSearch className="w-14 h-14 opacity-75" />
             </div>
           )}
@@ -2470,7 +2680,7 @@ function ReadableStockRow({
           <button
             type="button"
             onClick={onTitleClick}
-            className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white hover:text-teal-700 dark:hover:text-teal-300 text-left break-words cursor-pointer"
+            className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-300 text-left break-words cursor-pointer"
           >
             {title}
           </button>
