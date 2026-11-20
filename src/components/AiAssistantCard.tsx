@@ -17,7 +17,7 @@ export interface AiChatMessage {
 const QUICK_PROMPTS = [
   'Jelaskan kondisi stok bulan ini pakai bahasa gampang',
   'Barang apa saja yang kemarin kurang tapi besoknya lebih?',
-  'Bagian dapur mana yang harus dicek duluan?',
+  'Bagian produksi / operasional mana yang harus dicek duluan?',
 ];
 
 export function AiAssistantCard({

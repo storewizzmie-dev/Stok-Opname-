@@ -984,9 +984,9 @@ export function buildAiStockContext(
       ]
         .filter(Boolean)
         .join(',');
-      return `${dateKey}|${r[0]}|${r[8] || 'Lainnya'}|Komp:${formatQty(
+      return `${dateKey}|${r[0]}|${r[8] || 'Lainnya'}|ESB:${formatQty(
         r[2]
-      )}|Asli:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}${
+      )}|Gudang:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}${
         extraParts ? `|${extraParts}` : ''
       }`;
     };
@@ -1047,7 +1047,7 @@ export function buildAiStockContext(
 
     if (rowLines.length > 0) {
       lines.push(
-        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Komputer|Hitung Asli|Selisih|Rupiah|Info Tambahan):'
+        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Sistem ESB|Hitungan Gudang|Selisih|Rupiah|Info Tambahan):'
       );
       lines.push(...rowLines);
     }

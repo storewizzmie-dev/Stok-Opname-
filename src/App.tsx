@@ -45,7 +45,7 @@ import {
 const STORAGE_KEY = 'so';
 const THEME_KEY = 'so_theme';
 
-type MenuTab = 'beranda' | 'upload' | 'harian' | 'barang' | 'pengaturan';
+type MenuTab = 'beranda' | 'upload' | 'harian' | 'barang' | 'ai' | 'pengaturan';
 type DailyFilter = 'all' | 'diff' | 'neg' | 'pos' | 'pas';
 type ProductFilter = 'all' | 'neg' | 'pos' | 'pas';
 type RankMode = 'neg' | 'pos';
@@ -96,7 +96,6 @@ export default function App() {
   const [activeBarDate, setActiveBarDate] = useState<string>('');
   const [activeInfoKey, setActiveInfoKey] = useState<InfoGuideKey | null>(null);
   const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
-  const [aiModalOpen, setAiModalOpen] = useState(false);
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -131,15 +130,6 @@ export default function App() {
       if (wipeTimerRef.current) window.clearTimeout(wipeTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (!aiModalOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAiModalOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [aiModalOpen]);
 
   const allDates = useMemo(() => Object.keys(data).sort(), [data]);
   const allMonths = useMemo(
@@ -387,7 +377,6 @@ export default function App() {
     setActiveBarDate('');
     setLastUpload(null);
     setAiMessages([]);
-    setAiModalOpen(false);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -499,12 +488,48 @@ export default function App() {
     return worstDay && worstDay.negVal < 0 ? worstDay : null;
   }, [summary, viewScope, activeDay, activeBarDate, worstDay]);
 
-  const navItems: { id: MenuTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'beranda', label: 'Beranda', icon: <Home className="w-5 h-5 md:w-4 md:h-4" /> },
-    { id: 'upload', label: 'Upload', icon: <Upload className="w-5 h-5 md:w-4 md:h-4" /> },
-    { id: 'harian', label: 'Harian', icon: <CalendarDays className="w-5 h-5 md:w-4 md:h-4" /> },
-    { id: 'barang', label: 'Cek Barang', icon: <PackageSearch className="w-5 h-5 md:w-4 md:h-4" /> },
-    { id: 'pengaturan', label: 'Pengaturan', icon: <Settings className="w-5 h-5 md:w-4 md:h-4" /> },
+  const navItems: {
+    id: MenuTab;
+    label: string;
+    mobileLabel: string;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      id: 'beranda',
+      label: 'Beranda',
+      mobileLabel: 'Beranda',
+      icon: <Home className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'upload',
+      label: 'Upload',
+      mobileLabel: 'Upload',
+      icon: <Upload className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'harian',
+      label: 'Harian',
+      mobileLabel: 'Harian',
+      icon: <CalendarDays className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'barang',
+      label: 'Cek Barang',
+      mobileLabel: 'Barang',
+      icon: <PackageSearch className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'ai',
+      label: 'Chat AI',
+      mobileLabel: 'Chat AI',
+      icon: <Sparkles className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'pengaturan',
+      label: 'Pengaturan',
+      mobileLabel: 'Atur',
+      icon: <Settings className="w-5 h-5 md:w-4 md:h-4" />,
+    },
   ];
 
   const handleSelectMonth = (monthKey: string) => {
@@ -765,7 +790,7 @@ export default function App() {
                       {!heroImgFailed ? (
                         <img
                           src={heroInventory3d}
-                          alt="Ilustrasi 3D rak penyimpanan stok dapur dan tablet pemantau"
+                          alt="Ilustrasi 3D rak penyimpanan stok produksi / operasional dan tablet pemantau"
                           referrerPolicy="no-referrer"
                           onError={() => setHeroImgFailed(true)}
                           className="w-full h-full object-cover"
@@ -781,13 +806,37 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Clean 3-Metric Strip */}
+                  {/* Clean 3-Metric Strip: Kurang -> Lebih -> Hasil Gabungan */}
                   <div className="pt-6 border-t border-slate-100 dark:border-slate-800/90 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-0 md:divide-x divide-slate-100 dark:divide-slate-800/90">
                     <div className="md:pr-6">
                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        1. Barang Kurang (Hitungan Gudang &lt; Sistem ESB)
+                      </div>
+                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-red-600 dark:text-red-400">
+                        - {formatRupiah(summary.totalNeg)}
+                      </div>
+                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
+                        Ada {summary.negProductCount} barang yang jumlah nyatanya lebih sedikit daripada catatan sistem ESB.
+                      </div>
+                    </div>
+
+                    <div className="md:px-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        2. Barang Lebih (Hitungan Gudang &gt; Sistem ESB)
+                      </div>
+                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
+                        + {formatRupiah(summary.totalPos)}
+                      </div>
+                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
+                        Ada {summary.posProductCount} barang yang jumlah nyatanya lebih banyak daripada catatan sistem ESB.
+                      </div>
+                    </div>
+
+                    <div className="md:pl-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {viewScope === 'month'
-                          ? 'Kesimpulan Bulan Ini'
-                          : 'Kesimpulan Hari Ini'}
+                          ? '3. Hasil Gabungan Bulan Ini (Lebih − Kurang)'
+                          : '3. Hasil Gabungan Hari Ini (Lebih − Kurang)'}
                       </div>
                       <div
                         className={`mt-1.5 text-2xl sm:text-3xl font-bold font-mono tabular-nums tracking-tight ${
@@ -804,51 +853,19 @@ export default function App() {
                           ? `Lebih + ${formatRupiah(summary.netTotal)}`
                           : 'Pas Rp 0'}
                       </div>
-                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      <div className="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                        Hitungan: (+ {formatCompactRupiah(summary.totalPos)}) − (- {formatCompactRupiah(summary.totalNeg)})
+                      </div>
+                      <div className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                         {summary.netTotal < -0.5
-                          ? 'Barang yang hilang atau kurang nilainya lebih besar daripada yang berlebih.'
+                          ? 'Fungsinya mengecek apakah total nilai stok masih tekor. Saat ini total rupiah barang kurang masih lebih besar dari yang lebih. Cek daftar barang kurang di bawah.'
                           : summary.netTotal > 0.5
-                          ? 'Kondisi aman: nilai barang yang lebih masih menutupi barang yang kurang.'
-                          : 'Catatan komputer dan hitungan nyata di gudang sudah pas semua.'}
-                      </div>
-                    </div>
-
-                    <div className="md:px-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        Barang Kurang (Hilang / Minus)
-                      </div>
-                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-red-600 dark:text-red-400">
-                        - {formatRupiah(summary.totalNeg)}
-                      </div>
-                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
-                        Ada {summary.negProductCount} barang yang jumlah aslinya lebih sedikit dari catatan komputer.
-                      </div>
-                    </div>
-
-                    <div className="md:pl-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/90">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        Barang Lebih (Sisa / Plus)
-                      </div>
-                      <div className="mt-1.5 text-xl sm:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                        + {formatRupiah(summary.totalPos)}
-                      </div>
-                      <div className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 tabular-nums leading-relaxed">
-                        Ada {summary.posProductCount} barang yang jumlah aslinya lebih banyak dari catatan komputer.
+                          ? 'Fungsinya mengecek total selisih uang: nilai barang lebih lebih besar dari yang kurang. Namun tetap cek daftar barang kurang di bawah agar jelas penyebabnya.'
+                          : 'Fungsinya mengecek total selisih uang: catatan sistem ESB dan hitungan gudang sudah seimbang.'}
                       </div>
                     </div>
                   </div>
                 </section>
-
-                {/* AI Stock Assistant */}
-                <AiAssistantCard
-                  summary={summary}
-                  activeMonth={activeMonth}
-                  data={data}
-                  currentMenuLabel="Beranda"
-                  messages={aiMessages}
-                  onMessagesChange={setAiMessages}
-                  onOpenInfo={setActiveInfoKey}
-                />
 
                 {/* Main Analytics Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -982,7 +999,7 @@ export default function App() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                                Kondisi Per Bagian Dapur
+                                Kondisi Per Bagian (Produksi / Operasional)
                               </h2>
                               <InfoButton
                                 guideKey="categories"
@@ -1228,28 +1245,16 @@ export default function App() {
         {activeTab === 'upload' && (
           <div className="space-y-6 max-w-5xl">
             <section className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                      Upload Laporan Excel
-                    </h1>
-                    <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Pilih file laporan stok (.xlsx atau .xls). Semua baris, kode barang, harga, dan catatan tanggal langsung dirapikan otomatis.
-                  </p>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    Upload Laporan Excel
+                  </h1>
+                  <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
                 </div>
-                {summary && (
-                  <button
-                    type="button"
-                    onClick={() => setAiModalOpen(true)}
-                    className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-teal-800 dark:text-teal-300 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap self-start shrink-0 cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Tanya AI</span>
-                  </button>
-                )}
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Pilih file laporan stok (.xlsx atau .xls). Semua baris, kode barang, harga, dan catatan tanggal langsung dirapikan otomatis.
+                </p>
               </div>
 
               <div
@@ -1413,30 +1418,19 @@ export default function App() {
             ) : (
               <>
                 <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                          Catatan Harian ({formatMonthId(activeMonth)})
-                        </h1>
-                        <InfoButton
-                          guideKey="harian"
-                          onOpen={setActiveInfoKey}
-                        />
-                      </div>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                        Semua {summary.totalRowsCount} baris hitungan dari Excel tampil lengkap (termasuk barang yang Pas). Ketuk tanggal untuk membuka rinciannya.
-                      </p>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                        Catatan Harian ({formatMonthId(activeMonth)})
+                      </h1>
+                      <InfoButton
+                        guideKey="harian"
+                        onOpen={setActiveInfoKey}
+                      />
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setAiModalOpen(true)}
-                      className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-teal-800 dark:text-teal-300 flex items-center gap-1.5 min-h-[42px] whitespace-nowrap self-start shrink-0 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-300" />
-                      <span>Tanya AI</span>
-                    </button>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                      Semua {summary.totalRowsCount} baris hitungan dari Excel tampil lengkap (termasuk barang yang Pas). Ketuk tanggal untuk membuka rinciannya.
+                    </p>
                   </div>
 
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -1747,14 +1741,6 @@ export default function App() {
                           1 Hari
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setAiModalOpen(true)}
-                        className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-teal-800 dark:text-teal-300 flex items-center gap-1.5 min-h-[42px] whitespace-nowrap cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-300" />
-                        <span>Tanya AI</span>
-                      </button>
                     </div>
                   </div>
 
@@ -2092,29 +2078,107 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 5: PENGATURAN */}
+        {/* PAGE 5: CHAT AI */}
+        {activeTab === 'ai' && (
+          <div className="space-y-5 max-w-4xl">
+            {!summary ? (
+              <EmptyStateCard
+                onUploadClick={() => fileInputRef.current?.click()}
+                onRestoreClick={() => restoreInputRef.current?.click()}
+              />
+            ) : (
+              <>
+                <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                        Chat AI Analisis Stok
+                      </h1>
+                      <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                        {viewScope === 'month'
+                          ? `AI sedang membaca seluruh data ${formatMonthId(activeMonth)} (sebulan penuh).`
+                          : `AI sedang membaca data tanggal ${formatDateId(activeDay)} (1 hari).`}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 p-1 track-3d rounded-xl self-start">
+                      <button
+                        type="button"
+                        onClick={() => setViewScope('month')}
+                        className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          viewScope === 'month'
+                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        Sebulan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope('day')}
+                        className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          viewScope === 'day'
+                            ? 'bg-white dark:bg-teal-500 text-slate-900 dark:text-slate-950 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        1 Hari
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MonthSelector
+                      months={allMonths}
+                      activeMonth={activeMonth}
+                      monthCounts={monthCounts}
+                      onSelect={handleSelectMonth}
+                    />
+                    {viewScope === 'day' && (
+                      <select
+                        aria-label="Pilih tanggal untuk dibaca AI"
+                        value={activeDay}
+                        onChange={(e) => setSelectedDay(e.target.value)}
+                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-teal-600/40 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[40px]"
+                      >
+                        {activeMonthDates
+                          .slice()
+                          .reverse()
+                          .map((d) => (
+                            <option key={d} value={d}>
+                              {formatDateId(d)}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+                </section>
+
+                <AiAssistantCard
+                  summary={summary}
+                  activeMonth={activeMonth}
+                  data={data}
+                  currentMenuLabel="Chat AI"
+                  messages={aiMessages}
+                  onMessagesChange={setAiMessages}
+                  onOpenInfo={setActiveInfoKey}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {/* PAGE 6: PENGATURAN */}
         {activeTab === 'pengaturan' && (
           <div className="space-y-5 max-w-3xl">
             <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                    Pengaturan & Simpan Cadangan
-                  </h1>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Semua data tersimpan aman di perangkat ini. Simpan file cadangan sesekali supaya data tetap aman saat pindah HP atau komputer.
-                  </p>
-                </div>
-                {summary && (
-                  <button
-                    type="button"
-                    onClick={() => setAiModalOpen(true)}
-                    className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-teal-800 dark:text-teal-300 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap self-start shrink-0 cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-300" />
-                    <span>Tanya AI</span>
-                  </button>
-                )}
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  Pengaturan & Simpan Cadangan
+                </h1>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Semua data tersimpan aman di perangkat ini. Simpan file cadangan sesekali supaya data tetap aman saat pindah HP atau perangkat lain.
+                </p>
               </div>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-800/90">
@@ -2226,64 +2290,30 @@ export default function App() {
         aria-label="Menu utama"
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/92 dark:bg-[#101517]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800/90 shadow-[0_-8px_24px_-6px_rgba(15,23,42,0.08)]"
       >
-        <div className="grid grid-cols-5 h-16">
+        <div className="grid grid-cols-6 h-16">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
+                aria-label={item.label}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
                   isActive
                     ? 'text-teal-700 dark:text-teal-300 font-bold'
                     : 'text-slate-500 dark:text-slate-400 font-medium'
                 }`}
               >
                 {item.icon}
-                <span className="text-[11px] leading-none">{item.label}</span>
+                <span className="text-[10px] leading-none truncate max-w-full">
+                  {item.mobileLabel}
+                </span>
               </button>
             );
           })}
         </div>
       </nav>
-
-      {/* AI Modal for Non-Beranda Menus */}
-      {aiModalOpen && summary && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Asisten AI Stok"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-slate-950/55 backdrop-blur-xs"
-          onClick={() => setAiModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <AiAssistantCard
-              summary={summary}
-              activeMonth={activeMonth}
-              data={data}
-              currentMenuLabel={
-                activeTab === 'upload'
-                  ? 'Upload'
-                  : activeTab === 'harian'
-                  ? 'Harian'
-                  : activeTab === 'barang'
-                  ? 'Cek Barang'
-                  : activeTab === 'pengaturan'
-                  ? 'Pengaturan'
-                  : 'Beranda'
-              }
-              messages={aiMessages}
-              onMessagesChange={setAiMessages}
-              onOpenInfo={setActiveInfoKey}
-              onClose={() => setAiModalOpen(false)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Global Info Guide Modal */}
       <InfoDialog
@@ -2372,7 +2402,7 @@ function EmptyStateCard({
           {!imgFailed ? (
             <img
               src={heroInventory3d}
-              alt="Ilustrasi 3D rak penyimpanan stok dapur dan tablet pemantau"
+              alt="Ilustrasi 3D rak penyimpanan stok produksi / operasional dan tablet pemantau"
               referrerPolicy="no-referrer"
               onError={() => setImgFailed(true)}
               className="w-full h-full object-cover"
@@ -2450,12 +2480,12 @@ function ReadableStockRow({
           </div>
         )}
         <div className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-          Di Komputer:{' '}
+          Di Sistem ESB:{' '}
           <strong className="font-mono text-slate-800 dark:text-slate-200">
             {formatQty(sysQty)}
           </strong>
           {' · '}
-          Hitung di Toko:{' '}
+          Hitungan Gudang:{' '}
           <strong className="font-mono text-slate-800 dark:text-slate-200">
             {formatQty(opQty)} {unit}
           </strong>

@@ -20,34 +20,34 @@ export interface InfoGuideData {
 
 export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
   overview: {
-    title: 'Kesimpulan Bulan Ini',
+    title: 'Cara Membaca 3 Angka Utama',
     purpose:
-      'Mengecek apakah barang di gudang toko lebih banyak yang hilang/kurang atau lebih banyak yang berlebih.',
+      'Membandingkan catatan di sistem ESB dengan hitungan gudang, sekaligus melihat total dampak selisih uangnya.',
     steps: [
       {
-        label: 'Merah = Barang Kurang (Hilang / Minus)',
-        text: 'Barang yang saat dihitung langsung di toko jumlahnya lebih sedikit daripada catatan di komputer.',
+        label: '1. Barang Kurang (Minus)',
+        text: 'Total nilai barang yang saat hitungan gudang jumlahnya lebih sedikit daripada catatan sistem ESB.',
       },
       {
-        label: 'Hijau = Barang Lebih (Sisa / Plus)',
-        text: 'Barang yang saat dihitung langsung di toko jumlahnya lebih banyak daripada catatan di komputer.',
+        label: '2. Barang Lebih (Plus)',
+        text: 'Total nilai barang yang saat hitungan gudang jumlahnya lebih banyak daripada catatan sistem ESB.',
       },
       {
-        label: 'Kesimpulan Bulan Ini',
-        text: 'Total Lebih dikurangi Total Kurang. Kalau hasilnya masih bertanda KURANG (-), artinya nilai barang kurang masih lebih besar.',
+        label: '3. Hasil Gabungan (Fungsi & Rumusnya)',
+        text: 'Dihitung dari Total Lebih dikurangi Total Kurang. Fungsinya untuk melihat apakah total nilai uang bulan ini masih tekor (minus) atau nilainya tertutupi oleh barang yang lebih. Tetap cek barang minus di bawah satu per satu agar tahu penyebab selisihnya.',
       },
       {
-        label: 'Tombol Sebulan / 1 Hari',
-        text: 'Pilih "Sebulan" untuk melihat total 1 bulan penuh, atau pilih "1 Hari" untuk mengecek 1 tanggal saja.',
+        label: 'Tombol Rekap Sebulan / Cek 1 Hari',
+        text: 'Pilih "Rekap Sebulan" untuk melihat total 1 bulan penuh, atau pilih "Cek 1 Hari" untuk mengecek 1 tanggal saja.',
       },
     ],
     example:
-      'Kalau Barang Kurang Rp 2 jt dan Barang Lebih Rp 3 jt, berarti Kesimpulannya LEBIH Rp 1 jt (masih aman karena kelebihannya menutupi yang kurang).',
+      'Misalnya Barang Kurang Rp 2 jt dan Barang Lebih Rp 3 jt. Hasil Gabungannya: 3 jt − 2 jt = Lebih Rp 1 jt (secara total rupiah tidak tekor, tapi barang yang kurang Rp 2 jt tetap dicek di daftar bawah).',
   },
   dailyChart: {
     title: 'Tanggal Mana yang Paling Banyak Kurang?',
     purpose:
-      'Mencari tahu tanggal berapa saja barang di toko paling banyak kurangnya.',
+      'Mencari tahu tanggal berapa saja barang di gudang paling banyak kurangnya.',
     steps: [
       {
         label: 'Tinggi balok merah',
@@ -66,9 +66,9 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       'Kalau balok tanggal 8 paling tinggi dan di atasnya tertulis "3,2jt", artinya di tanggal 8 ada barang kurang senilai sekitar Rp 3,2 juta.',
   },
   categories: {
-    title: 'Kondisi Per Bagian Dapur',
+    title: 'Kondisi Per Bagian (Produksi / Operasional)',
     purpose:
-      'Mengetahui bagian dapur atau gudang mana yang paling sering selisih (seperti WIP, Dry Store, Meat, atau Sayur).',
+      'Mengetahui bagian produksi atau operasional mana yang paling sering selisih (seperti WIP, Dry Store, Meat, atau Sayur).',
     steps: [
       {
         label: 'Nama bagian di kiri',
@@ -76,7 +76,7 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       },
       {
         label: 'Angka di kanan',
-        text: 'Kesimpulan bagian itu. Merah artinya secara total masih Kurang, Hijau artinya masih Lebih.',
+        text: 'Hasil gabungan bagian itu. Merah artinya secara total masih Kurang, Hijau artinya masih Lebih.',
       },
       {
         label: 'Ketuk nama bagian',
@@ -117,8 +117,8 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
         text: 'Kurang, Lebih, dan Hasil pada tiap tanggal hanya menghitung hari itu saja (tidak dicampur tanggal lain).',
       },
       {
-        label: 'Di Komputer vs Hitung di Toko',
-        text: '"Di Komputer" adalah stok menurut sistem kasir/gudang. "Hitung di Toko" adalah barang nyata yang dihitung langsung di toko.',
+        label: 'Di Sistem ESB vs Hitungan Gudang',
+        text: '"Di Sistem ESB" adalah jumlah stok menurut sistem ESB. "Hitungan Gudang" adalah jumlah barang nyata yang dihitung di gudang.',
       },
       {
         label: 'Ketuk tanggal',
@@ -126,7 +126,7 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       },
     ],
     example:
-      'Tertulis "Di Komputer: 10 · Hitung di Toko: 8 KG" dan di kanan "Kurang 2 KG". Artinya di komputer tercatat ada 10 KG, tapi barang nyatanya di dapur cuma ada 8 KG (kurang 2 KG).',
+      'Tertulis "Di Sistem ESB: 10 · Hitungan Gudang: 8 KG" dan di kanan "Kurang 2 KG". Artinya di sistem ESB tercatat ada 10 KG, tapi hitungan gudang cuma ada 8 KG (kurang 2 KG).',
   },
   cekBarang: {
     title: 'Cek Riwayat Barang',
@@ -181,7 +181,7 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       },
       {
         label: 'Tanya Bebas',
-        text: 'Anda bisa bertanya dengan kalimat biasa, misalnya menanyakan barang tertentu atau bagian dapur yang sering selisih.',
+        text: 'Anda bisa bertanya dengan kalimat biasa, misalnya menanyakan barang tertentu atau bagian produksi / operasional yang sering selisih.',
       },
       {
         label: 'Sesuai Pilihan Bulan / Hari',
