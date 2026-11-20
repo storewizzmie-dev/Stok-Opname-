@@ -15,9 +15,9 @@ export interface AiChatMessage {
 }
 
 const QUICK_PROMPTS = [
-  'Jelaskan laporan ini dengan bahasa paling gampang',
-  'Barang apa yang kemungkinan cuma salah hitung?',
-  'Bagian dapur mana yang paling perlu dicek?',
+  'Jelaskan kondisi stok bulan ini pakai bahasa gampang',
+  'Barang apa saja yang kemarin kurang tapi besoknya lebih?',
+  'Bagian dapur mana yang harus dicek duluan?',
 ];
 
 export function AiAssistantCard({
@@ -139,25 +139,24 @@ export function AiAssistantCard({
 
   return (
     <section
-      className={`bg-white dark:bg-[#121719] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 sm:p-6 space-y-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
+      className={`surface-3d rounded-3xl p-5 sm:p-7 space-y-4 ${
         onClose ? 'flex flex-col max-h-[88vh]' : ''
       }`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-1.5">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
               Asisten AI Stok
             </h2>
             <InfoButton guideKey="aiAssistant" onOpen={onOpenInfo} />
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Membaca semua menu ({totalProducts} barang · {totalDates} hari di{' '}
-            {formatMonthId(activeMonth)})
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            Siap membantu membaca {totalProducts} jenis barang dari {totalDates} hari laporan ({formatMonthId(activeMonth)})
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {messages.length > 0 && (
             <button
               type="button"
@@ -165,7 +164,7 @@ export function AiAssistantCard({
                 onMessagesChange([]);
                 setErrorMsg(null);
               }}
-              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
+              className="btn-3d-soft px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Hapus Chat</span>
@@ -175,17 +174,17 @@ export function AiAssistantCard({
             type="button"
             disabled={isLoading}
             onClick={() => void handleAutoSummary()}
-            className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 disabled:opacity-50 transition-colors flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
+            className="btn-3d-primary px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl disabled:opacity-50 flex items-center gap-1.5 min-h-[42px] whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{isLoading ? 'AI Membaca...' : 'Ringkas Otomatis'}</span>
+            <span>{isLoading ? 'AI Sedang Membaca...' : 'Ringkas Pakai AI'}</span>
           </button>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
               aria-label="Tutup jendela AI"
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+              className="btn-3d-soft p-2 rounded-xl text-slate-600 dark:text-slate-300 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -201,7 +200,7 @@ export function AiAssistantCard({
             type="button"
             disabled={isLoading}
             onClick={() => void handleAsk(prompt)}
-            className="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#1a2124] text-slate-700 dark:text-slate-200 hover:border-teal-600/50 hover:text-teal-800 dark:hover:text-teal-300 disabled:opacity-50 transition-colors min-h-[36px] text-left cursor-pointer"
+            className="btn-3d-soft px-3.5 py-2 text-xs font-medium rounded-xl text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 disabled:opacity-50 min-h-[38px] text-left cursor-pointer"
           >
             {prompt}
           </button>
@@ -211,7 +210,7 @@ export function AiAssistantCard({
       {/* Chat Messages */}
       {(messages.length > 0 || isLoading) && (
         <div
-          className={`space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/90 overflow-y-auto pr-1 ${
+          className={`space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/90 overflow-y-auto pr-1 ${
             onClose ? 'flex-1 min-h-[160px]' : 'max-h-[520px]'
           }`}
         >
@@ -225,8 +224,8 @@ export function AiAssistantCard({
               <div
                 className={`max-w-[92%] sm:max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950 font-medium'
-                    : 'bg-slate-50 dark:bg-[#182023] border border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200'
+                    ? 'bg-teal-600 text-white dark:bg-teal-500 dark:text-slate-950 font-medium shadow-sm'
+                    : 'bg-slate-100/80 dark:bg-[#1a2328] text-slate-800 dark:text-slate-200'
                 }`}
               >
                 {msg.role === 'user' ? (
@@ -240,8 +239,8 @@ export function AiAssistantCard({
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="rounded-2xl px-4 py-3 text-sm bg-slate-50 dark:bg-[#182023] border border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                Sedang membaca seluruh data stok...
+              <div className="rounded-2xl px-4 py-3 text-sm bg-slate-100/80 dark:bg-[#1a2328] text-slate-500 dark:text-slate-400">
+                Sedang membaca seluruh catatan stok Anda...
               </div>
             </div>
           )}
@@ -261,21 +260,21 @@ export function AiAssistantCard({
           e.preventDefault();
           void handleAsk();
         }}
-        className="flex items-center gap-2 pt-1 shrink-0"
+        className="flex items-center gap-2.5 pt-1 shrink-0"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading}
-          placeholder="Tanya barang/tanggal apa saja, misal: info udang keju tanggal 17"
-          className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600 min-h-[44px]"
+          placeholder="Tulis pertanyaan biasa di sini, misal: info udang keju tanggal 17"
+          className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
           aria-label="Kirim pertanyaan ke AI"
-          className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 disabled:opacity-40 transition-colors flex items-center gap-1.5 min-h-[44px] shrink-0 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
+          className="btn-3d-primary px-4 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center gap-1.5 min-h-[44px] shrink-0 whitespace-nowrap cursor-pointer disabled:cursor-not-allowed"
         >
           <Send className="w-4 h-4" />
           <span className="hidden sm:inline">Kirim</span>

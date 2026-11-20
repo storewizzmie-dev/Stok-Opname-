@@ -20,53 +20,53 @@ export interface InfoGuideData {
 
 export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
   overview: {
-    title: 'Ringkasan Stok Opname',
+    title: 'Kesimpulan Bulan Ini',
     purpose:
       'Mengecek apakah barang di gudang toko lebih banyak yang hilang/kurang atau lebih banyak yang berlebih.',
     steps: [
       {
-        label: 'Merah = Kurang (Minus)',
-        text: 'Barang yang saat dihitung aslinya lebih sedikit daripada catatan di komputer.',
+        label: 'Merah = Barang Kurang (Hilang / Minus)',
+        text: 'Barang yang saat dihitung langsung di toko jumlahnya lebih sedikit daripada catatan di komputer.',
       },
       {
-        label: 'Hijau = Lebih (Plus)',
-        text: 'Barang yang saat dihitung aslinya lebih banyak daripada catatan di komputer.',
+        label: 'Hijau = Barang Lebih (Sisa / Plus)',
+        text: 'Barang yang saat dihitung langsung di toko jumlahnya lebih banyak daripada catatan di komputer.',
       },
       {
-        label: 'Hasil Akhir',
-        text: 'Total Lebih dikurangi Total Kurang. Kalau hasilnya masih bertanda KURANG (-), artinya nilai barang hilang masih lebih besar.',
+        label: 'Kesimpulan Bulan Ini',
+        text: 'Total Lebih dikurangi Total Kurang. Kalau hasilnya masih bertanda KURANG (-), artinya nilai barang kurang masih lebih besar.',
       },
       {
-        label: 'Tombol Bulan / Hari',
-        text: 'Pilih "Bulan" untuk melihat total 1 bulan penuh, atau pilih "Hari" untuk mengecek 1 tanggal saja.',
+        label: 'Tombol Sebulan / 1 Hari',
+        text: 'Pilih "Sebulan" untuk melihat total 1 bulan penuh, atau pilih "1 Hari" untuk mengecek 1 tanggal saja.',
       },
     ],
     example:
-      'Kalau Total Kurang Rp 2 jt dan Total Lebih Rp 3 jt, berarti Hasil Akhirnya LEBIH Rp 1 jt (masih aman karena kelebihannya menutupi yang kurang).',
+      'Kalau Barang Kurang Rp 2 jt dan Barang Lebih Rp 3 jt, berarti Kesimpulannya LEBIH Rp 1 jt (masih aman karena kelebihannya menutupi yang kurang).',
   },
   dailyChart: {
-    title: 'Grafik Kurang Per Hari',
+    title: 'Tanggal Mana yang Paling Banyak Kurang?',
     purpose:
       'Mencari tahu tanggal berapa saja barang di toko paling banyak kurangnya.',
     steps: [
       {
-        label: 'Tinggi batang merah',
-        text: 'Makin tinggi batangnya, makin besar uang barang yang kurang pada tanggal itu.',
+        label: 'Tinggi balok merah',
+        text: 'Makin tinggi baloknya, makin besar nilai barang yang kurang pada tanggal itu.',
       },
       {
         label: 'Singkatan rb & jt',
         text: '"rb" artinya ribuan, "jt" artinya jutaan. Contoh: 500rb = Rp 500.000, dan 2,5jt = Rp 2.500.000.',
       },
       {
-        label: 'Ketuk batang tanggal',
+        label: 'Ketuk balok tanggal',
         text: 'Untuk melihat berapa kurang dan lebih di tanggal tersebut, lalu langsung buka daftar barangnya.',
       },
     ],
     example:
-      'Kalau batang tanggal 8 paling tinggi dan di atasnya tertulis "3,2jt", artinya di tanggal 8 ada barang kurang senilai sekitar Rp 3,2 juta.',
+      'Kalau balok tanggal 8 paling tinggi dan di atasnya tertulis "3,2jt", artinya di tanggal 8 ada barang kurang senilai sekitar Rp 3,2 juta.',
   },
   categories: {
-    title: 'Ringkasan Per Bagian',
+    title: 'Kondisi Per Bagian Dapur',
     purpose:
       'Mengetahui bagian dapur atau gudang mana yang paling sering selisih (seperti WIP, Dry Store, Meat, atau Sayur).',
     steps: [
@@ -87,7 +87,7 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       'Jika baris "WIP" bertuliskan merah "Kurang Rp 1.200.000", artinya seluruh bahan WIP jika dijumlahkan masih kurang Rp 1,2 juta.',
   },
   topProducts: {
-    title: 'Ringkasan Per Barang',
+    title: 'Barang yang Perlu Dicek Duluan',
     purpose:
       'Menunjukkan 10 barang dengan selisih uang paling besar supaya Anda langsung tahu barang mana yang harus dicek duluan.',
     steps: [
@@ -108,17 +108,17 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       'Tertulis "Minyak Goreng — Kurang 18 L (sekitar 1 Jrg) — - Rp 300.000". Artinya minyak goreng di gudang kurang 18 liter atau sekitar 1 jerigen senilai Rp 300 ribu.',
   },
   harian: {
-    title: 'Laporan Harian',
+    title: 'Catatan Harian',
     purpose:
-      'Melihat daftar semua barang yang hitungan aslinya tidak cocok dengan komputer di tiap tanggal.',
+      'Melihat daftar semua barang (yang kurang, lebih, maupun pas) di setiap tanggal.',
     steps: [
       {
         label: 'Angka per tanggal berdiri sendiri',
         text: 'Kurang, Lebih, dan Hasil pada tiap tanggal hanya menghitung hari itu saja (tidak dicampur tanggal lain).',
       },
       {
-        label: 'Komputer vs Hitung Asli',
-        text: '"Komputer" adalah stok menurut sistem kasir/gudang. "Hitung Asli" adalah barang nyata yang dihitung di toko.',
+        label: 'Di Komputer vs Hitung di Toko',
+        text: '"Di Komputer" adalah stok menurut sistem kasir/gudang. "Hitung di Toko" adalah barang nyata yang dihitung langsung di toko.',
       },
       {
         label: 'Ketuk tanggal',
@@ -126,7 +126,7 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
       },
     ],
     example:
-      'Tertulis "Komputer: 10 · Hitung Asli: 8 KG" dan di kanan "Kurang 2 KG". Artinya di komputer tercatat ada 10 KG, tapi barang nyatanya di dapur cuma ada 8 KG (kurang 2 KG).',
+      'Tertulis "Di Komputer: 10 · Hitung di Toko: 8 KG" dan di kanan "Kurang 2 KG". Artinya di komputer tercatat ada 10 KG, tapi barang nyatanya di dapur cuma ada 8 KG (kurang 2 KG).',
   },
   cekBarang: {
     title: 'Cek Riwayat Barang',
@@ -244,16 +244,16 @@ export function InfoDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="info-dialog-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/50 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/35 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-lg bg-white dark:bg-[#141a1c] border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[88vh] flex flex-col"
+        className="surface-3d w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[88vh] flex flex-col"
       >
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+            <span className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
               <HelpCircle className="w-4 h-4" />
             </span>
             <h2
@@ -267,7 +267,7 @@ export function InfoDialog({
             type="button"
             onClick={onClose}
             aria-label="Tutup panduan"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
+            className="btn-3d-soft p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -290,7 +290,7 @@ export function InfoDialog({
             <ul className="space-y-2.5">
               {guide.steps.map((step, idx) => (
                 <li key={idx} className="flex items-start gap-2.5">
-                  <span className="mt-0.5 w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-mono font-bold flex items-center justify-center shrink-0">
+                  <span className="mt-0.5 w-5 h-5 rounded-md bg-teal-50 dark:bg-slate-800 text-teal-800 dark:text-slate-200 text-xs font-mono font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
                   <div>
@@ -304,7 +304,7 @@ export function InfoDialog({
             </ul>
           </div>
 
-          <div className="rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-900/60 p-3.5">
+          <div className="rounded-2xl bg-teal-50/75 dark:bg-teal-950/30 p-4">
             <div className="text-xs font-bold text-teal-800 dark:text-teal-300 mb-1">
               Contoh gampangnya
             </div>
@@ -318,7 +318,7 @@ export function InfoDialog({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 px-4 text-sm font-semibold rounded-xl bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 transition-colors min-h-[44px] cursor-pointer"
+            className="btn-3d-primary w-full py-2.5 px-4 text-sm font-semibold rounded-xl min-h-[44px] cursor-pointer"
           >
             Saya Mengerti
           </button>
