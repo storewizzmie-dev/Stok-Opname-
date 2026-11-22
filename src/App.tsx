@@ -39,6 +39,7 @@ import {
   BerandaModalType,
 } from './components/BerandaDetailModal';
 import { DateRangePicker } from './components/DateRangePicker';
+import { GlobalAiChatWidget } from './components/GlobalAiChatWidget';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { ProfitLossView } from './components/ProfitLossView';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
@@ -2653,6 +2654,20 @@ export default function App() {
         activeMonth={activeMonth}
         activeDay={activeDay}
         viewScope={viewScope}
+      />
+
+      {/* Global Premium AI Chat Floating Button & Pop-up (Reads All Menus & App Features) */}
+      <GlobalAiChatWidget
+        activeTab={activeTab}
+        viewScope={viewScope}
+        activeMonth={activeMonth}
+        activeDay={activeDay}
+        activeRange={activeRange}
+        selectedProduct={selectedProduct}
+        summary={summary}
+        data={data}
+        pnlData={pnlData}
+        selectedPnlMonth={selectedPnlMonth}
       />
     </div>
   );
