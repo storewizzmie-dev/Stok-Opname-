@@ -257,3 +257,201 @@ export function MotionCardButton({
     </motion.button>
   );
 }
+
+/**
+ * 4. AI TYPEWRITER TEXT (Efek AI Sedang Mengetik secara Halus & Format Rapi Tanpa Tanda Bintang *)
+ */
+function sanitizeDisplayLine(line: string): string {
+  return line
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/\*+/g, '')
+    .replace(/^#{1,6}\s+/, '')
+    .trim();
+}
+
+function renderFormattedLineContent(content: string): React.ReactNode {
+  // Highlight label before ":" or " — " if short (e.g. "Beranda: Ringkasan..." or "Kurang: -Rp 20.824.883")
+  const colonIdx = content.indexOf(':');
+  if (colonIdx > 1 && colonIdx <= 42) {
+    const label = content.slice(0, colonIdx).trim();
+    const rest = content.slice(colonIdx + 1);
+    return (
+      <>
+        <strong className="font-bold text-slate-950 dark:text-white">
+          {label}:
+        </strong>
+        {rest}
+      </>
+    );
+  }
+  const dashMatch = content.match(/^([^—–-]{2,38})\s+([—–-])\s+(.*)$/);
+  if (dashMatch) {
+    return (
+      <>
+        <strong className="font-bold text-slate-950 dark:text-white">
+          {dashMatch[1]}
+        </strong>{' '}
+        {dashMatch[2]} {dashMatch[3]}
+      </>
+    );
+  }
+  return content;
+}
+
+export function AiTypewriterText({
+  text,
+  animate = false,
+  onProgress,
+  onComplete,
+}: {
+  text: string;
+  animate?: boolean;
+  onProgress?: () => void;
+  onComplete?: () => void;
+}) {
+  const cleanText = React.useMemo(
+    () =>
+      text
+        .replace(/\r\n/g, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+        .replace(/\*+/g, '')
+        .trim(),
+    [text]
+  );
+
+  const [visibleChars, setVisibleChars] = React.useState<number>(() =>
+    animate ? 0 : cleanText.length
+  );
+  const [isTyping, setIsTyping] = React.useState<boolean>(() =>
+    Boolean(animate && cleanText.length > 0)
+  );
+
+  const onProgressRef = useRef(onProgress);
+  const onCompleteRef = useRef(onComplete);
+  onProgressRef.current = onProgress;
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    if (!animate || cleanText.length === 0) {
+      setVisibleChars(cleanText.length);
+      setIsTyping(false);
+      return;
+    }
+
+    setVisibleChars(0);
+    setIsTyping(true);
+
+    // Dynamic typing speed: finishes short replies in ~1.2s and long replies in ~2.4s
+    const charsPerTick = Math.max(2, Math.ceil(cleanText.length / 115));
+    let current = 0;
+
+    const intervalId = window.setInterval(() => {
+      current += charsPerTick;
+      // Snap cleanly to next space if within 4 characters for natural word-by-word feel
+      if (current < cleanText.length) {
+        const nextSpace = cleanText.indexOf(' ', current);
+        if (nextSpace !== -1 && nextSpace - current <= 4) {
+          current = nextSpace + 1;
+        }
+      }
+
+      if (current >= cleanText.length) {
+        setVisibleChars(cleanText.length);
+        setIsTyping(false);
+        window.clearInterval(intervalId);
+        onProgressRef.current?.();
+        onCompleteRef.current?.();
+      } else {
+        setVisibleChars(current);
+        onProgressRef.current?.();
+      }
+    }, 18);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [cleanText, animate]);
+
+  const displayedText = isTyping
+    ? cleanText.slice(0, visibleChars)
+    : cleanText;
+  const lines = displayedText.split('\n');
+
+  const finishImmediately = () => {
+    if (!isTyping) return;
+    setVisibleChars(cleanText.length);
+    setIsTyping(false);
+    onProgressRef.current?.();
+    onCompleteRef.current?.();
+  };
+
+  return (
+    <div
+      onClick={isTyping ? finishImmediately : undefined}
+      title={isTyping ? 'Klik untuk menampilkan seluruh teks langsung' : undefined}
+      className={`space-y-1.5 ${isTyping ? 'cursor-pointer' : ''}`}
+    >
+      {lines.map((rawLine, idx) => {
+        const line = sanitizeDisplayLine(rawLine);
+        const isLastLine = idx === lines.length - 1;
+        const cursorNode =
+          isTyping && isLastLine ? (
+            <span
+              aria-hidden="true"
+              className="inline-block w-1.5 h-3.5 ml-1 align-middle bg-amber-400 animate-pulse rounded-xs"
+            />
+          ) : null;
+
+        if (!line) {
+          return <div key={idx} className="h-1" />;
+        }
+
+        // Numbered heading (e.g. "1. Apa yang aplikasi ini lakukan?")
+        const numberedMatch = line.match(/^(\d+)\.\s+(.*)$/);
+        if (numberedMatch) {
+          const num = numberedMatch[1];
+          const body = numberedMatch[2];
+          return (
+            <div
+              key={idx}
+              className="pt-1 font-bold text-slate-900 dark:text-white flex items-baseline gap-1.5"
+            >
+              <span className="text-amber-600 dark:text-amber-400 font-black tabular-nums shrink-0">
+                {num}.
+              </span>
+              <span className="leading-relaxed">
+                {renderFormattedLineContent(body)}
+                {cursorNode}
+              </span>
+            </div>
+          );
+        }
+
+        // Bullet item (e.g. "- Stok Opname: ..." or "• Barang Kurang...")
+        const bulletMatch = line.match(/^([-•●▪‣])\s+(.*)$/);
+        if (bulletMatch) {
+          const body = bulletMatch[2];
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+              <span className="flex-1 leading-relaxed">
+                {renderFormattedLineContent(body)}
+                {cursorNode}
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="leading-relaxed">
+            {renderFormattedLineContent(line)}
+            {cursorNode}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+

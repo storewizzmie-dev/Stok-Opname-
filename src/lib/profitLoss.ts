@@ -1341,13 +1341,37 @@ export async function askPnlFollowUpQuestion({
   return { text, provider: payload.provider ?? provider };
 }
 
+function stripInlineFormattingClient(text: string): string {
+  return text
+    .replace(/<br\s*\/?>/gi, ', ')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export function cleanAiProse(raw: string): string {
-  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const rawLines = raw.replace(/\r\n/g, '\n').split('\n');
+  const expandedLines: string[] = [];
+
+  for (const rl of rawLines) {
+    if (rl.includes('|')) {
+      expandedLines.push(rl);
+    } else {
+      const splitBr = rl.replace(/<br\s*\/?>/gi, '\n').split('\n');
+      expandedLines.push(...splitBr);
+    }
+  }
+
   const out: string[] = [];
   let tableHeaders: string[] | null = null;
 
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+  for (let i = 0; i < expandedLines.length; i++) {
+    let line = expandedLines[i].trim();
     if (!line) {
       tableHeaders = null;
       if (out.length > 0 && out[out.length - 1] !== '') {
@@ -1371,12 +1395,12 @@ export function cleanAiProse(raw: string): string {
         .replace(/^\|/, '')
         .replace(/\|$/, '')
         .split('|')
-        .map((c) => c.trim())
+        .map((c) => stripInlineFormattingClient(c))
         .filter(Boolean);
 
       if (cells.length === 0) continue;
 
-      const nextLine = (lines[i + 1] ?? '').trim();
+      const nextLine = (expandedLines[i + 1] ?? '').trim();
       const nextIsDivider = /^\|?[\s:*-]+\|[\s|:-]*$/.test(nextLine);
       if (nextIsDivider) {
         tableHeaders = cells;
@@ -1397,7 +1421,11 @@ export function cleanAiProse(raw: string): string {
     }
 
     tableHeaders = null;
-    out.push(line);
+    line = line.replace(/^(\*|[•●▪‣])\s+/, '- ');
+    line = stripInlineFormattingClient(line);
+    if (line) {
+      out.push(line);
+    }
   }
 
   return out

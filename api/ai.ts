@@ -38,16 +38,18 @@ Aturan menjawab:
    - "Lebih (Plus)" = Hitungan Gudang lebih banyak dari catatan Sistem ESB.
    - "Sistem ESB vs Hitungan Gudang" = perbandingan catatan Sistem ESB dengan hitungan barang nyata di gudang.
    - Jika ada barang yang punya hari minus sekaligus hari plus (bolak-balik), ingatkan bahwa itu sering kali indikasi salah hitung di salah satu hari atau telat input di Sistem ESB.
-4. Format jawaban WAJIB rapi dan nyaman dibaca di HP maupun laptop:
-   - Gunakan kalimat paragraf yang mengalir rapi atau poin-poin singkat dengan tanda "-".
-   - DILARANG membuat tabel Markdown atau karakter pipa ("|") dan garis pemisah ("---") agar kalimat tidak kacau.`;
+4. Format jawaban WAJIB BERSIH, RAPI, RINGKAS, dan TUNTAS (tidak boleh terpotong):
+   - DILARANG KERAS memakai tanda bintang (* atau **) untuk menebalkan/memiringkan kata. Tulis teks biasa saja tanpa simbol bintang sama sekali.
+   - DILARANG KERAS menulis tag HTML seperti <br>, <b>, <i>, atau membuat tabel Markdown dengan karakter pipa ("|") dan garis pemisah ("---").
+   - Gunakan kalimat paragraf yang mengalir rapi atau daftar poin singkat menggunakan tanda hubung "- " (satu baris per poin).
+   - Jawab secara padat, jelas, dan langsung ke inti (maksimal 150–280 kata kecuali pengguna meminta rincian panjang) agar kalimat selalu selesai dengan tuntas sampai titik terakhir.`;
 
 const PNL_ANALYSIS_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjelaskan satu pos laporan Laba Rugi kepada pemilik outlet dengan bahasa Indonesia sehari-hari yang sederhana, cerdas, rapi, dan langsung ke inti.
 
 ATURAN WAJIB BENTUK & PANJANG JAWABAN:
-- Tulis TEPAT 1 paragraf saja berisi maksimal 3–4 kalimat pendek yang mengalir rapi.
-- Panjang ideal 40–70 kata dan DILARANG melebihi 90 kata.
-- DILARANG keras membuat tabel Markdown, garis tabel (|---|---|), karakter pipa (|), garis pemisah (---), heading (#), daftar bernomor, atau sapaan pembuka. Tulis hanya kalimat paragraf biasa yang rapi.
+- Tulis TEPAT 1 paragraf saja berisi maksimal 3–4 kalimat pendek yang mengalir rapi dan tuntas sampai titik terakhir.
+- Panjang ideal 40–70 kata dan DILARANG melebihi 85 kata.
+- DILARANG KERAS memakai tanda bintang (* atau **), tag HTML (<br>), tabel Markdown, garis tabel (|---|---|), karakter pipa (|), garis pemisah (---), heading (#), daftar bernomor, atau sapaan pembuka. Tulis hanya kalimat paragraf biasa yang bersih tanpa simbol bintang.
 
 ATURAN GAYA BAHASA:
 - Pakai bahasa sederhana yang mudah dibaca dalam beberapa detik.
@@ -66,22 +68,47 @@ ATURAN FOKUS & KECERDASAN ANALISIS:
 const PNL_CHAT_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjawab pertanyaan lanjutan pemilik outlet tentang laporan Laba Rugi dengan bahasa Indonesia sehari-hari yang sederhana, ramah, rapi, dan langsung ke inti.
 
 Aturan format WAJIB:
-- Tulis dalam bentuk kalimat paragraf yang rapi dan mudah dibaca (atau poin singkat memakai tanda hubung "-" hanya jika membandingkan beberapa pos, maksimal 4 baris).
-- DILARANG keras membuat tabel Markdown, karakter pipa ("|"), garis pemisah ("---" atau "|---|"), heading ("#"), atau blok kode. Semua angka dan perbandingan harus ditulis dalam kalimat yang mengalir rapi.
+- Tulis dalam bentuk kalimat paragraf yang rapi dan mudah dibaca (atau poin singkat memakai tanda hubung "- " hanya jika membandingkan beberapa pos, maksimal 4 baris).
+- DILARANG KERAS memakai tanda bintang (* atau **), tag HTML (<br>), tabel Markdown, karakter pipa ("|"), garis pemisah ("---" atau "|---|"), heading ("#"), atau blok kode. Semua angka dan perbandingan harus ditulis dalam kalimat bersih tanpa simbol bintang.
 
 Aturan isi:
 1. Gunakan HANYA angka nyata dari data laporan Laba Rugi yang dikirimkan. Jangan mengarang angka atau penyebab yang tidak ada di laporan.
-2. Jawab langsung pertanyaan pengguna secara ringkas dan jelas (2–5 kalimat).
+2. Jawab langsung pertanyaan pengguna secara ringkas, padat, dan tuntas (2–5 kalimat).
 3. Jika pengguna menanyakan cara menghitung, porsi %, selisih bulan lalu, atau pos terbesar/terkecil terkait topik yang ditanya, tampilkan angka Rupiah dan % dari Net Sales-nya secara akurat di dalam kalimat.
 4. Hindari istilah akuntansi yang kaku atau berbelit-belit.`;
 
+function stripInlineFormatting(text: string): string {
+  return text
+    .replace(/<br\s*\/?>/gi, ', ')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function cleanAiProse(raw: string): string {
-  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  // Replace <br> tags outside tables with newlines, except keep table rows on single line first
+  const rawLines = raw.replace(/\r\n/g, '\n').split('\n');
+  const expandedLines: string[] = [];
+
+  for (const rl of rawLines) {
+    if (rl.includes('|')) {
+      expandedLines.push(rl);
+    } else {
+      const splitBr = rl.replace(/<br\s*\/?>/gi, '\n').split('\n');
+      expandedLines.push(...splitBr);
+    }
+  }
+
   const out: string[] = [];
   let tableHeaders: string[] | null = null;
 
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+  for (let i = 0; i < expandedLines.length; i++) {
+    let line = expandedLines[i].trim();
     if (!line) {
       tableHeaders = null;
       if (out.length > 0 && out[out.length - 1] !== '') {
@@ -108,12 +135,12 @@ function cleanAiProse(raw: string): string {
         .replace(/^\|/, '')
         .replace(/\|$/, '')
         .split('|')
-        .map((c) => c.trim())
+        .map((c) => stripInlineFormatting(c))
         .filter(Boolean);
 
       if (cells.length === 0) continue;
 
-      const nextLine = (lines[i + 1] ?? '').trim();
+      const nextLine = (expandedLines[i + 1] ?? '').trim();
       const nextIsDivider = /^\|?[\s:*-]+\|[\s|:-]*$/.test(nextLine);
       if (nextIsDivider) {
         tableHeaders = cells;
@@ -134,7 +161,12 @@ function cleanAiProse(raw: string): string {
     }
 
     tableHeaders = null;
-    out.push(line);
+    // Normalize bullet prefix (*, •, ●, ▪) to "- "
+    line = line.replace(/^(\*|[•●▪‣])\s+/, '- ');
+    line = stripInlineFormatting(line);
+    if (line) {
+      out.push(line);
+    }
   }
 
   return out
@@ -148,11 +180,11 @@ function buildSummaryPrompt(contextText: string): string {
 
 ${contextText}
 
-Tolong buatkan ringkasan yang sangat gampang dibaca oleh orang awam dengan format 4 bagian singkat:
-1. **Kesimpulan Utama**: Total barang kurang, total barang lebih, dan hasil gabungannya dalam Rupiah.
-2. **Barang yang Wajib Dicek Duluan**: Sebutkan 3–5 barang paling kurang terbesar (jumlah + satuan + Rupiahnya).
-3. **Catatan Salah Hitung / Bolak-Balik**: Jika ada barang yang kadang minus lalu besoknya plus, sebutkan agar staf cek ulang hitungannya.
-4. **Saran Langkah Hari Ini**: 2 langkah praktis untuk tim toko dan bagian produksi / operasional.`;
+Tolong buatkan ringkasan singkat yang sangat gampang dibaca oleh orang awam (TANPA tanda bintang * sama sekali dan TANPA tag <br>) dengan 4 bagian pendek:
+1. Kesimpulan Utama: Total barang kurang, total barang lebih, dan hasil gabungannya dalam Rupiah.
+2. Barang yang Wajib Dicek Duluan: Sebutkan 3–5 barang paling kurang terbesar (jumlah + satuan + Rupiahnya).
+3. Catatan Salah Hitung / Bolak-Balik: Jika ada barang yang kadang minus lalu besoknya plus, sebutkan agar staf cek ulang hitungannya.
+4. Saran Langkah Hari Ini: 2 langkah praktis untuk tim toko dan bagian produksi / operasional.`;
 }
 
 function normalizeProvider(raw: unknown): ExtendedProviderPreference {
@@ -508,12 +540,12 @@ export async function processAiRequest(
 
     if (action === 'pnl_analysis') {
       const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
-      const prompt = `Analisis singkat (1 paragraf rapi tanpa tabel dan tanpa garis pemisah, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
+      const prompt = `Analisis singkat (1 paragraf rapi tanpa tanda bintang *, tanpa tabel, dan tanpa garis pemisah, 3-4 kalimat, ideal 40-70 kata, maksimal 85 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
       const result = await generateWithAnyProvider(providerPref, {
         systemInstruction: PNL_ANALYSIS_SYSTEM_INSTRUCTION,
         userPrompt: prompt,
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: 320,
+        maxTokens: 700,
       });
       return {
         status: 200,
@@ -536,14 +568,14 @@ export async function processAiRequest(
 
       const result = await generateWithAnyProvider(providerPref, {
         systemInstruction: PNL_CHAT_SYSTEM_INSTRUCTION,
-        initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dalam bentuk kalimat yang rapi tanpa tabel.`,
+        initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dalam bentuk kalimat yang rapi tanpa tanda bintang * dan tanpa tabel.`,
         initialModelAck:
           initialAnalysis ||
           'Baik, saya sudah membaca data Laba Rugi tersebut. Silakan ajukan pertanyaan.',
         history,
         userPrompt: question,
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: isCompactProvider ? 550 : 900,
+        maxTokens: 1400,
       });
 
       return {
@@ -557,7 +589,7 @@ export async function processAiRequest(
         systemInstruction: SYSTEM_INSTRUCTION,
         userPrompt: buildSummaryPrompt(effectiveContext),
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: isCompactProvider ? 650 : 1200,
+        maxTokens: 1800,
       });
       return {
         status: 200,
@@ -577,13 +609,13 @@ export async function processAiRequest(
     const history = isCompactProvider ? rawHistory.slice(-4) : rawHistory.slice(-8);
     const result = await generateWithAnyProvider(providerPref, {
       systemInstruction: SYSTEM_INSTRUCTION,
-      initialUserContext: `Ini seluruh informasi fitur aplikasi web beserta data laporan Stok Opname & Laba Rugi dari semua menu:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya dengan bahasa sederhana dan kalimat yang rapi (tanpa tabel Markdown).`,
+      initialUserContext: `Ini seluruh informasi fitur aplikasi web beserta data laporan Stok Opname & Laba Rugi dari semua menu:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya dengan bahasa sederhana, ringkas, tuntas, dan kalimat yang rapi (tanpa tanda bintang *, tanpa <br>, dan tanpa tabel Markdown).`,
       initialModelAck:
         'Baik, saya sudah memahami seluruh fitur aplikasi serta membaca data Stok Opname dan Laba Rugi di semua menu. Silakan tanyakan apa saja.',
       history,
       userPrompt: question,
       thinkingLevel: ThinkingLevel.HIGH,
-      maxTokens: isCompactProvider ? 750 : 1400,
+      maxTokens: 2000,
     });
 
     return {

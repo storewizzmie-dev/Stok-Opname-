@@ -31,6 +31,7 @@ import {
   formatDateRangeLabel,
   formatMonthId,
 } from '../lib/stockOpname';
+import { AiTypewriterText } from './AnimationPrimitives';
 
 type MenuTab = 'beranda' | 'harian' | 'barang' | 'labarugi' | 'pengaturan';
 type AiProviderOption = 'auto' | 'gemini' | 'groq' | 'openai';
@@ -256,7 +257,13 @@ export function GlobalAiChatWidget({
       const raw = localStorage.getItem(CHAT_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed.slice(-30);
+        if (Array.isArray(parsed)) {
+          return parsed.slice(-30).map((m: ChatMessage) =>
+            m && m.role === 'assistant' && typeof m.text === 'string'
+              ? { ...m, text: cleanAiProse(m.text) }
+              : m
+          );
+        }
       }
     } catch {
       // Ignore storage error
@@ -266,6 +273,7 @@ export function GlobalAiChatWidget({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -408,8 +416,9 @@ export function GlobalAiChatWidget({
       }
 
       const replyText = cleanAiProse(payload.reply ?? '');
+      const newMsgId = `a-${Date.now()}`;
       const aiMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
+        id: newMsgId,
         role: 'assistant',
         text:
           replyText ||
@@ -417,6 +426,7 @@ export function GlobalAiChatWidget({
         provider: payload.provider,
         timestamp: Date.now(),
       };
+      setTypingMsgId(newMsgId);
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
       const errMsg =
@@ -632,9 +642,28 @@ export function GlobalAiChatWidget({
                       </div>
                     )}
 
-                    <div className="space-y-1.5 whitespace-pre-wrap break-words">
-                      {msg.text}
-                    </div>
+                    {isUser || msg.isError ? (
+                      <div className="space-y-1.5 whitespace-pre-wrap break-words">
+                        {msg.text}
+                      </div>
+                    ) : (
+                      <div className="break-words">
+                        <AiTypewriterText
+                          text={msg.text}
+                          animate={typingMsgId === msg.id}
+                          onProgress={() => {
+                            messagesEndRef.current?.scrollIntoView({
+                              behavior: 'auto',
+                            });
+                          }}
+                          onComplete={() => {
+                            setTypingMsgId((prev) =>
+                              prev === msg.id ? null : prev
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               );

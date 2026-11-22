@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { InfoButton, InfoGuideKey } from './InfoGuide';
 import {
+  AiTypewriterText,
   GsapWordTitle,
   MotionCard,
   MotionCardButton,
@@ -1022,6 +1023,10 @@ function PnlAiAnalysisPanel({
   const [analysisText, setAnalysisText] = useState<string | null>(() =>
     getCachedPnlAnalysis(cacheKey)
   );
+  const [animateMain, setAnimateMain] = useState<boolean>(false);
+  const [typingFollowUpIdx, setTypingFollowUpIdx] = useState<number | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qaByKey, setQaByKey] = useState<Record<string, PnlFollowUpTurn[]>>({});
@@ -1038,6 +1043,8 @@ function PnlAiAnalysisPanel({
     qaAbortRef.current = null;
     const cached = getCachedPnlAnalysis(cacheKey);
     setAnalysisText(cached);
+    setAnimateMain(false);
+    setTypingFollowUpIdx(null);
     setIsLoading(false);
     setErrorMsg(null);
     setIsAsking(false);
@@ -1072,6 +1079,7 @@ function PnlAiAnalysisPanel({
     })
       .then((res) => {
         if (controller.signal.aborted) return;
+        setAnimateMain(!res.fromCache);
         setAnalysisText(res.text);
         if (forceRefresh) {
           setQaByKey((prev) => {
@@ -1127,13 +1135,16 @@ function PnlAiAnalysisPanel({
     })
       .then((res) => {
         if (controller.signal.aborted) return;
-        setQaByKey((prev) => ({
-          ...prev,
-          [cacheKey]: [
-            ...(prev[cacheKey] ?? [...priorTurns, { role: 'user', text: trimmed }]),
-            { role: 'assistant', text: res.text },
-          ],
-        }));
+        setQaByKey((prev) => {
+          const base =
+            prev[cacheKey] ?? [...priorTurns, { role: 'user', text: trimmed }];
+          const updated = [...base, { role: 'assistant' as const, text: res.text }];
+          setTypingFollowUpIdx(updated.length - 1);
+          return {
+            ...prev,
+            [cacheKey]: updated,
+          };
+        });
         setIsAsking(false);
       })
       .catch((err) => {
@@ -1325,9 +1336,11 @@ function PnlAiAnalysisPanel({
                 )}
               </button>
             </div>
-            {paragraphs.map((para, i) => (
-              <p key={i}>{renderAnalysisInlineBold(para)}</p>
-            ))}
+            <AiTypewriterText
+              text={cleanedMainAnalysis}
+              animate={animateMain}
+              onComplete={() => setAnimateMain(false)}
+            />
           </div>
 
           {/* Follow-up Q&A thread + input */}
@@ -1391,13 +1404,19 @@ function PnlAiAnalysisPanel({
                           </button>
                         )}
                       </div>
-                      {cleanedReply
-                        .split(/\n{2,}|\n/)
-                        .map((p) => p.trim())
-                        .filter(Boolean)
-                        .map((p, pIdx) => (
-                          <p key={pIdx}>{renderAnalysisInlineBold(p)}</p>
-                        ))}
+                      {msg.role === 'user' ? (
+                        <p>{msg.text}</p>
+                      ) : (
+                        <AiTypewriterText
+                          text={cleanedReply}
+                          animate={typingFollowUpIdx === idx}
+                          onComplete={() =>
+                            setTypingFollowUpIdx((prev) =>
+                              prev === idx ? null : prev
+                            )
+                          }
+                        />
+                      )}
                     </div>
                   );
                 })}
