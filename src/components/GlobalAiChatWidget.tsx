@@ -490,6 +490,7 @@ export function GlobalAiChatWidget({
           role="dialog"
           aria-modal="false"
           aria-label="Asisten AI Wizzmie"
+          data-lenis-prevent
           className={`fixed z-50 transition-all duration-200 flex flex-col bg-white dark:bg-[#081226] border-2 border-slate-200/90 dark:border-[#243E6C] rounded-3xl shadow-[0_24px_60px_-15px_rgba(2,6,23,0.75)] overflow-hidden ${
             isExpanded
               ? 'inset-3 sm:inset-auto sm:right-6 sm:bottom-24 md:bottom-24 sm:w-[680px] sm:h-[78vh] max-h-[840px]'
@@ -570,7 +571,10 @@ export function GlobalAiChatWidget({
           </div>
 
           {/* Chat Messages Scroll Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 dark:bg-[#071022]">
+          <div
+            data-lenis-prevent
+            className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 dark:bg-[#071022]"
+          >
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
               return (

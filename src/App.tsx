@@ -35,6 +35,13 @@ import {
   X,
 } from 'lucide-react';
 import {
+  GsapWordTitle,
+  LenisGsapProvider,
+  MotionCard,
+  MotionCardButton,
+  MotionSection,
+} from './components/AnimationPrimitives';
+import {
   BerandaDetailModal,
   BerandaModalType,
 } from './components/BerandaDetailModal';
@@ -592,7 +599,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen app-canvas-bg text-slate-900 dark:text-slate-100 pb-20 md:pb-10 transition-colors">
+    <LenisGsapProvider
+      activeKey={`${activeTab}-${activeMonth}-${viewScope}-${selectedPnlMonth}`}
+    >
+      <div className="min-h-screen app-canvas-bg text-slate-900 dark:text-slate-100 pb-20 md:pb-10 transition-colors">
       <input
         ref={fileInputRef}
         type="file"
@@ -739,17 +749,25 @@ export default function App() {
 
                         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
                           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                            {viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'}
+                            <GsapWordTitle
+                              text={
+                                viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'
+                              }
+                            />
                           </h1>
                           <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
-                            {viewScope === 'month'
-                              ? formatMonthId(activeMonth)
-                              : viewScope === 'range'
-                              ? formatDateRangeLabel(
-                                  summary.rangeStart,
-                                  summary.rangeEnd
-                                )
-                              : formatDateId(activeDay)}
+                            <GsapWordTitle
+                              text={
+                                viewScope === 'month'
+                                  ? formatMonthId(activeMonth)
+                                  : viewScope === 'range'
+                                  ? formatDateRangeLabel(
+                                      summary.rangeStart,
+                                      summary.rangeEnd
+                                    )
+                                  : formatDateId(activeDay)
+                              }
+                            />
                           </span>
                         </div>
 
@@ -902,10 +920,11 @@ export default function App() {
                 {/* 2-Column KPI Cards: Kekurangan Stok & Kelebihan Stok */}
                 <section className="grid grid-cols-2 gap-3 sm:gap-4">
                   {/* Kekurangan Stok */}
-                  <button
+                  <MotionCardButton
                     type="button"
+                    delay={0.04}
                     onClick={() => setBerandaModal('neg')}
-                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#181B34] dark:to-[#0F1426] border border-rose-200 dark:border-rose-900/45 hover:border-rose-400 dark:hover:border-rose-500/70 flex flex-col justify-between shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#181B34] dark:to-[#0F1426] border border-rose-200 dark:border-rose-900/45 hover:border-rose-400 dark:hover:border-rose-500/70 flex flex-col justify-between shadow-sm transition-colors cursor-pointer"
                   >
                     <div className="flex flex-col items-center text-center w-full">
                       <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2">
@@ -939,13 +958,14 @@ export default function App() {
                         <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </div>
-                  </button>
+                  </MotionCardButton>
 
                   {/* Kelebihan Stok */}
-                  <button
+                  <MotionCardButton
                     type="button"
+                    delay={0.08}
                     onClick={() => setBerandaModal('pos')}
-                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#0F262B] dark:to-[#0A1A22] border border-emerald-200 dark:border-emerald-900/45 hover:border-emerald-400 dark:hover:border-emerald-500/70 flex flex-col justify-between shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+                    className="group text-left rounded-2xl p-3.5 sm:p-5 bg-white dark:bg-gradient-to-b dark:from-[#0F262B] dark:to-[#0A1A22] border border-emerald-200 dark:border-emerald-900/45 hover:border-emerald-400 dark:hover:border-emerald-500/70 flex flex-col justify-between shadow-sm transition-colors cursor-pointer"
                   >
                     <div className="flex flex-col items-center text-center w-full">
                       <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
@@ -979,14 +999,15 @@ export default function App() {
                         <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </div>
-                  </button>
+                  </MotionCardButton>
                 </section>
 
                 {/* Banner Hasil Selisih Akhir + Info Alert Notice */}
                 <section className="space-y-2.5">
-                  <div
+                  <MotionCard
                     role="button"
                     tabIndex={0}
+                    delay={0.1}
                     onClick={() => setBerandaModal('net')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -1078,7 +1099,7 @@ export default function App() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </MotionCard>
 
                   {/* Info Alert Notice */}
                   <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-3.5 py-2.5 flex items-start sm:items-center gap-2.5 text-xs text-slate-700 dark:text-blue-200">
@@ -1100,7 +1121,7 @@ export default function App() {
                   {/* Left Column: Analisis Selisih Stok + Kondisi Per Bagian */}
                   <div className="lg:col-span-7 space-y-5">
                     {/* Analisis Selisih Stok (Daily Bar Chart) */}
-                    <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+                    <MotionSection className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300/60 dark:border-amber-500/25 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
@@ -1109,7 +1130,7 @@ export default function App() {
                           <div>
                             <div className="flex items-center gap-1">
                               <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
-                                Analisis Selisih Stok Per Tanggal
+                                <GsapWordTitle text="Analisis Selisih Stok Per Tanggal" />
                               </h2>
                               <InfoButton
                                 guideKey="dailyChart"
@@ -1250,11 +1271,11 @@ export default function App() {
                           </div>
                         </div>
                       )}
-                    </section>
+                    </MotionSection>
 
                     {/* Kondisi Per Bagian (Produksi / Operasional) */}
                     {summary.categoryStats.length > 0 && (
-                      <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3">
+                      <MotionSection className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3">
                         <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800/80">
                           <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
                             <Boxes className="w-4 h-4" />
@@ -1262,7 +1283,7 @@ export default function App() {
                           <div>
                             <div className="flex items-center gap-1">
                               <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
-                                Kondisi Per Bagian (Produksi / Operasional)
+                                <GsapWordTitle text="Kondisi Per Bagian (Produksi / Operasional)" />
                               </h2>
                               <InfoButton
                                 guideKey="categories"
@@ -1404,12 +1425,12 @@ export default function App() {
                             </span>
                           </div>
                         </div>
-                      </section>
+                      </MotionSection>
                     )}
                   </div>
 
                   {/* Right Column: Barang yang Perlu Dicek Duluan */}
-                  <section className="lg:col-span-5 wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3.5">
+                  <MotionSection className="lg:col-span-5 wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-3.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 border border-amber-300/60 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
@@ -1417,7 +1438,7 @@ export default function App() {
                         </div>
                         <div>
                           <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
-                            Barang yang Perlu Dicek Duluan
+                            <GsapWordTitle text="Barang yang Perlu Dicek Duluan" />
                           </h2>
                           <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                             {viewScope === 'month'
@@ -1570,7 +1591,7 @@ export default function App() {
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </button>
-                  </section>
+                  </MotionSection>
                 </div>
 
                 {/* Informasi Menu Laba Rugi */}
@@ -1605,21 +1626,23 @@ export default function App() {
               />
             ) : (
               <>
-                <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                          Catatan Harian (
-                          {viewScope === 'range'
-                            ? formatDateRangeLabel(
-                                summary.rangeStart,
-                                summary.rangeEnd
-                              )
-                            : viewScope === 'day'
-                            ? formatDateId(activeDay)
-                            : formatMonthId(activeMonth)}
-                          )
+                          <GsapWordTitle
+                            text={`Catatan Harian (${
+                              viewScope === 'range'
+                                ? formatDateRangeLabel(
+                                    summary.rangeStart,
+                                    summary.rangeEnd
+                                  )
+                                : viewScope === 'day'
+                                ? formatDateId(activeDay)
+                                : formatMonthId(activeMonth)
+                            })`}
+                          />
                         </h1>
                         <InfoButton
                           guideKey="harian"
@@ -1763,7 +1786,7 @@ export default function App() {
                       Catatan: Data ini tersimpan sebelum pembaruan kolom lengkap. Upload ulang file Excel Anda sekali lagi untuk memunculkan Kode Barang, No. SP, Sub-bagian, Keperluan, Lokasi, dan Status.
                     </p>
                   )}
-                </section>
+                </MotionSection>
 
                 <section className="space-y-3">
                   {(() => {
@@ -1856,9 +1879,10 @@ export default function App() {
                         : [];
 
                       return (
-                        <div
+                        <MotionCard
                           key={day.date}
                           id={`day-${day.date}`}
+                          hoverLift={!isOpen}
                           className="surface-3d rounded-3xl overflow-hidden"
                         >
                           <button
@@ -1948,7 +1972,7 @@ export default function App() {
                               )}
                             </div>
                           )}
-                        </div>
+                        </MotionCard>
                       );
                     });
                   })()}
@@ -1970,12 +1994,12 @@ export default function App() {
               />
             ) : (
               <>
-                <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                          Cek Kondisi & Riwayat Barang
+                          <GsapWordTitle text="Cek Kondisi & Riwayat Barang" />
                         </h1>
                         <InfoButton
                           guideKey="cekBarang"
@@ -2106,21 +2130,25 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                </section>
+                </MotionSection>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                   {/* Matching list */}
-                  <section className="lg:col-span-5 surface-3d rounded-3xl p-4 sm:p-5">
+                  <MotionSection className="lg:col-span-5 surface-3d rounded-3xl p-4 sm:p-5">
                     <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 tabular-nums">
-                      {searchQuery.trim()
-                        ? `Hasil pencarian (${matchingProducts.length})`
-                        : productFilter === 'pos'
-                        ? `Semua barang lebih (${matchingProducts.length})`
-                        : productFilter === 'pas'
-                        ? `Semua barang pas (${matchingProducts.length})`
-                        : productFilter === 'neg'
-                        ? `Semua barang kurang (${matchingProducts.length})`
-                        : `Semua barang tercatat (${matchingProducts.length})`}
+                      <GsapWordTitle
+                        text={
+                          searchQuery.trim()
+                            ? `Hasil pencarian (${matchingProducts.length})`
+                            : productFilter === 'pos'
+                            ? `Semua barang lebih (${matchingProducts.length})`
+                            : productFilter === 'pas'
+                            ? `Semua barang pas (${matchingProducts.length})`
+                            : productFilter === 'neg'
+                            ? `Semua barang kurang (${matchingProducts.length})`
+                            : `Semua barang tercatat (${matchingProducts.length})`
+                        }
+                      />
                     </h2>
 
                     {matchingProducts.length === 0 ? (
@@ -2197,10 +2225,10 @@ export default function App() {
                         })}
                       </div>
                     )}
-                  </section>
+                  </MotionSection>
 
                   {/* Product Detail */}
-                  <section className="lg:col-span-7 surface-3d rounded-3xl p-5 sm:p-6">
+                  <MotionSection className="lg:col-span-7 surface-3d rounded-3xl p-5 sm:p-6">
                     {!selectedProductStat ? (
                       <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                         Ketuk salah satu barang di sebelah kiri untuk melihat kode barang, harga satuan, jumlah bungkus/dos/porsi, dan riwayat tanggalnya.
@@ -2210,7 +2238,7 @@ export default function App() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1">
                             <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                              {selectedProductStat.name}
+                              <GsapWordTitle text={selectedProductStat.name} />
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                               {selectedProductStat.code && (
@@ -2354,7 +2382,7 @@ export default function App() {
                         </div>
                       </div>
                     )}
-                  </section>
+                  </MotionSection>
                 </div>
               </>
             )}
@@ -2364,11 +2392,11 @@ export default function App() {
         {/* PAGE 5: PENGATURAN (TERMASUK UPLOAD EXCEL) */}
         {activeTab === 'pengaturan' && (
           <div className="space-y-5 max-w-4xl">
-            <section className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
+            <MotionSection className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
               <div>
                 <div className="flex items-center gap-1.5">
                   <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                    Upload Laporan Excel
+                    <GsapWordTitle text="Upload Laporan Excel" />
                   </h1>
                   <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
                 </div>
@@ -2438,14 +2466,14 @@ export default function App() {
                   )}
                 </div>
               </div>
-            </section>
+            </MotionSection>
 
             {lastUpload && (
-              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+              <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                      Upload Berhasil
+                      <GsapWordTitle text="Upload Berhasil" />
                     </h2>
                     <p className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
                       Semua <strong>{lastUpload.totalRows} catatan stok</strong> ({lastUpload.uniqueProducts} jenis barang: {lastUpload.diffRows} selisih, {lastUpload.pasRows} pas) sudah masuk ke{' '}
@@ -2487,13 +2515,13 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-              </section>
+              </MotionSection>
             )}
 
             {allMonths.length > 0 && (
-              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
+              <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Data Bulan yang Tersimpan
+                  <GsapWordTitle text="Data Bulan yang Tersimpan" />
                 </h2>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {allMonths.map((m) => (
@@ -2522,13 +2550,13 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              </section>
+              </MotionSection>
             )}
 
-            <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
+            <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Pengaturan Tampilan
+                  <GsapWordTitle text="Pengaturan Tampilan" />
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   Pilih tema tampilan Navy &amp; Gold (Wizzmie) atau tampilan cerah sesuai kenyamanan Anda.
@@ -2561,7 +2589,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            </section>
+            </MotionSection>
           </div>
         )}
 
@@ -2669,7 +2697,8 @@ export default function App() {
         pnlData={pnlData}
         selectedPnlMonth={selectedPnlMonth}
       />
-    </div>
+      </div>
+    </LenisGsapProvider>
   );
 }
 
@@ -2681,12 +2710,12 @@ function EmptyStateCard({
   const [imgFailed, setImgFailed] = useState(false);
 
   return (
-    <section className="surface-3d rounded-3xl p-6 sm:p-8 lg:p-10">
+    <MotionSection className="surface-3d rounded-3xl p-6 sm:p-8 lg:p-10">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         <div className="lg:col-span-7 flex flex-col justify-center space-y-5">
           <div className="space-y-2.5">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white text-balance">
-              Pantau Stok Gudang Jadi Lebih Gampang
+              <GsapWordTitle text="Pantau Stok Gudang Jadi Lebih Gampang" />
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
               Upload file Excel stok opname harian Anda. Aplikasi langsung menghitung mana barang yang kurang, mana yang lebih, dan membantu mengecek kemungkinan salah hitung dengan bahasa sederhana.
@@ -2720,7 +2749,7 @@ function EmptyStateCard({
           )}
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 }
 
@@ -2866,7 +2895,7 @@ function BerandaProfitLossCard({
 }) {
   if (!report) {
     return (
-      <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <MotionSection className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300/60 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <Coins className="w-5 h-5" />
@@ -2874,7 +2903,7 @@ function BerandaProfitLossCard({
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-1.5">
               <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
-                Informasi Menu Laba Rugi
+                <GsapWordTitle text="Informasi Menu Laba Rugi" />
               </h2>
               <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
             </div>
@@ -2902,7 +2931,7 @@ function BerandaProfitLossCard({
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </section>
+      </MotionSection>
     );
   }
 
@@ -2954,7 +2983,7 @@ function BerandaProfitLossCard({
   ];
 
   return (
-    <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+    <MotionSection className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
         <div className="flex items-start gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300/60 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
@@ -2963,7 +2992,11 @@ function BerandaProfitLossCard({
           <div className="min-w-0">
             <div className="flex items-center gap-1">
               <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">
-                Ringkasan Menu Laba Rugi · {formatMonthId(report.monthKey)}
+                <GsapWordTitle
+                  text={`Ringkasan Menu Laba Rugi · ${formatMonthId(
+                    report.monthKey
+                  )}`}
+                />
               </h2>
               <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
             </div>
@@ -2986,9 +3019,10 @@ function BerandaProfitLossCard({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        {metrics.map((m) => (
-          <div
+        {metrics.map((m, idx) => (
+          <MotionCard
             key={m.label}
+            delay={idx * 0.04}
             className={`rounded-xl border p-3 space-y-1 ${m.box}`}
           >
             <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">
@@ -3002,13 +3036,13 @@ function BerandaProfitLossCard({
             <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium tabular-nums truncate">
               {m.sub}
             </div>
-          </div>
+          </MotionCard>
         ))}
       </div>
 
       <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-        Ketuk <strong>Buka Detail Laba Rugi</strong> untuk melihat seluruh baris Description ÷ Net Sales (%) beserta penjelasan sederhana langsung dari aplikasi atau analisa tambahan Gemini / Groq.
+        Ketuk <strong>Buka Detail Laba Rugi</strong> untuk melihat seluruh baris Description ÷ Net Sales (%) beserta penjelasan sederhana langsung dari aplikasi atau analisa tambahan Gemini / Groq / OpenAI.
       </p>
-    </section>
+    </MotionSection>
   );
 }

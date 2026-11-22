@@ -24,6 +24,12 @@ import {
 } from 'lucide-react';
 import { InfoButton, InfoGuideKey } from './InfoGuide';
 import {
+  GsapWordTitle,
+  MotionCard,
+  MotionCardButton,
+  MotionSection,
+} from './AnimationPrimitives';
+import {
   PnlAiProviderChoice,
   PnlDataset,
   PnlFollowUpTurn,
@@ -123,14 +129,14 @@ export function ProfitLossView({
 
   if (!report) {
     return (
-      <section className="surface-3d rounded-3xl p-6 sm:p-8 lg:p-10 space-y-6">
+      <MotionSection className="surface-3d rounded-3xl p-6 sm:p-8 lg:p-10 space-y-6">
         <div className="max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold">
             <Percent className="w-4 h-4" />
             <span>Profit Loss Consolidation</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white text-balance">
-            Pantau Persentase Laba Rugi (Description ÷ Net Sales)
+            <GsapWordTitle text="Pantau Persentase Laba Rugi (Description ÷ Net Sales)" />
           </h1>
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
             Upload file Excel <strong>Profit Loss Consolidation Report</strong>{' '}
@@ -140,23 +146,23 @@ export function ProfitLossView({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
-          <div className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          <MotionCard delay={0.03} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               1. Bulan Sama, Tanggal Beda
             </div>
             <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
               Otomatis memperbarui data di bulan yang sama tanpa menumpuk data dobel.
             </p>
-          </div>
-          <div className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          </MotionCard>
+          <MotionCard delay={0.07} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               2. Bulan Berbeda
             </div>
             <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
               Otomatis dibuatkan folder bulan baru yang terpisah dan bisa dibandingkan.
             </p>
-          </div>
-          <div className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          </MotionCard>
+          <MotionCard delay={0.11} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               3. Rumus Otomatis (%)
             </div>
@@ -164,7 +170,7 @@ export function ProfitLossView({
               Setiap baris Description langsung dibagi <strong>Net Sales</strong>{' '}
               untuk melihat porsi biaya dan laba.
             </p>
-          </div>
+          </MotionCard>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -174,7 +180,7 @@ export function ProfitLossView({
             label="Cara Kerja Laba Rugi"
           />
         </div>
-      </section>
+      </MotionSection>
     );
   }
 
@@ -255,7 +261,7 @@ export function ProfitLossView({
   return (
     <div className="space-y-5">
       {/* Hero Banner */}
-      <section className="wizzmie-hero-card relative overflow-hidden rounded-2xl p-4 sm:p-6">
+      <MotionSection className="wizzmie-hero-card relative overflow-hidden rounded-2xl p-4 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="flex items-start sm:items-center gap-4 min-w-0">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 shadow-lg shadow-amber-500/20 shrink-0">
@@ -274,10 +280,10 @@ export function ProfitLossView({
               </div>
               <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                  Laba Rugi
+                  <GsapWordTitle text="Laba Rugi" />
                 </h1>
                 <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
-                  {formatMonthId(report.monthKey)}
+                  <GsapWordTitle text={formatMonthId(report.monthKey)} />
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/90 tabular-nums">
@@ -288,7 +294,7 @@ export function ProfitLossView({
           </div>
 
         </div>
-      </section>
+      </MotionSection>
 
       {/* Month Switcher */}
       <section className="flex flex-wrap items-center justify-between gap-2.5">
@@ -346,8 +352,8 @@ export function ProfitLossView({
       {/* 5 Main Summary KPI Cards (Klik untuk Rincian & Analisa) */}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Net Sales */}
-        <button
-          type="button"
+        <MotionCardButton
+          delay={0}
           onClick={() => toggleKpiSelection('net sales')}
           className={`col-span-2 lg:col-span-1 rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'net sales'
@@ -374,11 +380,11 @@ export function ProfitLossView({
               100,00%
             </span>
           </div>
-        </button>
+        </MotionCardButton>
 
         {/* Total COGS */}
-        <button
-          type="button"
+        <MotionCardButton
+          delay={0.04}
           onClick={() => toggleKpiSelection('total cost of goods sold')}
           className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total cost of goods sold'
@@ -405,11 +411,11 @@ export function ProfitLossView({
               {formatPercentId(pct(report.totalCogs))}
             </span>
           </div>
-        </button>
+        </MotionCardButton>
 
         {/* Gross Profit */}
-        <button
-          type="button"
+        <MotionCardButton
+          delay={0.08}
           onClick={() => toggleKpiSelection('gross profit')}
           className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'gross profit'
@@ -436,11 +442,11 @@ export function ProfitLossView({
               {formatPercentId(pct(report.grossProfit))}
             </span>
           </div>
-        </button>
+        </MotionCardButton>
 
         {/* Operational Expense */}
-        <button
-          type="button"
+        <MotionCardButton
+          delay={0.12}
           onClick={() => toggleKpiSelection('total operational expense')}
           className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total operational expense'
@@ -467,11 +473,11 @@ export function ProfitLossView({
               {formatPercentId(pct(report.totalOpex))}
             </span>
           </div>
-        </button>
+        </MotionCardButton>
 
         {/* Net Profit */}
-        <button
-          type="button"
+        <MotionCardButton
+          delay={0.16}
           onClick={() => toggleKpiSelection('net profit')}
           className={`rounded-2xl p-4 border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:brightness-105 ${
             isNetLoss
@@ -505,7 +511,7 @@ export function ProfitLossView({
               {formatPercentId(pct(report.netProfit))}
             </span>
           </div>
-        </button>
+        </MotionCardButton>
       </section>
 
       {/* Detail & Simple App Analysis Panel when a top KPI card is clicked */}
@@ -571,7 +577,7 @@ export function ProfitLossView({
       })()}
 
       {/* Formula Info Banner */}
-      <section className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-700 dark:text-blue-200">
+      <MotionCard className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-700 dark:text-blue-200">
         <Calculator className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
         <div className="leading-relaxed">
           <strong>Rumus Otomatis:</strong> Setiap baris{' '}
@@ -585,10 +591,10 @@ export function ProfitLossView({
             </span>
           )}
         </div>
-      </section>
+      </MotionCard>
 
       {/* Filter & Search Bar */}
-      <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+      <MotionSection delay={0.04} className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
             {(
@@ -909,7 +915,7 @@ export function ProfitLossView({
             })}
           </div>
         )}
-      </section>
+      </MotionSection>
     </div>
   );
 }

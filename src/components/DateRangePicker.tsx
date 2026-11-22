@@ -294,6 +294,7 @@ export function DateRangePicker({
       role="dialog"
       aria-modal="true"
       aria-labelledby="date-range-modal-title"
+      data-lenis-prevent
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs"
       onClick={() => onOpenChange(false)}
     >
@@ -331,7 +332,10 @@ export function DateRangePicker({
         </div>
 
         {/* Pop-up Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5">
+        <div
+          data-lenis-prevent
+          className="p-4 sm:p-5 overflow-y-auto space-y-3.5"
+        >
           {/* 2 Kartu: 1. Dari Tanggal Mulai (Emas) & 2. Sampai Tanggal Akhir (Biru Toska) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* KARTU 1: Dari Tanggal Mulai (Warna Amber / Gold) */}
@@ -468,7 +472,10 @@ export function DateRangePicker({
                 </button>
               </div>
 
-              <div className="max-h-48 overflow-y-auto divide-y divide-slate-200/70 dark:divide-[#1E355D]/60 bg-white dark:bg-[#0D1A32]">
+              <div
+                data-lenis-prevent
+                className="max-h-48 overflow-y-auto divide-y divide-slate-200/70 dark:divide-[#1E355D]/60 bg-white dark:bg-[#0D1A32]"
+              >
                 {monthDaysList.map(({ day, iso, weekdayName }) => {
                   const hasData = availableSet.has(iso);
                   const isSelected =
