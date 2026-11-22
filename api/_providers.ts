@@ -38,8 +38,10 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderConfig> = {
     id: 'groq',
     label: 'Groq AI',
     envVarName: 'GROQ_API_KEY',
-    primaryModel: process.env.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile',
-    fallbackModel: 'llama-3.1-8b-instant',
+    // llama-3.3-70b-versatile & llama-3.1-8b-instant sudah dimatikan Groq (16 Agu 2026).
+    // Bisa diganti tanpa ubah kode lewat env GROQ_MODEL / GROQ_FALLBACK_MODEL di Vercel.
+    primaryModel: process.env.GROQ_MODEL?.trim() || 'openai/gpt-oss-120b',
+    fallbackModel: process.env.GROQ_FALLBACK_MODEL?.trim() || 'openai/gpt-oss-20b',
   },
 };
 
@@ -267,7 +269,12 @@ async function generateWithGroq(
             model,
             messages,
             temperature: 0.25,
-            max_tokens: params.maxTokens ?? 1024,
+            // Model reasoning memakai sebagian token untuk "berpikir", jadi diberi ruang ekstra
+            // agar jawaban tidak terpotong / kosong. Panjang jawaban tetap diatur oleh prompt.
+            max_completion_tokens: (params.maxTokens ?? 1024) + 800,
+            ...(model.startsWith('openai/gpt-oss')
+              ? { reasoning_effort: 'low', include_reasoning: false }
+              : {}),
           }),
         }
       );
@@ -288,7 +295,11 @@ async function generateWithGroq(
           `Groq HTTP ${response.status}`;
         const err = new Error(`[Groq ${response.status}] ${errMsg}`);
         lastError = err;
+        const modelUnavailable =
+          response.status === 404 ||
+          /model_not_found|decommissioned|does not exist/i.test(errMsg);
         if (
+          modelUnavailable ||
           response.status === 429 ||
           response.status >= 500 ||
           isTransientErrorMessage(errMsg)
