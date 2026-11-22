@@ -756,3 +756,297 @@ export function buildAiPnlContext(
     lines,
   ].join('\n');
 }
+
+// ---------- AI Analysis (Khusus Menu Laba Rugi) ----------
+
+const PNL_AI_CACHE_KEY = 'so_pnl_ai_cache_v2';
+const MAX_PNL_AI_CACHE_ENTRIES = 60;
+
+interface PnlAiCacheEntry {
+  text: string;
+  monthKey: string;
+  cachedAt: number;
+}
+
+const memoryPnlAiCache = new Map<string, PnlAiCacheEntry>();
+let storageCacheHydrated = false;
+
+function hydratePnlAiCache(): void {
+  if (storageCacheHydrated) return;
+  storageCacheHydrated = true;
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.removeItem('so_pnl_ai_cache_v1');
+    const raw = window.localStorage.getItem(PNL_AI_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, PnlAiCacheEntry>;
+    if (!parsed || typeof parsed !== 'object') return;
+    for (const [k, v] of Object.entries(parsed)) {
+      if (
+        v &&
+        typeof v === 'object' &&
+        typeof v.text === 'string' &&
+        typeof v.monthKey === 'string' &&
+        typeof v.cachedAt === 'number'
+      ) {
+        memoryPnlAiCache.set(k, v);
+      }
+    }
+  } catch {
+    // Ignore corrupted cache
+  }
+}
+
+function persistPnlAiCache(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    if (memoryPnlAiCache.size > MAX_PNL_AI_CACHE_ENTRIES) {
+      const sorted = Array.from(memoryPnlAiCache.entries()).sort(
+        (a, b) => b[1].cachedAt - a[1].cachedAt
+      );
+      memoryPnlAiCache.clear();
+      for (const [k, v] of sorted.slice(0, MAX_PNL_AI_CACHE_ENTRIES)) {
+        memoryPnlAiCache.set(k, v);
+      }
+    }
+    const serialized: Record<string, PnlAiCacheEntry> = {};
+    for (const [k, v] of memoryPnlAiCache.entries()) {
+      serialized[k] = v;
+    }
+    window.localStorage.setItem(PNL_AI_CACHE_KEY, JSON.stringify(serialized));
+  } catch {
+    // Ignore storage quota issues
+  }
+}
+
+export function getPnlReportVersionKey(
+  report: PnlMonthReport,
+  prevReport: PnlMonthReport | null
+): string {
+  const prevSig = prevReport
+    ? `${prevReport.monthKey}:${prevReport.periodStart}:${prevReport.periodEnd}:${prevReport.updatedAt}:${Math.round(prevReport.netSales)}:${Math.round(prevReport.netProfit)}`
+    : 'no-prev';
+  return `${report.monthKey}|${report.periodStart}|${report.periodEnd}|${report.updatedAt}|${Math.round(report.netSales)}|${Math.round(report.totalCogs)}|${Math.round(report.totalOpex)}|${Math.round(report.netProfit)}|${report.rows.length}|${prevSig}`;
+}
+
+export function getPnlRowCacheKey(
+  row: PnlRow,
+  report: PnlMonthReport,
+  prevReport: PnlMonthReport | null
+): string {
+  const versionKey = getPnlReportVersionKey(report, prevReport);
+  return `${versionKey}::${row.account}|${normalizeDesc(row.description)}|${Math.round(row.value)}`;
+}
+
+export function getCachedPnlAnalysis(cacheKey: string): string | null {
+  hydratePnlAiCache();
+  return memoryPnlAiCache.get(cacheKey)?.text ?? null;
+}
+
+export function clearPnlAiCache(monthKey?: string): void {
+  hydratePnlAiCache();
+  if (!monthKey) {
+    memoryPnlAiCache.clear();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(PNL_AI_CACHE_KEY);
+      }
+    } catch {
+      // Ignore storage error
+    }
+    return;
+  }
+  for (const [k, v] of Array.from(memoryPnlAiCache.entries())) {
+    if (v.monthKey === monthKey || k.startsWith(`${monthKey}|`)) {
+      memoryPnlAiCache.delete(k);
+    }
+  }
+  persistPnlAiCache();
+}
+
+export function buildPnlAnalysisContext(
+  row: PnlRow,
+  report: PnlMonthReport,
+  prevReport: PnlMonthReport | null
+): string {
+  const periodDays = getPnlPeriodDays(report);
+  const netPct = (v: number) =>
+    Math.abs(report.netSales) > 1e-9 ? (v / report.netSales) * 100 : 0;
+
+  let groupShareLine = '';
+  if (row.section === 'cogs' && row.kind === 'item' && Math.abs(report.totalCogs) > 1e-9) {
+    groupShareLine = `Porsi terhadap Total COGS: ${formatPercentId(
+      (row.value / report.totalCogs) * 100
+    )}`;
+  } else if (
+    row.section === 'opex' &&
+    row.kind === 'item' &&
+    Math.abs(report.totalOpex) > 1e-9
+  ) {
+    groupShareLine = `Porsi terhadap Total Operational Expense: ${formatPercentId(
+      (row.value / report.totalOpex) * 100
+    )}`;
+  } else if (
+    row.section === 'revenue' &&
+    row.kind === 'item' &&
+    Math.abs(report.totalSales) > 1e-9
+  ) {
+    groupShareLine = `Porsi terhadap Total Sales: ${formatPercentId(
+      (Math.abs(row.value) / Math.abs(report.totalSales)) * 100
+    )}`;
+  }
+
+  const sameSectionRows = report.rows
+    .filter((r) => r.section === row.section)
+    .map(
+      (r) =>
+        `  - ${r.description}${r.account ? ` [${r.account}]` : ''}${
+          r.kind === 'anchor' ? ' (ACUAN 100%)' : r.kind === 'summary' ? ' (SUBTOTAL)' : ''
+        }: ${formatSignedRupiah(r.value)} | ${formatPercentId(r.percentToNetSales)} dari Net Sales`
+    )
+    .join('\n');
+
+  const allReportRows = report.rows
+    .map(
+      (r) =>
+        `  - [${r.section.toUpperCase()}${r.account ? ` ${r.account}` : ''}] ${
+          r.description
+        }: ${formatSignedRupiah(r.value)} (${formatPercentId(r.percentToNetSales)})`
+    )
+    .join('\n');
+
+  let prevSection =
+    'Perbandingan bulan sebelumnya: Belum tersedia laporan bulan sebelumnya sebagai pembanding (hanya ada data bulan ini).';
+  if (prevReport) {
+    const prevMatch = prevReport.rows.find(
+      (r) => normalizeDesc(r.description) === normalizeDesc(row.description)
+    );
+    const prevParts = [
+      `Perbandingan vs ${formatMonthId(prevReport.monthKey)} (${formatPnlPeriodRange(prevReport)}):`,
+      `- Net Sales bulan lalu: ${formatSignedRupiah(prevReport.netSales)} -> bulan ini: ${formatSignedRupiah(report.netSales)}`,
+      `- Total COGS bulan lalu: ${formatSignedRupiah(prevReport.totalCogs)} (${formatPercentId(
+        prevReport.netSales ? (prevReport.totalCogs / prevReport.netSales) * 100 : 0
+      )}) -> bulan ini: ${formatPercentId(netPct(report.totalCogs))}`,
+      `- Biaya Operasional bulan lalu: ${formatSignedRupiah(prevReport.totalOpex)} (${formatPercentId(
+        prevReport.netSales ? (prevReport.totalOpex / prevReport.netSales) * 100 : 0
+      )}) -> bulan ini: ${formatPercentId(netPct(report.totalOpex))}`,
+      `- Net Profit bulan lalu: ${formatSignedRupiah(prevReport.netProfit)} (${formatPercentId(
+        prevReport.netSales ? (prevReport.netProfit / prevReport.netSales) * 100 : 0
+      )}) -> bulan ini: ${formatPercentId(netPct(report.netProfit))}`,
+    ];
+    if (prevMatch) {
+      const valDiff = row.value - prevMatch.value;
+      const pctDiff = row.percentToNetSales - prevMatch.percentToNetSales;
+      prevParts.push(
+        `- Pos "${row.description}" bulan lalu: ${formatSignedRupiah(prevMatch.value)} (${formatPercentId(
+          prevMatch.percentToNetSales
+        )}) | Selisih ke bulan ini: ${valDiff >= 0 ? '+' : ''}${formatSignedRupiah(
+          valDiff
+        )} (${pctDiff >= 0 ? '+' : ''}${formatPercentId(pctDiff)} poin)`
+      );
+    } else {
+      prevParts.push(
+        `- Pos "${row.description}" tidak muncul pada laporan bulan lalu.`
+      );
+    }
+    prevSection = prevParts.join('\n');
+  }
+
+  return [
+    `=== PROFIL LAPORAN LABA RUGI ===`,
+    `Outlet: ${report.branchName}`,
+    `Bulan: ${formatMonthId(report.monthKey)} (${formatPnlPeriodRange(report)}, ${periodDays} hari)`,
+    report.generatedAt ? `Waktu Generate ESB: ${report.generatedAt}` : '',
+    ``,
+    `=== POS YANG SEDANG DIANALISIS ===`,
+    `Nama Pos: ${row.description}`,
+    `Kode Akun: ${row.account || 'Subtotal / Laba Laporan'}`,
+    `Kelompok: ${row.section} (${row.kind})`,
+    `Nilai Pos: ${formatSignedRupiah(row.value)}`,
+    `Persentase terhadap Net Sales: ${formatPercentId(row.percentToNetSales)}`,
+    `Rata-rata Harian (${periodDays} hari): ${formatSignedRupiah(row.value / periodDays)}/hari`,
+    groupShareLine,
+    ``,
+    `=== RINGKASAN UTAMA LAPORAN AKTIF ===`,
+    `- Total Sales (Kotor): ${formatSignedRupiah(report.totalSales)} (${formatPercentId(netPct(report.totalSales))})`,
+    `- Total Discount: ${formatSignedRupiah(report.totalDiscount)} (${formatPercentId(netPct(report.totalDiscount))})`,
+    `- Net Sales (Acuan 100%): ${formatSignedRupiah(report.netSales)}`,
+    `- Total COGS (HPP): ${formatSignedRupiah(report.totalCogs)} (${formatPercentId(netPct(report.totalCogs))})`,
+    `- Gross Profit: ${formatSignedRupiah(report.grossProfit)} (${formatPercentId(netPct(report.grossProfit))})`,
+    `- Total Operational Expense: ${formatSignedRupiah(report.totalOpex)} (${formatPercentId(netPct(report.totalOpex))})`,
+    `- Operational Profit/Loss: ${formatSignedRupiah(report.operationalProfit)} (${formatPercentId(netPct(report.operationalProfit))})`,
+    `- Net Profit/(Net Loss): ${formatSignedRupiah(report.netProfit)} (${formatPercentId(netPct(report.netProfit))})`,
+    ``,
+    `=== POS DALAM KELOMPOK YANG SAMA (${row.section.toUpperCase()}) ===`,
+    sameSectionRows,
+    ``,
+    `=== SELURUH BARIS LAPORAN AKTUAL ===`,
+    allReportRows,
+    ``,
+    prevSection,
+  ]
+    .filter((line) => line !== undefined && line !== '')
+    .join('\n');
+}
+
+export async function fetchPnlRowAnalysis({
+  row,
+  report,
+  prevReport,
+  forceRefresh = false,
+  signal,
+}: {
+  row: PnlRow;
+  report: PnlMonthReport;
+  prevReport: PnlMonthReport | null;
+  forceRefresh?: boolean;
+  signal?: AbortSignal;
+}): Promise<{ text: string; fromCache: boolean }> {
+  const cacheKey = getPnlRowCacheKey(row, report, prevReport);
+  if (!forceRefresh) {
+    const cached = getCachedPnlAnalysis(cacheKey);
+    if (cached) {
+      return { text: cached, fromCache: true };
+    }
+  }
+
+  const contextText = buildPnlAnalysisContext(row, report, prevReport);
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({
+      action: 'pnl_analysis',
+      pnlTargetLabel: `${row.description}${row.account ? ` (${row.account})` : ''}`,
+      contextText,
+    }),
+  });
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      'Server AI belum tersedia di hosting ini. Pastikan aplikasi dijalankan lewat AI Studio atau Vercel dengan GEMINI_API_KEY atau GROQ_API_KEY aktif.'
+    );
+  }
+
+  const payload = (await res.json()) as { reply?: string; error?: string };
+  if (!res.ok || payload.error) {
+    throw new Error(payload.error || 'Gagal mendapatkan analisis AI dari Gemini.');
+  }
+
+  const text = (payload.reply ?? '').trim();
+  if (!text) {
+    throw new Error('Gemini tidak mengembalikan isi analisis.');
+  }
+
+  hydratePnlAiCache();
+  memoryPnlAiCache.set(cacheKey, {
+    text,
+    monthKey: report.monthKey,
+    cachedAt: Date.now(),
+  });
+  persistPnlAiCache();
+
+  return { text, fromCache: false };
+}
+

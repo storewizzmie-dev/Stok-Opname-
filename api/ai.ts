@@ -1,15 +1,18 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-
-export interface AiChatTurn {
-  role: 'user' | 'assistant';
-  text: string;
-}
+import { ThinkingLevel } from '@google/genai';
+import {
+  AiMessageTurn,
+  AiProviderPreference,
+  generateWithConfiguredProviders,
+  isTransientErrorMessage,
+} from './_providers';
 
 export interface AiRequestBody {
-  action?: 'summary' | 'chat';
+  action?: 'summary' | 'chat' | 'pnl_analysis';
+  provider?: AiProviderPreference;
   contextText?: string;
   question?: string;
-  history?: AiChatTurn[];
+  history?: AiMessageTurn[];
+  pnlTargetLabel?: string;
 }
 
 const SYSTEM_INSTRUCTION = `Kamu adalah Asisten Stok Opname untuk staf toko/restoran (seperti Wizzmie).
@@ -32,6 +35,27 @@ Aturan menjawab:
 5. Gunakan format poin-poin singkat agar enak dibaca di layar HP.
 6. Fokusmu adalah membaca dan menjelaskan data laporan stok opname (bukan menilai kode/desain aplikasi). Jika pengguna bertanya tentang fitur atau tampilan aplikasi, jelaskan dengan ramah bahwa kamu bertugas membantu menganalisis angka stok, lalu beri 2 contoh pertanyaan stok yang bisa ditanyakan (misalnya menanyakan barang kurang terbesar atau mengecek barang di tanggal tertentu).`;
 
+const PNL_ANALYSIS_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjelaskan satu pos laporan Laba Rugi kepada pemilik outlet dengan bahasa Indonesia sehari-hari yang sederhana, cerdas, dan langsung ke inti.
+
+ATURAN WAJIB BENTUK & PANJANG JAWABAN:
+- Tulis TEPAT 1 paragraf saja berisi maksimal 3–4 kalimat pendek.
+- Panjang ideal 40–70 kata dan DILARANG melebihi 90 kata.
+- Jangan membuat daftar bernomor, poin-poin, judul, atau sapaan pembuka. Langsung tulis intinya.
+
+ATURAN GAYA BAHASA:
+- Pakai bahasa sederhana yang mudah dibaca dalam beberapa detik.
+- DILARANG memakai istilah kaku/berlebihan seperti: "tulang punggung utama", "konsekuensi langsung pada struktur biaya", "profitabilitas akhir outlet tetap sangat terjaga", "menahan Gross Profit", "menggerus nilai penjualan", "struktur margin yang menentukan", atau kalimat template seperti "Dari setiap Rp100 penjualan bersih...".
+- Contoh gaya yang bagus: "Penjualan makanan menjadi sumber pendapatan terbesar restoran." atau "Besarnya penjualan makanan membuat biaya bahan bakunya menjadi komponen terbesar." (jadikan referensi gaya saja, bukan template).
+
+ATURAN FOKUS & KECERDASAN ANALISIS:
+1. Baca seluruh data laporan untuk memahami konteksnya, tetapi tampilkan HANYA 1–2 temuan paling penting untuk pos yang sedang dibuka.
+2. Fokus pada: arti angka/porsi pos tersebut, pembanding terdekat yang paling relevan (bila benar-benar berguna), dan satu hal yang perlu diperhatikan jika ada (misalnya nilai minus atau biaya tidak biasa).
+3. JANGAN memaksakan menghubungkan pos ke seluruh akun lain (Sales ke Gross Profit, Opex, Waste, dan Net Profit sekaligus).
+   - Misal saat membahas Sales - Food, cukup fokus ke penjualan makanan dan perbandingannya dengan komponen penjualan lain (seperti minuman) bila relevan.
+   - Saat membahas kategori subtotal (seperti Total COGS atau Biaya Operasional), tunjukkan penyumbang terbesarnya secara singkat.
+   - Saat membahas laba (Gross Profit, Operational Profit, Net Profit), jelaskan singkat pembentuk utamanya.
+4. DILARANG mengulang rumus pembagian, mengulang angka secara hambar tanpa makna, menganggap angka besar otomatis bermasalah, menyebut kondisi "sehat" atau "buruk" tanpa data pembanding bulan lalu, atau mengarang penyebab yang tidak ada di laporan.`;
+
 function buildSummaryPrompt(contextText: string): string {
   return `Berikut data laporan stok opname saat ini:
 
@@ -44,108 +68,73 @@ Tolong buatkan ringkasan yang sangat gampang dibaca oleh orang awam dengan forma
 4. **Saran Langkah Hari Ini**: 2 langkah praktis untuk tim toko dan bagian produksi / operasional.`;
 }
 
-function isTransientModelError(rawMsg: string): boolean {
-  const lower = rawMsg.toLowerCase();
-  return (
-    lower.includes('503') ||
-    lower.includes('unavailable') ||
-    lower.includes('high demand') ||
-    lower.includes('overloaded') ||
-    lower.includes('temporarily') ||
-    lower.includes('timeout') ||
-    lower.includes('econnreset')
-  );
-}
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function generateWithRetryAndFallback(
-  ai: GoogleGenAI,
-  contents: Parameters<GoogleGenAI['models']['generateContent']>[0]['contents']
-): Promise<string> {
-  const attempts: {
-    model: string;
-    thinkingLevel?: ThinkingLevel;
-    waitBeforeMs: number;
-  }[] = [
-    { model: 'gemini-4-hydrogen', thinkingLevel: ThinkingLevel.HIGH, waitBeforeMs: 0 },
-    { model: 'gemini-4-hydrogen', thinkingLevel: ThinkingLevel.HIGH, waitBeforeMs: 700 },
-    { model: 'gemini-3.1-flash-lite', waitBeforeMs: 300 },
-  ];
-
-  let lastError: unknown = null;
-
-  for (const attempt of attempts) {
-    if (attempt.waitBeforeMs > 0) {
-      await delay(attempt.waitBeforeMs);
-    }
-    try {
-      const response = await ai.models.generateContent({
-        model: attempt.model,
-        contents,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          ...(attempt.thinkingLevel
-            ? { thinkingConfig: { thinkingLevel: attempt.thinkingLevel } }
-            : {}),
-        },
-      });
-      return response.text?.trim() || 'Tidak ada jawaban dari AI.';
-    } catch (err) {
-      lastError = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!isTransientModelError(msg)) {
-        throw err;
-      }
-    }
-  }
-
-  throw lastError;
+function normalizeProvider(raw: unknown): AiProviderPreference {
+  if (raw === 'gemini' || raw === 'groq') return raw;
+  return 'auto';
 }
 
 export async function processAiRequest(
   rawBody: unknown
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-    return {
-      status: 500,
-      body: {
-        error:
-          'GEMINI_API_KEY belum diatur di server. Jika memakai Vercel, tambahkan GEMINI_API_KEY di Project Settings > Environment Variables.',
-      },
-    };
+  let parsedRaw = rawBody;
+  if (typeof parsedRaw === 'string') {
+    try {
+      parsedRaw = JSON.parse(parsedRaw);
+    } catch {
+      parsedRaw = {};
+    }
   }
 
-  const body = (rawBody && typeof rawBody === 'object' ? rawBody : {}) as AiRequestBody;
-  const action = body.action === 'summary' ? 'summary' : 'chat';
+  const body = (
+    parsedRaw && typeof parsedRaw === 'object' ? parsedRaw : {}
+  ) as AiRequestBody;
+  const action =
+    body.action === 'summary'
+      ? 'summary'
+      : body.action === 'pnl_analysis'
+      ? 'pnl_analysis'
+      : 'chat';
+  const providerPref = normalizeProvider(body.provider);
   const contextText = String(body.contextText ?? '').trim();
 
   if (!contextText) {
     return {
       status: 400,
-      body: { error: 'Data laporan stok belum tersedia. Upload file Excel terlebih dahulu.' },
+      body: {
+        error:
+          action === 'pnl_analysis'
+            ? 'Data laporan Laba Rugi belum tersedia untuk dianalisis.'
+            : 'Data laporan stok belum tersedia. Upload file Excel terlebih dahulu.',
+      },
     };
   }
 
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
-
   try {
-    if (action === 'summary') {
-      const reply = await generateWithRetryAndFallback(
-        ai,
-        buildSummaryPrompt(contextText)
-      );
+    if (action === 'pnl_analysis') {
+      const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
+      const prompt = `Analisis singkat (1 paragraf, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${contextText}`;
+      const result = await generateWithConfiguredProviders(providerPref, {
+        systemInstruction: PNL_ANALYSIS_SYSTEM_INSTRUCTION,
+        userPrompt: prompt,
+        thinkingLevel: ThinkingLevel.HIGH,
+        maxTokens: 320,
+      });
       return {
         status: 200,
-        body: { reply },
+        body: { reply: result.reply, provider: result.provider },
+      };
+    }
+
+    if (action === 'summary') {
+      const result = await generateWithConfiguredProviders(providerPref, {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        userPrompt: buildSummaryPrompt(contextText),
+        thinkingLevel: ThinkingLevel.HIGH,
+        maxTokens: 1200,
+      });
+      return {
+        status: 200,
+        body: { reply: result.reply, provider: result.provider },
       };
     }
 
@@ -158,65 +147,67 @@ export async function processAiRequest(
     }
 
     const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
-    const contents = [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `Ini data laporan stok opname yang sedang saya lihat:\n\n${contextText}\n\nJawab pertanyaan saya berikutnya berdasarkan data ini.`,
-          },
-        ],
-      },
-      {
-        role: 'model',
-        parts: [
-          {
-            text: 'Baik, saya sudah membaca data stok opname tersebut. Silakan tanyakan apa saja dengan bahasa biasa.',
-          },
-        ],
-      },
-      ...history.map((turn) => ({
-        role: turn.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(turn.text ?? '') }],
-      })),
-      {
-        role: 'user',
-        parts: [{ text: question }],
-      },
-    ];
+    const result = await generateWithConfiguredProviders(providerPref, {
+      systemInstruction: SYSTEM_INSTRUCTION,
+      initialUserContext: `Ini data laporan stok opname & keuangan yang sedang saya lihat:\n\n${contextText}\n\nJawab pertanyaan saya berikutnya berdasarkan data ini.`,
+      initialModelAck:
+        'Baik, saya sudah membaca data laporan tersebut. Silakan tanyakan apa saja dengan bahasa biasa.',
+      history,
+      userPrompt: question,
+      thinkingLevel: ThinkingLevel.HIGH,
+      maxTokens: 1200,
+    });
 
-    const reply = await generateWithRetryAndFallback(ai, contents);
     return {
       status: 200,
-      body: { reply },
+      body: { reply: result.reply, provider: result.provider },
     };
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err);
     const lower = rawMsg.toLowerCase();
-    if (isTransientModelError(rawMsg)) {
+
+    if (rawMsg.startsWith('MISSING_KEY:')) {
+      return {
+        status: 500,
+        body: {
+          error: rawMsg.replace('MISSING_KEY:', ''),
+        },
+      };
+    }
+    if (isTransientErrorMessage(rawMsg)) {
       return {
         status: 503,
         body: {
           error:
-            'Server AI Gemini sedang sangat ramai sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
+            'Server AI sedang sibuk sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
         },
       };
     }
-    if (lower.includes('429') || lower.includes('resource_exhausted') || lower.includes('quota')) {
+    if (
+      lower.includes('429') ||
+      lower.includes('resource_exhausted') ||
+      lower.includes('quota')
+    ) {
       return {
         status: 429,
         body: {
           error:
-            'Kuota gratis Gemini sedang penuh sebentar. Tunggu 1 menit lalu coba lagi.',
+            'Kuota AI sedang penuh sementara. Tunggu sebentar lalu coba lagi.',
         },
       };
     }
-    if (lower.includes('403') || lower.includes('400') || lower.includes('api_key')) {
+    if (
+      lower.includes('401') ||
+      lower.includes('403') ||
+      lower.includes('400') ||
+      lower.includes('api_key') ||
+      lower.includes('invalid api key')
+    ) {
       return {
         status: 500,
         body: {
           error:
-            'Kunci Gemini API tidak valid atau belum aktif. Periksa pengaturan Secrets / Environment Variables server.',
+            'API Key AI tidak valid atau belum aktif. Periksa GEMINI_API_KEY / GROQ_API_KEY di Environment Variables server.',
         },
       };
     }

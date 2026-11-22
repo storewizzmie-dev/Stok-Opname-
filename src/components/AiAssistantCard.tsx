@@ -48,6 +48,7 @@ export function AiAssistantCard({
   onClose?: () => void;
 }) {
   const [input, setInput] = useState('');
+  const [aiProvider, setAiProvider] = useState<'auto' | 'gemini' | 'groq'>('auto');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -85,13 +86,13 @@ export function AiAssistantCard({
     const res = await fetch('/api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ provider: aiProvider, ...payload }),
     });
 
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       throw new Error(
-        'Server AI belum tersedia di hosting ini. Pastikan aplikasi dijalankan lewat Vercel atau AI Studio dengan GEMINI_API_KEY aktif.'
+        'Server AI belum tersedia di hosting ini. Pastikan aplikasi dijalankan lewat Vercel atau AI Studio dengan GEMINI_API_KEY atau GROQ_API_KEY aktif.'
       );
     }
 
@@ -194,7 +195,20 @@ export function AiAssistantCard({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <select
+            aria-label="Pilih penyedia AI"
+            value={aiProvider}
+            disabled={isLoading}
+            onChange={(e) =>
+              setAiProvider(e.target.value as 'auto' | 'gemini' | 'groq')
+            }
+            className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-700 dark:text-slate-200 min-h-[40px] cursor-pointer"
+          >
+            <option value="auto">AI: Otomatis</option>
+            <option value="gemini">Gemini AI</option>
+            <option value="groq">Groq AI</option>
+          </select>
           {messages.length > 0 && (
             <button
               type="button"

@@ -49,6 +49,7 @@ import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
 import { buildStandaloneHtml } from './lib/exportHtml';
 import {
   PnlDataset,
+  clearPnlAiCache,
   detectExcelReportType,
   formatPnlPeriodRange,
   parseProfitLossBuffer,
@@ -285,6 +286,7 @@ export default function App() {
             }
           }
           nextPnlData[parsedPnl.monthKey] = parsedPnl;
+          clearPnlAiCache(parsedPnl.monthKey);
           lastPnlPeriod = formatPnlPeriodRange(parsedPnl);
           continue;
         }
@@ -486,6 +488,9 @@ export default function App() {
       if (restoredPnlCount > 0) {
         const mergedPnl: PnlDataset = { ...pnlData, ...restoredPnl };
         const pnlMonths = Object.keys(mergedPnl).sort();
+        for (const m of Object.keys(restoredPnl)) {
+          clearPnlAiCache(m);
+        }
         setPnlData(mergedPnl);
         persistPnlData(mergedPnl);
         setSelectedPnlMonth(pnlMonths[pnlMonths.length - 1]);
@@ -510,6 +515,7 @@ export default function App() {
   const handleDeletePnlMonth = (monthKey: string) => {
     const next = { ...pnlData };
     delete next[monthKey];
+    clearPnlAiCache(monthKey);
     setPnlData(next);
     persistPnlData(next);
     if (selectedPnlMonth === monthKey) {
@@ -530,6 +536,7 @@ export default function App() {
     setWipeArmed(false);
     setData({});
     setPnlData({});
+    clearPnlAiCache();
     setSelectedMonth('');
     setSelectedPnlMonth('');
     setSelectedDay('');
