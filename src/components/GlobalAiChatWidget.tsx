@@ -33,13 +33,13 @@ import {
 } from '../lib/stockOpname';
 
 type MenuTab = 'beranda' | 'harian' | 'barang' | 'labarugi' | 'pengaturan';
-type AiProviderOption = 'auto' | 'gemini' | 'groq';
+type AiProviderOption = 'auto' | 'gemini' | 'groq' | 'openai';
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text: string;
-  provider?: 'gemini' | 'groq';
+  provider?: 'gemini' | 'groq' | 'openai';
   timestamp: number;
   isError?: boolean;
 }
@@ -238,7 +238,12 @@ export function GlobalAiChatWidget({
   const [providerChoice, setProviderChoice] = useState<AiProviderOption>(() => {
     try {
       const saved = localStorage.getItem(CHAT_PROVIDER_KEY);
-      if (saved === 'gemini' || saved === 'groq' || saved === 'auto') {
+      if (
+        saved === 'gemini' ||
+        saved === 'groq' ||
+        saved === 'openai' ||
+        saved === 'auto'
+      ) {
         return saved;
       }
     } catch {
@@ -393,7 +398,7 @@ export function GlobalAiChatWidget({
       const payload = (await res.json()) as {
         reply?: string;
         error?: string;
-        provider?: 'gemini' | 'groq';
+        provider?: 'gemini' | 'groq' | 'openai';
       };
 
       if (!res.ok || payload.error) {
@@ -505,13 +510,14 @@ export function GlobalAiChatWidget({
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Pilihan Engine AI: Otomatis / Gemini / Groq */}
+                {/* Pilihan Engine AI: Otomatis / Gemini / Groq / OpenAI */}
                 <div className="inline-flex items-center rounded-lg bg-[#060E1D] p-0.5 border border-white/10 shrink-0">
                   {(
                     [
                       { id: 'auto', label: 'Auto' },
                       { id: 'gemini', label: 'Gemini' },
                       { id: 'groq', label: 'Groq' },
+                      { id: 'openai', label: 'OpenAI' },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -590,7 +596,13 @@ export function GlobalAiChatWidget({
                           <span>
                             Asisten AI{' '}
                             {msg.provider
-                              ? `(${msg.provider === 'groq' ? 'Groq' : 'Gemini'})`
+                              ? `(${
+                                  msg.provider === 'groq'
+                                    ? 'Groq'
+                                    : msg.provider === 'openai'
+                                    ? 'OpenAI'
+                                    : 'Gemini'
+                                })`
                               : ''}
                           </span>
                         </span>

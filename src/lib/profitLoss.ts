@@ -1031,7 +1031,7 @@ export function getPnlReportVersionKey(
   return `${report.monthKey}|${report.periodStart}|${report.periodEnd}|${report.updatedAt}|${Math.round(report.netSales)}|${Math.round(report.totalCogs)}|${Math.round(report.totalOpex)}|${Math.round(report.netProfit)}|${report.rows.length}|${prevSig}`;
 }
 
-export type PnlAiProviderChoice = 'gemini' | 'groq';
+export type PnlAiProviderChoice = 'gemini' | 'groq' | 'openai';
 
 export function getPnlRowCacheKey(
   row: PnlRow,
@@ -1244,18 +1244,17 @@ export async function fetchPnlRowAnalysis({
     error?: string;
     provider?: PnlAiProviderChoice;
   };
+  const label =
+    provider === 'groq' ? 'Groq' : provider === 'openai' ? 'OpenAI' : 'Gemini';
   if (!res.ok || payload.error) {
     throw new Error(
-      payload.error ||
-        `Gagal mendapatkan analisis AI dari ${provider === 'groq' ? 'Groq' : 'Gemini'}.`
+      payload.error || `Gagal mendapatkan analisis AI dari ${label}.`
     );
   }
 
   const text = cleanAiProse(payload.reply ?? '');
   if (!text) {
-    throw new Error(
-      `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan isi analisis.`
-    );
+    throw new Error(`${label} tidak mengembalikan isi analisis.`);
   }
 
   hydratePnlAiCache();
@@ -1326,18 +1325,17 @@ export async function askPnlFollowUpQuestion({
     error?: string;
     provider?: PnlAiProviderChoice;
   };
+  const label =
+    provider === 'groq' ? 'Groq' : provider === 'openai' ? 'OpenAI' : 'Gemini';
   if (!res.ok || payload.error) {
     throw new Error(
-      payload.error ||
-        `Gagal mengirim pertanyaan ke ${provider === 'groq' ? 'Groq' : 'Gemini'}.`
+      payload.error || `Gagal mengirim pertanyaan ke ${label}.`
     );
   }
 
   const text = cleanAiProse(payload.reply ?? '');
   if (!text) {
-    throw new Error(
-      `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan jawaban.`
-    );
+    throw new Error(`${label} tidak mengembalikan jawaban.`);
   }
 
   return { text, provider: payload.provider ?? provider };
@@ -1442,7 +1440,12 @@ function hydratePnlPermanentNotes(): void {
       ) {
         memoryPnlPermanentNotes.set(k, {
           text: cleanAiProse(v.text),
-          provider: v.provider === 'groq' ? 'groq' : 'gemini',
+          provider:
+            v.provider === 'groq'
+              ? 'groq'
+              : v.provider === 'openai'
+              ? 'openai'
+              : 'gemini',
           savedAt: typeof v.savedAt === 'number' ? v.savedAt : Date.now(),
           monthKey: v.monthKey,
           description: v.description,

@@ -960,7 +960,11 @@ function SimpleAnalysisCard({
             <>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                 Note Permanen ·{' '}
-                {permanentNote.provider === 'groq' ? 'Groq AI' : 'Gemini AI'}
+                {permanentNote.provider === 'groq'
+                  ? 'Groq AI'
+                  : permanentNote.provider === 'openai'
+                  ? 'OpenAI'
+                  : 'Gemini AI'}
               </span>
               <button
                 type="button"
@@ -1157,7 +1161,12 @@ function PnlAiAnalysisPanel({
       .filter(Boolean);
   }, [cleanedMainAnalysis]);
 
-  const providerLabel = selectedProvider === 'groq' ? 'Groq AI' : 'Gemini AI';
+  const providerLabel =
+    selectedProvider === 'groq'
+      ? 'Groq AI'
+      : selectedProvider === 'openai'
+      ? 'OpenAI'
+      : 'Gemini AI';
   const isMainPinned =
     Boolean(cleanedMainAnalysis) &&
     permanentNote?.text === cleanedMainAnalysis;
@@ -1174,7 +1183,7 @@ function PnlAiAnalysisPanel({
               Analisa Tambahan AI (Opsional)
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
-              Pilih Gemini atau Groq, lalu klik Analisa
+              Pilih Gemini, Groq, atau OpenAI, lalu klik Analisa
             </span>
           </div>
         </div>
@@ -1208,6 +1217,18 @@ function PnlAiAnalysisPanel({
               }`}
             >
               Groq
+            </button>
+            <button
+              type="button"
+              disabled={isLoading || isAsking}
+              onClick={() => setSelectedProvider('openai')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
+                selectedProvider === 'openai'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              OpenAI
             </button>
           </div>
 
@@ -1402,9 +1423,7 @@ function PnlAiAnalysisPanel({
                   value={questionInput}
                   onChange={(e) => setQuestionInput(e.target.value)}
                   disabled={isAsking}
-                  placeholder={`Tanya lanjutan ke ${
-                    selectedProvider === 'groq' ? 'Groq' : 'Gemini'
-                  } tentang ${row.description}...`}
+                  placeholder={`Tanya lanjutan ke ${providerLabel} tentang ${row.description}...`}
                   className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px] disabled:opacity-60"
                 />
               </div>

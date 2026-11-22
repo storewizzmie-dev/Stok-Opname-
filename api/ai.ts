@@ -1,15 +1,18 @@
 import { ThinkingLevel } from '@google/genai';
 import {
   AiMessageTurn,
-  AiProviderPreference,
+  ProviderGenerateParams,
   generateWithConfiguredProviders,
   isTransientErrorMessage,
   resolveProviderOrder,
 } from './_providers.js';
 
+export type ExtendedProviderId = 'gemini' | 'groq' | 'openai';
+export type ExtendedProviderPreference = 'auto' | ExtendedProviderId;
+
 export interface AiRequestBody {
   action?: 'summary' | 'chat' | 'pnl_analysis' | 'pnl_chat';
-  provider?: AiProviderPreference;
+  provider?: ExtendedProviderPreference;
   contextText?: string;
   question?: string;
   history?: AiMessageTurn[];
@@ -152,9 +155,192 @@ Tolong buatkan ringkasan yang sangat gampang dibaca oleh orang awam dengan forma
 4. **Saran Langkah Hari Ini**: 2 langkah praktis untuk tim toko dan bagian produksi / operasional.`;
 }
 
-function normalizeProvider(raw: unknown): AiProviderPreference {
-  if (raw === 'gemini' || raw === 'groq') return raw;
+function normalizeProvider(raw: unknown): ExtendedProviderPreference {
+  if (raw === 'gemini' || raw === 'groq' || raw === 'openai') return raw;
   return 'auto';
+}
+
+function readOpenAiApiKey(): string | null {
+  const key = (process.env.OPENAI_API_KEY ?? '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  if (!key || key === 'MY_OPENAI_API_KEY') return null;
+  return key;
+}
+
+interface OpenAiChatCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
+}
+
+async function generateWithOpenAi(
+  apiKey: string,
+  params: ProviderGenerateParams
+): Promise<string> {
+  const primaryModel = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
+  const fallbackModel = process.env.OPENAI_FALLBACK_MODEL?.trim() || 'gpt-4o';
+  const modelsToTry = [primaryModel, fallbackModel].filter(
+    (m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx
+  );
+
+  const messages: Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }> = [{ role: 'system', content: params.systemInstruction }];
+
+  if (params.history && params.initialUserContext) {
+    messages.push({ role: 'user', content: params.initialUserContext });
+    messages.push({
+      role: 'assistant',
+      content:
+        params.initialModelAck ??
+        'Baik, saya sudah membaca data laporan tersebut.',
+    });
+    for (const turn of params.history) {
+      messages.push({
+        role: turn.role === 'assistant' ? 'assistant' : 'user',
+        content: String(turn.text ?? ''),
+      });
+    }
+  }
+  messages.push({ role: 'user', content: params.userPrompt });
+
+  let lastError: unknown = null;
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const model = modelsToTry[i];
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 28_000);
+
+    try {
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.25,
+            max_completion_tokens: params.maxTokens ?? 1200,
+          }),
+        }
+      );
+
+      const rawText = await response.text();
+      let data: OpenAiChatCompletionResponse = {};
+      try {
+        data = JSON.parse(rawText) as OpenAiChatCompletionResponse;
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || data.error) {
+        const fallbackSnippet = rawText
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 180);
+        const errMsg =
+          data.error?.message ||
+          fallbackSnippet ||
+          `OpenAI HTTP ${response.status}`;
+        const err = new Error(`[OpenAI ${response.status}] ${errMsg}`);
+        lastError = err;
+        const modelUnavailable =
+          response.status === 404 ||
+          /model_not_found|does not exist/i.test(errMsg);
+        if (
+          modelUnavailable ||
+          response.status === 429 ||
+          response.status >= 500 ||
+          isTransientErrorMessage(errMsg)
+        ) {
+          continue;
+        }
+        throw err;
+      }
+
+      const content = data.choices?.[0]?.message?.content?.trim();
+      if (!content) {
+        throw new Error('OpenAI tidak mengembalikan isi jawaban.');
+      }
+      return content;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isTransientErrorMessage(msg)) {
+        throw err;
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  throw lastError;
+}
+
+async function generateWithAnyProvider(
+  preference: ExtendedProviderPreference,
+  params: ProviderGenerateParams
+): Promise<{ reply: string; provider: ExtendedProviderId }> {
+  const openAiKey = readOpenAiApiKey();
+
+  if (preference === 'openai') {
+    if (!openAiKey) {
+      throw new Error(
+        'MISSING_KEY:OPENAI_API_KEY belum diatur di server. Tambahkan OPENAI_API_KEY di Project Settings > Environment Variables Vercel lalu Redeploy.'
+      );
+    }
+    const reply = await generateWithOpenAi(openAiKey, params);
+    return { reply, provider: 'openai' };
+  }
+
+  if (preference === 'gemini' || preference === 'groq') {
+    return generateWithConfiguredProviders(preference, params);
+  }
+
+  // preference === 'auto'
+  const envDefault = process.env.AI_DEFAULT_PROVIDER?.trim().toLowerCase();
+  if (envDefault === 'openai' && openAiKey) {
+    try {
+      const reply = await generateWithOpenAi(openAiKey, params);
+      return { reply, provider: 'openai' };
+    } catch (openAiErr) {
+      try {
+        return await generateWithConfiguredProviders('auto', params);
+      } catch {
+        throw openAiErr;
+      }
+    }
+  }
+
+  try {
+    return await generateWithConfiguredProviders('auto', params);
+  } catch (primaryErr) {
+    if (openAiKey) {
+      const reply = await generateWithOpenAi(openAiKey, params);
+      return { reply, provider: 'openai' };
+    }
+    throw primaryErr;
+  }
 }
 
 function compactContextForGroq(
@@ -279,7 +465,7 @@ export async function processAiRequest(
     if (action === 'pnl_analysis') {
       const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
       const prompt = `Analisis singkat (1 paragraf rapi tanpa tabel dan tanpa garis pemisah, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
-      const result = await generateWithConfiguredProviders(providerPref, {
+      const result = await generateWithAnyProvider(providerPref, {
         systemInstruction: PNL_ANALYSIS_SYSTEM_INSTRUCTION,
         userPrompt: prompt,
         thinkingLevel: ThinkingLevel.HIGH,
@@ -304,7 +490,7 @@ export async function processAiRequest(
       const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
       const initialAnalysis = String(body.initialAnalysis ?? '').trim();
 
-      const result = await generateWithConfiguredProviders(providerPref, {
+      const result = await generateWithAnyProvider(providerPref, {
         systemInstruction: PNL_CHAT_SYSTEM_INSTRUCTION,
         initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dalam bentuk kalimat yang rapi tanpa tabel.`,
         initialModelAck:
@@ -323,7 +509,7 @@ export async function processAiRequest(
     }
 
     if (action === 'summary') {
-      const result = await generateWithConfiguredProviders(providerPref, {
+      const result = await generateWithAnyProvider(providerPref, {
         systemInstruction: SYSTEM_INSTRUCTION,
         userPrompt: buildSummaryPrompt(effectiveContext),
         thinkingLevel: ThinkingLevel.HIGH,
@@ -345,7 +531,7 @@ export async function processAiRequest(
 
     const rawHistory = Array.isArray(body.history) ? body.history : [];
     const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
-    const result = await generateWithConfiguredProviders(providerPref, {
+    const result = await generateWithAnyProvider(providerPref, {
       systemInstruction: SYSTEM_INSTRUCTION,
       initialUserContext: `Ini seluruh informasi fitur aplikasi web beserta data laporan Stok Opname & Laba Rugi dari semua menu:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya dengan bahasa sederhana dan kalimat yang rapi (tanpa tabel Markdown).`,
       initialModelAck:
@@ -363,6 +549,7 @@ export async function processAiRequest(
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err);
     const safeMsg = rawMsg
+      .replace(/sk-[A-Za-z0-9_-]+/g, 'sk-***')
       .replace(/gsk_[A-Za-z0-9_-]+/g, 'gsk_***')
       .replace(/AIza[A-Za-z0-9_-]+/g, 'AIza***')
       .replace(/AQ\.[A-Za-z0-9._-]+/g, 'AQ.***');
@@ -394,7 +581,7 @@ export async function processAiRequest(
         status: 413,
         body: {
           error:
-            'Data yang dikirim ke Groq melebihi batas paket gratis (8.000 token/menit). Coba tanyakan lebih spesifik per barang/tanggal atau gunakan Gemini AI.',
+            'Data yang dikirim ke Groq melebihi batas paket gratis (8.000 token/menit). Coba tanyakan lebih spesifik per barang/tanggal atau gunakan Gemini / OpenAI.',
         },
       };
     }
@@ -416,12 +603,13 @@ export async function processAiRequest(
       lower.includes('api_key_invalid') ||
       lower.includes('invalid_api_key') ||
       lower.includes('invalid api key') ||
+      lower.includes('incorrect api key') ||
       lower.includes('permission_denied')
     ) {
       return {
         status: 500,
         body: {
-          error: `API Key AI ditolak / belum aktif. Periksa GEMINI_API_KEY atau GROQ_API_KEY di Vercel lalu Redeploy. Detail: ${safeMsg}`,
+          error: `API Key AI ditolak / belum aktif. Periksa GEMINI_API_KEY, GROQ_API_KEY, atau OPENAI_API_KEY di Vercel lalu Redeploy. Detail: ${safeMsg}`,
         },
       };
     }
