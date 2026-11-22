@@ -7,6 +7,7 @@ import {
   Beef,
   Boxes,
   CalendarDays,
+  CalendarRange,
   ChefHat,
   ChevronDown,
   ChevronLeft,
@@ -14,7 +15,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   Coins,
-  Download,
   FileSpreadsheet,
   Home,
   Info,
@@ -28,7 +28,6 @@ import {
   Search,
   Settings,
   Sun,
-  Trash2,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -40,15 +39,16 @@ import {
   BerandaDetailModal,
   BerandaModalType,
 } from './components/BerandaDetailModal';
+import { DateRangePicker } from './components/DateRangePicker';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { ProfitLossView } from './components/ProfitLossView';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
 import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
-import { buildStandaloneHtml } from './lib/exportHtml';
 import {
   PnlDataset,
   PnlMonthReport,
   clearPnlAiCache,
+  clearPnlPermanentNotes,
   detectExcelReportType,
   formatPercentId,
   formatPnlPeriodRange,
@@ -59,12 +59,12 @@ import {
 import {
   ConvertedStockRow,
   StockDataset,
-  StockRow,
   ViewScope,
   computeSummary,
   convertRowWithMeta,
   formatCompactRupiah,
   formatDateId,
+  formatDateRangeLabel,
   formatMonthId,
   formatPackEquivalent,
   formatQty,
@@ -81,7 +81,6 @@ const THEME_KEY = 'so_theme_v2';
 
 type MenuTab =
   | 'beranda'
-  | 'upload'
   | 'harian'
   | 'barang'
   | 'labarugi'
@@ -131,12 +130,17 @@ export default function App() {
       ? 'beranda'
       : Object.keys(pnlData).length > 0
       ? 'labarugi'
-      : 'upload'
+      : 'pengaturan'
   );
   const [viewScope, setViewScope] = useState<ViewScope>('month');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedPnlMonth, setSelectedPnlMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{
+    start: string;
+    end: string;
+  } | null>(null);
+  const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dailyFilter, setDailyFilter] = useState<DailyFilter>('all');
@@ -154,7 +158,6 @@ export default function App() {
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [wipeArmed, setWipeArmed] = useState(false);
   const [uploadImgFailed, setUploadImgFailed] = useState(false);
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
@@ -165,8 +168,6 @@ export default function App() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const restoreInputRef = useRef<HTMLInputElement>(null);
-  const wipeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -178,12 +179,6 @@ export default function App() {
       // Ignore storage error
     }
   }, [isDark]);
-
-  useEffect(() => {
-    return () => {
-      if (wipeTimerRef.current) window.clearTimeout(wipeTimerRef.current);
-    };
-  }, []);
 
   const allDates = useMemo(() => Object.keys(data).sort(), [data]);
   const allMonths = useMemo(
@@ -215,10 +210,28 @@ export default function App() {
     [activeMonthDates, activeDay]
   );
 
+  const activeRange = useMemo(() => {
+    if (!activeMonthDates.length) {
+      return { start: '', end: '' };
+    }
+    const defaultStart = activeMonthDates[0];
+    const defaultEnd = activeMonthDates[activeMonthDates.length - 1];
+    if (
+      dateRange &&
+      dateRange.start.startsWith(activeMonth) &&
+      dateRange.end.startsWith(activeMonth)
+    ) {
+      return dateRange.start <= dateRange.end
+        ? dateRange
+        : { start: dateRange.end, end: dateRange.start };
+    }
+    return { start: defaultStart, end: defaultEnd };
+  }, [activeMonth, activeMonthDates, dateRange]);
+
   const summary = useMemo(() => {
     if (!activeMonth || !activeMonthDates.length) return null;
-    return computeSummary(data, activeMonth, viewScope, activeDay);
-  }, [data, activeMonth, activeMonthDates.length, viewScope, activeDay]);
+    return computeSummary(data, activeMonth, viewScope, activeDay, activeRange);
+  }, [data, activeMonth, activeMonthDates.length, viewScope, activeDay, activeRange]);
 
   const monthCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -326,6 +339,8 @@ export default function App() {
         persistData(nextData);
         setSelectedMonth(latestMonth);
         setSelectedDay(latestDate);
+        setDateRange(null);
+        setIsRangePickerOpen(false);
         setSelectedProduct('');
         setSearchQuery('');
         setDailySearch('');
@@ -372,12 +387,12 @@ export default function App() {
         setStatus({
           text: `Berhasil membaca Stok Opname (${totalRows} baris) dan Laba Rugi (${importedPnlCount} laporan).`,
         });
-        setActiveTab('upload');
+        setActiveTab('pengaturan');
       } else {
         setStatus({
           text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updatedDates.length} tanggal diperbarui.`,
         });
-        setActiveTab('upload');
+        setActiveTab('pengaturan');
       }
     } catch (err) {
       const message =
@@ -397,6 +412,12 @@ export default function App() {
   };
 
   const handleOpenDayInHarian = (dateKey: string) => {
+    if (
+      (viewScope === 'day' && activeDay !== dateKey) ||
+      (viewScope === 'range' && !summary?.activeDates.includes(dateKey))
+    ) {
+      setViewScope('month');
+    }
     setOpenDays((prev) => ({ ...prev, [dateKey]: true }));
     setActiveTab('harian');
     window.requestAnimationFrame(() => {
@@ -405,116 +426,11 @@ export default function App() {
     });
   };
 
-  const handleBackupJson = () => {
-    const pnlKeys = Object.keys(pnlData).sort();
-    if (!allDates.length && !pnlKeys.length) {
-      setStatus({ text: 'Belum ada data untuk dicadangkan.', isError: true });
-      return;
-    }
-    const blob = new Blob([JSON.stringify({ v: 2, data, pnlData })], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const suffix = allDates.length
-      ? allDates[allDates.length - 1]
-      : pnlKeys[pnlKeys.length - 1];
-    a.download = `backup-stok-opname-${suffix}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setStatus({ text: 'Cadangan data (.json) berhasil diunduh.' });
-  };
-
-  const handleDownloadStandaloneHtml = () => {
-    const html = buildStandaloneHtml();
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'index.html';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setStatus({
-      text: 'File index.html tunggal berhasil diunduh.',
-    });
-  };
-
-  const handleRestoreJson = async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text()) as {
-        data?: Record<string, StockRow[]>;
-        pnlData?: unknown;
-      };
-      if (!parsed || typeof parsed !== 'object') {
-        throw new Error('format cadangan tidak dikenal');
-      }
-
-      const nextData: StockDataset = { ...data };
-      let restoredCount = 0;
-      if (parsed.data && typeof parsed.data === 'object') {
-        for (const dateKey of Object.keys(parsed.data)) {
-          if (
-            /^\d{4}-\d{2}-\d{2}$/.test(dateKey) &&
-            Array.isArray(parsed.data[dateKey])
-          ) {
-            nextData[dateKey] = parsed.data[dateKey];
-            restoredCount++;
-          }
-        }
-      }
-
-      const restoredPnl = sanitizePnlDataset(parsed.pnlData);
-      const restoredPnlCount = Object.keys(restoredPnl).length;
-
-      if (!restoredCount && !restoredPnlCount) {
-        throw new Error('tidak ada data yang valid di file cadangan');
-      }
-
-      if (restoredCount > 0) {
-        const restoredDates = Object.keys(nextData).sort();
-        const latestMonth = restoredDates[restoredDates.length - 1].slice(0, 7);
-        setData(nextData);
-        persistData(nextData);
-        setSelectedMonth(latestMonth);
-        setSelectedDay('');
-        setSelectedProduct('');
-      }
-      if (restoredPnlCount > 0) {
-        const mergedPnl: PnlDataset = { ...pnlData, ...restoredPnl };
-        const pnlMonths = Object.keys(mergedPnl).sort();
-        for (const m of Object.keys(restoredPnl)) {
-          clearPnlAiCache(m);
-        }
-        setPnlData(mergedPnl);
-        persistPnlData(mergedPnl);
-        setSelectedPnlMonth(pnlMonths[pnlMonths.length - 1]);
-      }
-
-      setStatus({
-        text: `Berhasil memulihkan ${restoredCount} tanggal stok${
-          restoredPnlCount > 0 ? ` dan ${restoredPnlCount} bulan laba rugi` : ''
-        }.`,
-      });
-      setActiveTab(restoredCount > 0 ? 'beranda' : 'labarugi');
-    } catch (err) {
-      const msgText =
-        err instanceof Error ? err.message : 'File tidak dapat dibaca';
-      setStatus({
-        text: `Gagal memulihkan cadangan: ${msgText}.`,
-        isError: true,
-      });
-    }
-  };
-
   const handleDeletePnlMonth = (monthKey: string) => {
     const next = { ...pnlData };
     delete next[monthKey];
     clearPnlAiCache(monthKey);
+    clearPnlPermanentNotes(monthKey);
     setPnlData(next);
     persistPnlData(next);
     if (selectedPnlMonth === monthKey) {
@@ -522,36 +438,6 @@ export default function App() {
       setSelectedPnlMonth(remaining[remaining.length - 1] ?? '');
     }
     setStatus({ text: `Data Laba Rugi ${formatMonthId(monthKey)} dihapus.` });
-  };
-
-  const handleWipeData = () => {
-    if (!wipeArmed) {
-      setWipeArmed(true);
-      if (wipeTimerRef.current) window.clearTimeout(wipeTimerRef.current);
-      wipeTimerRef.current = window.setTimeout(() => setWipeArmed(false), 4000);
-      return;
-    }
-
-    setWipeArmed(false);
-    setData({});
-    setPnlData({});
-    clearPnlAiCache();
-    setSelectedMonth('');
-    setSelectedPnlMonth('');
-    setSelectedDay('');
-    setSelectedProduct('');
-    setSearchQuery('');
-    setOpenDays({});
-    setActiveBarDate('');
-    setLastUpload(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(PNL_STORAGE_KEY);
-    } catch {
-      // Ignore storage error
-    }
-    setStatus({ text: 'Semua data stok opname dan laba rugi telah dihapus.' });
-    setActiveTab('upload');
   };
 
   const matchingProducts = useMemo(() => {
@@ -670,12 +556,6 @@ export default function App() {
       icon: <Home className="w-5 h-5 md:w-4 md:h-4" />,
     },
     {
-      id: 'upload',
-      label: 'Upload',
-      mobileLabel: 'Upload',
-      icon: <Upload className="w-5 h-5 md:w-4 md:h-4" />,
-    },
-    {
       id: 'harian',
       label: 'Harian',
       mobileLabel: 'Harian',
@@ -704,6 +584,8 @@ export default function App() {
   const handleSelectMonth = (monthKey: string) => {
     setSelectedMonth(monthKey);
     setSelectedDay('');
+    setDateRange(null);
+    setIsRangePickerOpen(false);
     setSelectedProduct('');
     setActiveBarDate('');
   };
@@ -718,18 +600,6 @@ export default function App() {
         className="hidden"
         onChange={(e) => {
           if (e.target.files) void handleFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
-
-      <input
-        ref={restoreInputRef}
-        type="file"
-        accept=".json"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleRestoreJson(file);
           e.target.value = '';
         }}
       />
@@ -779,17 +649,6 @@ export default function App() {
               );
             })}
           </nav>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-3d-primary px-4 py-2 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 flex items-center gap-1.5 min-h-[40px] cursor-pointer"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload Excel</span>
-            </button>
-          </div>
         </div>
       </header>
 
@@ -821,8 +680,10 @@ export default function App() {
             {!summary ? (
               <>
                 <EmptyStateCard
-                  onUploadClick={() => fileInputRef.current?.click()}
-                  onRestoreClick={() => restoreInputRef.current?.click()}
+                  onUploadClick={() => {
+                    setActiveTab('pengaturan');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                 />
                 <BerandaProfitLossCard
                   report={berandaPnlReport}
@@ -832,7 +693,10 @@ export default function App() {
                     setActiveTab('labarugi');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  onUploadClick={() => fileInputRef.current?.click()}
+                  onUploadClick={() => {
+                    setActiveTab('pengaturan');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   onOpenInfo={setActiveInfoKey}
                 />
               </>
@@ -858,6 +722,8 @@ export default function App() {
                         <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-700 dark:text-amber-400 truncate">
                           {viewScope === 'month'
                             ? 'Rekap Stok Bulanan'
+                            : viewScope === 'range'
+                            ? 'Rekap Rentang Tanggal'
                             : 'Pemeriksaan Harian'}
                           {summary.locationName || summary.branchName
                             ? ` · ${summary.locationName || summary.branchName}`
@@ -871,11 +737,16 @@ export default function App() {
 
                       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
                         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                          {viewScope === 'month' ? 'Rekap Stok' : 'Cek Stok'}
+                          {viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'}
                         </h1>
                         <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
                           {viewScope === 'month'
                             ? formatMonthId(activeMonth)
+                            : viewScope === 'range'
+                            ? formatDateRangeLabel(
+                                summary.rangeStart,
+                                summary.rangeEnd
+                              )
                             : formatDateId(activeDay)}
                         </span>
                       </div>
@@ -884,6 +755,10 @@ export default function App() {
                         {viewScope === 'month' ? (
                           <>
                             Gabungan hitungan gudang dari {summary.allMonthDates.length} hari vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
+                          </>
+                        ) : viewScope === 'range' ? (
+                          <>
+                            Gabungan hitungan gudang dari {summary.activeDates.length} hari ({formatDateRangeLabel(summary.rangeStart, summary.rangeEnd)}) vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
                           </>
                         ) : (
                           <>
@@ -903,41 +778,87 @@ export default function App() {
 
                 {/* Period Toggle, Month Selector & Date Selector */}
                 <section className="space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                     <button
                       type="button"
-                      onClick={() => setViewScope('month')}
-                      className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
+                      onClick={() => {
+                        setViewScope('month');
+                        setIsRangePickerOpen(false);
+                      }}
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
                         viewScope === 'month'
                           ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
                           : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
                       }`}
                     >
                       <RefreshCw className="w-4 h-4 shrink-0" />
-                      <span>Rekap Sebulan</span>
+                      <span className="truncate">Rekap Sebulan</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setViewScope('day')}
-                      className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
+                      onClick={() => {
+                        const wasRange = viewScope === 'range';
+                        setViewScope('range');
+                        setIsRangePickerOpen((prev) =>
+                          wasRange ? !prev : true
+                        );
+                      }}
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
+                        viewScope === 'range'
+                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
+                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
+                      }`}
+                    >
+                      <CalendarRange className="w-4 h-4 shrink-0" />
+                      <span className="truncate">Rentang Tanggal</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewScope('day');
+                        setIsRangePickerOpen(false);
+                      }}
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
                         viewScope === 'day'
                           ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
                           : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
                       }`}
                     >
                       <CalendarDays className="w-4 h-4 shrink-0" />
-                      <span>Cek 1 Hari</span>
+                      <span className="truncate">Cek 1 Hari</span>
                     </button>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
                     <MonthSelector
                       months={allMonths}
                       activeMonth={activeMonth}
                       monthCounts={monthCounts}
                       onSelect={handleSelectMonth}
                     />
+
+                    {viewScope === 'range' && (
+                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
+                        <DateRangePicker
+                          monthKey={activeMonth}
+                          availableDates={activeMonthDates}
+                          rangeStart={activeRange.start}
+                          rangeEnd={activeRange.end}
+                          isOpen={isRangePickerOpen}
+                          onToggleOpen={() =>
+                            setIsRangePickerOpen((prev) => !prev)
+                          }
+                          onClose={() => setIsRangePickerOpen(false)}
+                          onConfirm={(start, end) => {
+                            setDateRange({ start, end });
+                            setViewScope('range');
+                            setIsRangePickerOpen(false);
+                          }}
+                        />
+                      </div>
+                    )}
 
                     {viewScope === 'day' && (
                       <div className="flex items-center gap-1.5 w-full sm:w-auto">
@@ -1001,6 +922,28 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  {viewScope === 'range' && summary.activeDates.length === 0 && (
+                    <div className="rounded-2xl p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                        Belum ada data file Excel pada rentang{' '}
+                        <strong>
+                          {formatDateRangeLabel(
+                            summary.rangeStart,
+                            summary.rangeEnd
+                          )}
+                        </strong>
+                        . Pilih tanggal yang bertanda titik hijau di kalender.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsRangePickerOpen(true)}
+                        className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl shrink-0 self-start sm:self-auto cursor-pointer"
+                      >
+                        Ubah Rentang Tanggal
+                      </button>
+                    </div>
+                  )}
                 </section>
 
                 {/* 2-Column KPI Cards: Kekurangan Stok & Kelebihan Stok */}
@@ -1135,6 +1078,11 @@ export default function App() {
                         >
                           {viewScope === 'month'
                             ? 'Hasil Gabungan Bulan Ini (Lebih − Kurang)'
+                            : viewScope === 'range'
+                            ? `Hasil Gabungan ${formatDateRangeLabel(
+                                summary.rangeStart,
+                                summary.rangeEnd
+                              )} (Lebih − Kurang)`
                             : 'Hasil Selisih Akhir (Lebih − Kurang)'}
                         </span>
                         <InfoButton
@@ -1237,6 +1185,10 @@ export default function App() {
                                 : 6;
                             const isSelected =
                               highlightedBarStat?.date === day.date;
+                            const isInRange =
+                              viewScope !== 'range' ||
+                              (day.date >= summary.rangeStart &&
+                                day.date <= summary.rangeEnd);
                             return (
                               <button
                                 key={day.date}
@@ -1251,7 +1203,9 @@ export default function App() {
                                 className={`group flex-1 min-w-[36px] h-[160px] flex flex-col justify-end items-center rounded-xl py-1.5 transition-all cursor-pointer ${
                                   isSelected
                                     ? 'bg-amber-50/70 dark:bg-transparent'
-                                    : 'hover:bg-slate-100/70 dark:hover:bg-[#132548]/60'
+                                    : isInRange
+                                    ? 'hover:bg-slate-100/70 dark:hover:bg-[#132548]/60'
+                                    : 'opacity-40 hover:opacity-75 hover:bg-slate-100/70 dark:hover:bg-[#132548]/60'
                                 }`}
                               >
                                 {day.negVal < 0 && (
@@ -1270,6 +1224,8 @@ export default function App() {
                                     day.negVal < 0
                                       ? isSelected
                                         ? 'bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-lg chart-active-glow'
+                                        : viewScope === 'range' && isInRange
+                                        ? 'bg-gradient-to-t from-amber-600/80 to-amber-400/85 rounded-t-md opacity-90 group-hover:opacity-100'
                                         : 'bg-gradient-to-t from-blue-600/60 to-blue-400/70 dark:from-blue-700/50 dark:to-blue-500/60 rounded-t-md opacity-85 group-hover:opacity-100'
                                       : 'bg-slate-200 dark:bg-slate-700/60 rounded-t-md'
                                   }`}
@@ -1279,6 +1235,8 @@ export default function App() {
                                   className={`mt-1.5 text-[10px] leading-none font-mono tabular-nums flex items-center justify-center ${
                                     isSelected
                                       ? 'w-6 h-5 rounded-full bg-amber-400 text-slate-950 font-extrabold'
+                                      : viewScope === 'range' && isInRange
+                                      ? 'w-6 h-5 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-200 font-bold'
                                       : 'h-5 font-medium text-slate-500 dark:text-slate-400'
                                   }`}
                                 >
@@ -1313,7 +1271,7 @@ export default function App() {
                           </div>
 
                           <div className="flex flex-wrap gap-2">
-                            {viewScope === 'month' && (
+                            {viewScope !== 'day' && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1361,6 +1319,11 @@ export default function App() {
                             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                               {viewScope === 'month'
                                 ? formatMonthId(activeMonth)
+                                : viewScope === 'range'
+                                ? formatDateRangeLabel(
+                                    summary.rangeStart,
+                                    summary.rangeEnd
+                                  )
                                 : formatDateId(activeDay)}{' '}
                               · ketuk salah satu bagian untuk lihat daftar barangnya
                             </p>
@@ -1506,6 +1469,11 @@ export default function App() {
                           <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                             {viewScope === 'month'
                               ? `10 selisih terbesar bulan ${formatMonthId(activeMonth)}`
+                              : viewScope === 'range'
+                              ? `10 selisih terbesar ${formatDateRangeLabel(
+                                  summary.rangeStart,
+                                  summary.rangeEnd
+                                )}`
                               : `Barang selisih terbesar tgl ${formatDateId(activeDay)}`}
                           </p>
                         </div>
@@ -1661,7 +1629,10 @@ export default function App() {
                     setActiveTab('labarugi');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  onUploadClick={() => fileInputRef.current?.click()}
+                  onUploadClick={() => {
+                    setActiveTab('pengaturan');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   onOpenInfo={setActiveInfoKey}
                 />
               </>
@@ -1669,196 +1640,93 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 2: UPLOAD DATA */}
-        {activeTab === 'upload' && (
-          <div className="space-y-6 max-w-5xl">
-            <section className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                    Upload Laporan Excel
-                  </h1>
-                  <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
-                </div>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Pilih file laporan <strong>Stock Opname</strong> atau <strong>Profit Loss Consolidation</strong> (.xlsx / .xls). Semua baris, tanggal, bulan, dan rumus langsung dirapikan otomatis.
-                </p>
-              </div>
-
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files);
-                }}
-                className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 cursor-pointer transition-colors grid grid-cols-1 md:grid-cols-12 gap-6 items-center ${
-                  isDragging
-                    ? 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25'
-                    : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-amber-500 dark:hover:border-amber-400'
-                }`}
-              >
-                <div className="md:col-span-7 text-center md:text-left space-y-2.5">
-                  <div className="mx-auto md:mx-0 w-12 h-12 rounded-2xl bg-amber-100/90 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-xs">
-                    <FileSpreadsheet className="w-6 h-6" />
-                  </div>
-                  <p className="text-base sm:text-lg font-bold text-amber-800 dark:text-amber-300">
-                    Ketuk di sini untuk pilih file Excel (.xlsx / .xls)
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Atau tarik file langsung ke kotak ini. Aman upload berulang kali — tanggal yang sama otomatis diperbarui tanpa dobel.
-                  </p>
-                </div>
-
-                <div className="md:col-span-5 rounded-2xl overflow-hidden bg-white dark:bg-[#0D1C34] h-40 sm:h-48 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.18)]">
-                  {!uploadImgFailed ? (
-                    <img
-                      src={uploadExcel3d}
-                      alt="Ilustrasi 3D file Excel berubah menjadi data stok rapi"
-                      referrerPolicy="no-referrer"
-                      onError={() => setUploadImgFailed(true)}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
-                      <FileSpreadsheet className="w-12 h-12 opacity-75" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            {lastUpload && (
-              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                      Upload Berhasil
-                    </h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
-                      Semua <strong>{lastUpload.totalRows} catatan stok</strong> ({lastUpload.uniqueProducts} jenis barang: {lastUpload.diffRows} selisih, {lastUpload.pasRows} pas) sudah masuk ke{' '}
-                      <strong>
-                        {lastUpload.monthsAffected.map(formatMonthId).join(', ')}
-                      </strong>
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('beranda')}
-                    className="btn-3d-primary px-4 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 self-start sm:self-auto min-h-[44px] whitespace-nowrap cursor-pointer"
-                  >
-                    <span>Lihat Hasil di Beranda</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-sm">
-                  <div>
-                    <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      Tanggal baru ({lastUpload.addedDates.length})
-                    </div>
-                    <p className="mt-1 text-slate-600 dark:text-slate-300">
-                      {lastUpload.addedDates.length > 0
-                        ? lastUpload.addedDates.map(formatDateId).join(', ')
-                        : 'Tidak ada tanggal baru.'}
-                    </p>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-amber-700 dark:text-amber-300">
-                      Tanggal diperbarui ({lastUpload.updatedDates.length})
-                    </div>
-                    <p className="mt-1 text-slate-600 dark:text-slate-300">
-                      {lastUpload.updatedDates.length > 0
-                        ? lastUpload.updatedDates.map(formatDateId).join(', ')
-                        : 'Tidak ada tanggal yang ditimpa.'}
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {allMonths.length > 0 && (
-              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Data Bulan yang Tersimpan
-                </h2>
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {allMonths.map((m) => (
-                    <div
-                      key={m}
-                      className="py-3 flex items-center justify-between gap-3"
-                    >
-                      <div>
-                        <div className="font-semibold text-slate-900 dark:text-white">
-                          {formatMonthId(m)}
-                        </div>
-                        <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 tabular-nums">
-                          {monthCounts[m]} hari tersimpan
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleSelectMonth(m);
-                          setActiveTab('beranda');
-                        }}
-                        className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 min-h-[40px] cursor-pointer"
-                      >
-                        Buka Bulan Ini
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-
-        {/* PAGE 3: LAPORAN HARIAN */}
+        {/* PAGE 2: LAPORAN HARIAN */}
         {activeTab === 'harian' && (
           <div className="space-y-5">
             {!summary ? (
               <EmptyStateCard
-                onUploadClick={() => fileInputRef.current?.click()}
-                onRestoreClick={() => restoreInputRef.current?.click()}
+                onUploadClick={() => {
+                  setActiveTab('pengaturan');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             ) : (
               <>
                 <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                        Catatan Harian ({formatMonthId(activeMonth)})
-                      </h1>
-                      <InfoButton
-                        guideKey="harian"
-                        onOpen={setActiveInfoKey}
-                      />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                          Catatan Harian (
+                          {viewScope === 'range'
+                            ? formatDateRangeLabel(
+                                summary.rangeStart,
+                                summary.rangeEnd
+                              )
+                            : viewScope === 'day'
+                            ? formatDateId(activeDay)
+                            : formatMonthId(activeMonth)}
+                          )
+                        </h1>
+                        <InfoButton
+                          guideKey="harian"
+                          onOpen={setActiveInfoKey}
+                        />
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                        Semua {summary.totalRowsCount} baris hitungan dari Excel tampil lengkap (termasuk barang yang Pas). Ketuk tanggal untuk membuka rinciannya.
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                      Semua {summary.totalRowsCount} baris hitungan dari Excel tampil lengkap (termasuk barang yang Pas). Ketuk tanggal untuk membuka rinciannya.
-                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2 self-start">
+                      <div className="grid grid-cols-3 gap-1 p-1 track-3d rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewScope('month');
+                            setIsRangePickerOpen(false);
+                          }}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'month'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Sebulan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const wasRange = viewScope === 'range';
+                            setViewScope('range');
+                            setIsRangePickerOpen((prev) =>
+                              wasRange ? !prev : true
+                            );
+                          }}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'range'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Rentang
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewScope('day');
+                            setIsRangePickerOpen(false);
+                          }}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'day'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          1 Hari
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -1940,23 +1808,93 @@ export default function App() {
                     </p>
                   )}
 
-                  <MonthSelector
-                    months={allMonths}
-                    activeMonth={activeMonth}
-                    monthCounts={monthCounts}
-                    onSelect={(m) => {
-                      handleSelectMonth(m);
-                      setCategoryFilter('ALL');
-                      setPurposeFilter('ALL');
-                    }}
-                  />
+                  <div className="flex flex-wrap items-start justify-between gap-2.5">
+                    <MonthSelector
+                      months={allMonths}
+                      activeMonth={activeMonth}
+                      monthCounts={monthCounts}
+                      onSelect={(m) => {
+                        handleSelectMonth(m);
+                        setCategoryFilter('ALL');
+                        setPurposeFilter('ALL');
+                      }}
+                    />
+
+                    {viewScope === 'range' && (
+                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
+                        <DateRangePicker
+                          monthKey={activeMonth}
+                          availableDates={activeMonthDates}
+                          rangeStart={activeRange.start}
+                          rangeEnd={activeRange.end}
+                          isOpen={isRangePickerOpen}
+                          onToggleOpen={() =>
+                            setIsRangePickerOpen((prev) => !prev)
+                          }
+                          onClose={() => setIsRangePickerOpen(false)}
+                          onConfirm={(start, end) => {
+                            setDateRange({ start, end });
+                            setViewScope('range');
+                            setIsRangePickerOpen(false);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {viewScope === 'day' && (
+                      <select
+                        aria-label="Pilih tanggal di Harian"
+                        value={activeDay}
+                        onChange={(e) => setSelectedDay(e.target.value)}
+                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
+                      >
+                        {activeMonthDates
+                          .slice()
+                          .reverse()
+                          .map((d) => (
+                            <option key={d} value={d}>
+                              {formatDateId(d)}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
                 </section>
 
                 <section className="space-y-3">
-                  {summary.dailyStats
-                    .slice()
-                    .reverse()
-                    .map((day, dayIndex) => {
+                  {(() => {
+                    const activeSet = new Set(summary.activeDates);
+                    const visibleDailyStats =
+                      viewScope === 'month'
+                        ? summary.dailyStats
+                        : summary.dailyStats.filter((d) => activeSet.has(d.date));
+                    if (visibleDailyStats.length === 0) {
+                      return (
+                        <div className="surface-3d rounded-3xl p-6 text-center space-y-3">
+                          <p className="text-sm text-slate-600 dark:text-slate-300">
+                            Belum ada data Excel pada rentang{' '}
+                            <strong>
+                              {formatDateRangeLabel(
+                                summary.rangeStart,
+                                summary.rangeEnd
+                              )}
+                            </strong>
+                            .
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setIsRangePickerOpen(true)}
+                            className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl cursor-pointer"
+                          >
+                            Ubah Rentang Tanggal
+                          </button>
+                        </div>
+                      );
+                    }
+                    return visibleDailyStats
+                      .slice()
+                      .reverse()
+                      .map((day, dayIndex) => {
                       const isOpen = openDays[day.date] ?? dayIndex === 0;
                       const dayNet = day.negVal + day.posVal;
                       const dq = dailySearch.trim().toLowerCase();
@@ -2108,7 +2046,8 @@ export default function App() {
                           )}
                         </div>
                       );
-                    })}
+                    });
+                  })()}
                 </section>
               </>
             )}
@@ -2120,8 +2059,10 @@ export default function App() {
           <div className="space-y-5">
             {!summary ? (
               <EmptyStateCard
-                onUploadClick={() => fileInputRef.current?.click()}
-                onRestoreClick={() => restoreInputRef.current?.click()}
+                onUploadClick={() => {
+                  setActiveTab('pengaturan');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             ) : (
               <>
@@ -2140,15 +2081,23 @@ export default function App() {
                       <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                         {viewScope === 'month'
                           ? `Data yang sedang dilihat: ${formatMonthId(activeMonth)} (sebulan penuh)`
+                          : viewScope === 'range'
+                          ? `Data yang sedang dilihat: ${formatDateRangeLabel(
+                              summary.rangeStart,
+                              summary.rangeEnd
+                            )} (${summary.activeDates.length} hari)`
                           : `Data yang sedang dilihat: ${formatDateId(activeDay)} (1 hari)`}
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-start">
-                      <div className="grid grid-cols-2 gap-1 p-1 track-3d rounded-xl">
+                      <div className="grid grid-cols-3 gap-1 p-1 track-3d rounded-xl">
                         <button
                           type="button"
-                          onClick={() => setViewScope('month')}
+                          onClick={() => {
+                            setViewScope('month');
+                            setIsRangePickerOpen(false);
+                          }}
                           className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                             viewScope === 'month'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
@@ -2159,7 +2108,27 @@ export default function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setViewScope('day')}
+                          onClick={() => {
+                            const wasRange = viewScope === 'range';
+                            setViewScope('range');
+                            setIsRangePickerOpen((prev) =>
+                              wasRange ? !prev : true
+                            );
+                          }}
+                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'range'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Rentang
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewScope('day');
+                            setIsRangePickerOpen(false);
+                          }}
                           className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
                             viewScope === 'day'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
@@ -2172,13 +2141,33 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5">
                     <MonthSelector
                       months={allMonths}
                       activeMonth={activeMonth}
                       monthCounts={monthCounts}
                       onSelect={handleSelectMonth}
                     />
+                    {viewScope === 'range' && (
+                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
+                        <DateRangePicker
+                          monthKey={activeMonth}
+                          availableDates={activeMonthDates}
+                          rangeStart={activeRange.start}
+                          rangeEnd={activeRange.end}
+                          isOpen={isRangePickerOpen}
+                          onToggleOpen={() =>
+                            setIsRangePickerOpen((prev) => !prev)
+                          }
+                          onClose={() => setIsRangePickerOpen(false)}
+                          onConfirm={(start, end) => {
+                            setDateRange({ start, end });
+                            setViewScope('range');
+                            setIsRangePickerOpen(false);
+                          }}
+                        />
+                      </div>
+                    )}
                     {viewScope === 'day' && (
                       <select
                         aria-label="Pilih tanggal di Cek Barang"
@@ -2453,6 +2442,11 @@ export default function App() {
                             <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                               {viewScope === 'month'
                                 ? 'Hasil Akhir Bulan Ini'
+                                : viewScope === 'range'
+                                ? `Hasil ${formatDateRangeLabel(
+                                    summary.rangeStart,
+                                    summary.rangeEnd
+                                  )}`
                                 : `Hasil Tgl ${formatDateId(activeDay)}`}
                             </div>
                             <div
@@ -2506,21 +2500,182 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 5: PENGATURAN */}
+        {/* PAGE 5: PENGATURAN (TERMASUK UPLOAD EXCEL) */}
         {activeTab === 'pengaturan' && (
-          <div className="space-y-5 max-w-3xl">
-            <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
+          <div className="space-y-5 max-w-4xl">
+            <section className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Pengaturan & Simpan Cadangan
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    Upload Laporan Excel
+                  </h1>
+                  <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
+                </div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Semua data tersimpan aman di perangkat ini. Simpan file cadangan sesekali supaya data tetap aman saat pindah HP atau perangkat lain.
+                  Pilih file laporan <strong>Stock Opname</strong> atau <strong>Profit Loss Consolidation</strong> (.xlsx / .xls). Semua baris, tanggal, bulan, dan rumus langsung dirapikan otomatis.
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/90">
-                <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files);
+                }}
+                className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 cursor-pointer transition-colors grid grid-cols-1 md:grid-cols-12 gap-6 items-center ${
+                  isDragging
+                    ? 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25'
+                    : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-amber-500 dark:hover:border-amber-400'
+                }`}
+              >
+                <div className="md:col-span-7 text-center md:text-left space-y-2.5">
+                  <div className="mx-auto md:mx-0 w-12 h-12 rounded-2xl bg-amber-100/90 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-xs">
+                    <FileSpreadsheet className="w-6 h-6" />
+                  </div>
+                  <p className="text-base sm:text-lg font-bold text-amber-800 dark:text-amber-300">
+                    Ketuk di sini untuk pilih file Excel (.xlsx / .xls)
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Atau tarik file langsung ke kotak ini. Aman upload berulang kali — tanggal yang sama otomatis diperbarui tanpa dobel.
+                  </p>
+                </div>
+
+                <div className="md:col-span-5 rounded-2xl overflow-hidden bg-white dark:bg-[#0D1C34] h-40 sm:h-48 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.18)]">
+                  {!uploadImgFailed ? (
+                    <img
+                      src={uploadExcel3d}
+                      alt="Ilustrasi 3D file Excel berubah menjadi data stok rapi"
+                      referrerPolicy="no-referrer"
+                      onError={() => setUploadImgFailed(true)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
+                      <FileSpreadsheet className="w-12 h-12 opacity-75" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {lastUpload && (
+              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      Upload Berhasil
+                    </h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
+                      Semua <strong>{lastUpload.totalRows} catatan stok</strong> ({lastUpload.uniqueProducts} jenis barang: {lastUpload.diffRows} selisih, {lastUpload.pasRows} pas) sudah masuk ke{' '}
+                      <strong>
+                        {lastUpload.monthsAffected.map(formatMonthId).join(', ')}
+                      </strong>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('beranda')}
+                    className="btn-3d-primary px-4 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 self-start sm:self-auto min-h-[44px] whitespace-nowrap cursor-pointer"
+                  >
+                    <span>Lihat Hasil di Beranda</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-sm">
+                  <div>
+                    <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      Tanggal baru ({lastUpload.addedDates.length})
+                    </div>
+                    <p className="mt-1 text-slate-600 dark:text-slate-300">
+                      {lastUpload.addedDates.length > 0
+                        ? lastUpload.addedDates.map(formatDateId).join(', ')
+                        : 'Tidak ada tanggal baru.'}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-amber-700 dark:text-amber-300">
+                      Tanggal diperbarui ({lastUpload.updatedDates.length})
+                    </div>
+                    <p className="mt-1 text-slate-600 dark:text-slate-300">
+                      {lastUpload.updatedDates.length > 0
+                        ? lastUpload.updatedDates.map(formatDateId).join(', ')
+                        : 'Tidak ada tanggal yang ditimpa.'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {allMonths.length > 0 && (
+              <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                  Data Bulan yang Tersimpan
+                </h2>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {allMonths.map((m) => (
+                    <div
+                      key={m}
+                      className="py-3 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {formatMonthId(m)}
+                        </div>
+                        <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 tabular-nums">
+                          {monthCounts[m]} hari tersimpan
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSelectMonth(m);
+                          setActiveTab('beranda');
+                        }}
+                        className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 min-h-[40px] cursor-pointer"
+                      >
+                        Buka Bulan Ini
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  Pengaturan Tampilan
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Pilih tema tampilan Navy &amp; Gold (Wizzmie) atau tampilan cerah sesuai kenyamanan Anda.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/90">
+                <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold text-slate-900 dark:text-white">
                       Tema Tampilan
@@ -2544,79 +2699,6 @@ export default function App() {
                     </span>
                   </button>
                 </div>
-
-                <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">
-                      Simpan & Buka Cadangan Data (.json)
-                    </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Unduh semua catatan stok ke file cadangan, atau masukkan lagi dari file cadangan.
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleBackupJson}
-                      className="btn-3d-soft px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 flex items-center gap-2 min-h-[44px] cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Simpan Cadangan</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => restoreInputRef.current?.click()}
-                      className="btn-3d-soft px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 flex items-center gap-2 min-h-[44px] cursor-pointer"
-                    >
-                      <Upload className="w-4 h-4" />
-                      <span>Buka Cadangan</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">
-                      Hapus Semua Data
-                    </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Mengosongkan seluruh catatan stok opname yang tersimpan di perangkat ini.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleWipeData}
-                    className={`px-4 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 self-start sm:self-auto min-h-[44px] cursor-pointer ${
-                      wipeArmed
-                        ? 'border border-red-700 bg-red-600 text-white shadow-[0_3px_0_#991b1b] hover:bg-red-700'
-                        : 'btn-3d-soft text-red-700 dark:text-red-400'
-                    }`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>
-                      {wipeArmed ? 'Yakin? Ketuk Sekali Lagi' : 'Hapus Semua Data'}
-                    </span>
-                  </button>
-                </div>
-
-                <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">
-                      Unduh File Tunggal (index.html)
-                    </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Versi 1 file HTML statis untuk disimpan atau diupload ke GitHub Pages.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadStandaloneHtml}
-                    className="btn-3d-primary px-4 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 self-start sm:self-auto min-h-[44px] cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Unduh index.html</span>
-                  </button>
-                </div>
               </div>
             </section>
           </div>
@@ -2628,7 +2710,6 @@ export default function App() {
             pnlData={pnlData}
             activeMonth={selectedPnlMonth}
             onSelectMonth={setSelectedPnlMonth}
-            onUploadClick={() => fileInputRef.current?.click()}
             onDeleteMonth={handleDeletePnlMonth}
             onOpenInfo={setActiveInfoKey}
           />
@@ -2640,7 +2721,7 @@ export default function App() {
         aria-label="Menu utama"
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#1C3259] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
       >
-        <div className="grid grid-cols-6 h-16">
+        <div className="grid grid-cols-5 h-16">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -2730,10 +2811,8 @@ function MonthSelector({
 
 function EmptyStateCard({
   onUploadClick,
-  onRestoreClick,
 }: {
   onUploadClick: () => void;
-  onRestoreClick: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -2756,14 +2835,7 @@ function EmptyStateCard({
               className="btn-3d-primary px-5 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 min-h-[44px] whitespace-nowrap cursor-pointer"
             >
               <Upload className="w-4 h-4" />
-              <span>Upload File Excel</span>
-            </button>
-            <button
-              type="button"
-              onClick={onRestoreClick}
-              className="btn-3d-soft px-5 py-2.5 text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 min-h-[44px] whitespace-nowrap cursor-pointer"
-            >
-              Pulihkan Cadangan (.json)
+              <span>Upload di Menu Pengaturan</span>
             </button>
           </div>
         </div>
@@ -2955,7 +3027,7 @@ function BerandaProfitLossCard({
             className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Upload Laba Rugi</span>
+            <span>Upload di Pengaturan</span>
           </button>
           <button
             type="button"

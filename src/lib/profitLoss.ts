@@ -1046,7 +1046,8 @@ export function getPnlRowCacheKey(
 
 export function getCachedPnlAnalysis(cacheKey: string): string | null {
   hydratePnlAiCache();
-  return memoryPnlAiCache.get(cacheKey)?.text ?? null;
+  const raw = memoryPnlAiCache.get(cacheKey)?.text;
+  return raw ? cleanAiProse(raw) : null;
 }
 
 export function clearPnlAiCache(monthKey?: string): void {
@@ -1250,7 +1251,7 @@ export async function fetchPnlRowAnalysis({
     );
   }
 
-  const text = (payload.reply ?? '').trim();
+  const text = cleanAiProse(payload.reply ?? '');
   if (!text) {
     throw new Error(
       `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan isi analisis.`
@@ -1332,7 +1333,7 @@ export async function askPnlFollowUpQuestion({
     );
   }
 
-  const text = (payload.reply ?? '').trim();
+  const text = cleanAiProse(payload.reply ?? '');
   if (!text) {
     throw new Error(
       `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan jawaban.`
@@ -1341,5 +1342,210 @@ export async function askPnlFollowUpQuestion({
 
   return { text, provider: payload.provider ?? provider };
 }
+
+export function cleanAiProse(raw: string): string {
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const out: string[] = [];
+  let tableHeaders: string[] | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) {
+      tableHeaders = null;
+      if (out.length > 0 && out[out.length - 1] !== '') {
+        out.push('');
+      }
+      continue;
+    }
+
+    if (line.startsWith('```')) {
+      continue;
+    }
+
+    if (/^\|?[\s:*-]+\|[\s|:-]*$/.test(line) || /^[-*_]{3,}$/.test(line)) {
+      continue;
+    }
+
+    line = line.replace(/^#{1,6}\s+/, '');
+
+    if (line.includes('|')) {
+      const cells = line
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((c) => c.trim())
+        .filter(Boolean);
+
+      if (cells.length === 0) continue;
+
+      const nextLine = (lines[i + 1] ?? '').trim();
+      const nextIsDivider = /^\|?[\s:*-]+\|[\s|:-]*$/.test(nextLine);
+      if (nextIsDivider) {
+        tableHeaders = cells;
+        continue;
+      }
+
+      if (tableHeaders && tableHeaders.length === cells.length) {
+        const pairs = cells.map((cell, idx) =>
+          idx === 0 ? cell : `${tableHeaders![idx]}: ${cell}`
+        );
+        out.push(`- ${pairs.join(' — ')}`);
+      } else if (cells.length >= 2) {
+        out.push(`- ${cells[0]}: ${cells.slice(1).join(' · ')}`);
+      } else {
+        out.push(cells[0]);
+      }
+      continue;
+    }
+
+    tableHeaders = null;
+    out.push(line);
+  }
+
+  return out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// ---------- Permanent Note untuk Analisa Sederhana (Dari Aplikasi) ----------
+
+const PNL_PERMANENT_NOTES_KEY = 'so_pnl_permanent_notes_v1';
+
+export interface PnlPermanentNote {
+  text: string;
+  provider: PnlAiProviderChoice;
+  savedAt: number;
+  monthKey: string;
+  description: string;
+}
+
+const memoryPnlPermanentNotes = new Map<string, PnlPermanentNote>();
+let permanentNotesHydrated = false;
+
+function hydratePnlPermanentNotes(): void {
+  if (permanentNotesHydrated) return;
+  permanentNotesHydrated = true;
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const raw = window.localStorage.getItem(PNL_PERMANENT_NOTES_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, PnlPermanentNote>;
+    if (!parsed || typeof parsed !== 'object') return;
+    for (const [k, v] of Object.entries(parsed)) {
+      if (
+        v &&
+        typeof v === 'object' &&
+        typeof v.text === 'string' &&
+        typeof v.monthKey === 'string' &&
+        typeof v.description === 'string'
+      ) {
+        memoryPnlPermanentNotes.set(k, {
+          text: cleanAiProse(v.text),
+          provider: v.provider === 'groq' ? 'groq' : 'gemini',
+          savedAt: typeof v.savedAt === 'number' ? v.savedAt : Date.now(),
+          monthKey: v.monthKey,
+          description: v.description,
+        });
+      }
+    }
+  } catch {
+    // Ignore corrupted storage
+  }
+}
+
+function persistPnlPermanentNotes(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const serialized: Record<string, PnlPermanentNote> = {};
+    for (const [k, v] of memoryPnlPermanentNotes.entries()) {
+      serialized[k] = v;
+    }
+    window.localStorage.setItem(
+      PNL_PERMANENT_NOTES_KEY,
+      JSON.stringify(serialized)
+    );
+  } catch {
+    // Ignore storage quota issues
+  }
+}
+
+export function getPnlPermanentNoteKey(
+  monthKey: string,
+  description: string
+): string {
+  return `${monthKey}::${normalizeDesc(description)}`;
+}
+
+export function getPnlPermanentNote(
+  monthKey: string,
+  description: string
+): PnlPermanentNote | null {
+  hydratePnlPermanentNotes();
+  return (
+    memoryPnlPermanentNotes.get(
+      getPnlPermanentNoteKey(monthKey, description)
+    ) ?? null
+  );
+}
+
+export function savePnlPermanentNote({
+  monthKey,
+  description,
+  text,
+  provider,
+}: {
+  monthKey: string;
+  description: string;
+  text: string;
+  provider: PnlAiProviderChoice;
+}): PnlPermanentNote {
+  hydratePnlPermanentNotes();
+  const cleaned = cleanAiProse(text);
+  const entry: PnlPermanentNote = {
+    text: cleaned,
+    provider,
+    savedAt: Date.now(),
+    monthKey,
+    description,
+  };
+  memoryPnlPermanentNotes.set(
+    getPnlPermanentNoteKey(monthKey, description),
+    entry
+  );
+  persistPnlPermanentNotes();
+  return entry;
+}
+
+export function removePnlPermanentNote(
+  monthKey: string,
+  description: string
+): void {
+  hydratePnlPermanentNotes();
+  memoryPnlPermanentNotes.delete(getPnlPermanentNoteKey(monthKey, description));
+  persistPnlPermanentNotes();
+}
+
+export function clearPnlPermanentNotes(monthKey?: string): void {
+  hydratePnlPermanentNotes();
+  if (!monthKey) {
+    memoryPnlPermanentNotes.clear();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(PNL_PERMANENT_NOTES_KEY);
+      }
+    } catch {
+      // Ignore storage error
+    }
+    return;
+  }
+  for (const [k, v] of Array.from(memoryPnlPermanentNotes.entries())) {
+    if (v.monthKey === monthKey || k.startsWith(`${monthKey}::`)) {
+      memoryPnlPermanentNotes.delete(k);
+    }
+  }
+  persistPnlPermanentNotes();
+}
+
 
 

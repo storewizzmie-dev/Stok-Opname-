@@ -37,12 +37,12 @@ Aturan menjawab:
 5. Gunakan format poin-poin singkat agar enak dibaca di layar HP.
 6. Fokusmu adalah membaca dan menjelaskan data laporan stok opname (bukan menilai kode/desain aplikasi). Jika pengguna bertanya tentang fitur atau tampilan aplikasi, jelaskan dengan ramah bahwa kamu bertugas membantu menganalisis angka stok, lalu beri 2 contoh pertanyaan stok yang bisa ditanyakan (misalnya menanyakan barang kurang terbesar atau mengecek barang di tanggal tertentu).`;
 
-const PNL_ANALYSIS_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjelaskan satu pos laporan Laba Rugi kepada pemilik outlet dengan bahasa Indonesia sehari-hari yang sederhana, cerdas, dan langsung ke inti.
+const PNL_ANALYSIS_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjelaskan satu pos laporan Laba Rugi kepada pemilik outlet dengan bahasa Indonesia sehari-hari yang sederhana, cerdas, rapi, dan langsung ke inti.
 
 ATURAN WAJIB BENTUK & PANJANG JAWABAN:
-- Tulis TEPAT 1 paragraf saja berisi maksimal 3–4 kalimat pendek.
+- Tulis TEPAT 1 paragraf saja berisi maksimal 3–4 kalimat pendek yang mengalir rapi.
 - Panjang ideal 40–70 kata dan DILARANG melebihi 90 kata.
-- Jangan membuat daftar bernomor, poin-poin, judul, atau sapaan pembuka. Langsung tulis intinya.
+- DILARANG keras membuat tabel Markdown, garis tabel (|---|---|), karakter pipa (|), garis pemisah (---), heading (#), daftar bernomor, atau sapaan pembuka. Tulis hanya kalimat paragraf biasa yang rapi.
 
 ATURAN GAYA BAHASA:
 - Pakai bahasa sederhana yang mudah dibaca dalam beberapa detik.
@@ -58,13 +58,85 @@ ATURAN FOKUS & KECERDASAN ANALISIS:
    - Saat membahas laba (Gross Profit, Operational Profit, Net Profit), jelaskan singkat pembentuk utamanya.
 4. DILARANG mengulang rumus pembagian, mengulang angka secara hambar tanpa makna, menganggap angka besar otomatis bermasalah, menyebut kondisi "sehat" atau "buruk" tanpa data pembanding bulan lalu, atau mengarang penyebab yang tidak ada di laporan.`;
 
-const PNL_CHAT_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjawab pertanyaan lanjutan pemilik outlet tentang laporan Laba Rugi dengan bahasa Indonesia sehari-hari yang sederhana, ramah, dan langsung ke inti.
+const PNL_CHAT_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjawab pertanyaan lanjutan pemilik outlet tentang laporan Laba Rugi dengan bahasa Indonesia sehari-hari yang sederhana, ramah, rapi, dan langsung ke inti.
 
-Aturan menjawab:
+Aturan format WAJIB:
+- Tulis dalam bentuk kalimat paragraf yang rapi dan mudah dibaca (atau poin singkat memakai tanda hubung "-" hanya jika membandingkan beberapa pos, maksimal 4 baris).
+- DILARANG keras membuat tabel Markdown, karakter pipa ("|"), garis pemisah ("---" atau "|---|"), heading ("#"), atau blok kode. Semua angka dan perbandingan harus ditulis dalam kalimat yang mengalir rapi.
+
+Aturan isi:
 1. Gunakan HANYA angka nyata dari data laporan Laba Rugi yang dikirimkan. Jangan mengarang angka atau penyebab yang tidak ada di laporan.
-2. Jawab langsung pertanyaan pengguna secara ringkas dan jelas (2–5 kalimat atau poin pendek bila membandingkan beberapa pos).
-3. Jika pengguna menanyakan cara menghitung, porsi %, selisih bulan lalu, atau pos terbesar/terkecil terkait topik yang ditanya, tampilkan angka Rupiah dan % dari Net Sales-nya secara akurat.
+2. Jawab langsung pertanyaan pengguna secara ringkas dan jelas (2–5 kalimat).
+3. Jika pengguna menanyakan cara menghitung, porsi %, selisih bulan lalu, atau pos terbesar/terkecil terkait topik yang ditanya, tampilkan angka Rupiah dan % dari Net Sales-nya secara akurat di dalam kalimat.
 4. Hindari istilah akuntansi yang kaku atau berbelit-belit.`;
+
+function cleanAiProse(raw: string): string {
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const out: string[] = [];
+  let tableHeaders: string[] | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) {
+      tableHeaders = null;
+      if (out.length > 0 && out[out.length - 1] !== '') {
+        out.push('');
+      }
+      continue;
+    }
+
+    if (line.startsWith('```')) {
+      continue;
+    }
+
+    // Strip horizontal rules / table divider rows
+    if (/^\|?[\s:*-]+\|[\s|:-]*$/.test(line) || /^[-*_]{3,}$/.test(line)) {
+      continue;
+    }
+
+    // Strip markdown heading prefixes
+    line = line.replace(/^#{1,6}\s+/, '');
+
+    // Convert any markdown table row into clean prose/bullet
+    if (line.includes('|')) {
+      const cells = line
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((c) => c.trim())
+        .filter(Boolean);
+
+      if (cells.length === 0) continue;
+
+      const nextLine = (lines[i + 1] ?? '').trim();
+      const nextIsDivider = /^\|?[\s:*-]+\|[\s|:-]*$/.test(nextLine);
+      if (nextIsDivider) {
+        tableHeaders = cells;
+        continue;
+      }
+
+      if (tableHeaders && tableHeaders.length === cells.length) {
+        const pairs = cells.map((cell, idx) =>
+          idx === 0 ? cell : `${tableHeaders![idx]}: ${cell}`
+        );
+        out.push(`- ${pairs.join(' — ')}`);
+      } else if (cells.length >= 2) {
+        out.push(`- ${cells[0]}: ${cells.slice(1).join(' · ')}`);
+      } else {
+        out.push(cells[0]);
+      }
+      continue;
+    }
+
+    tableHeaders = null;
+    out.push(line);
+  }
+
+  return out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function buildSummaryPrompt(contextText: string): string {
   return `Berikut data laporan stok opname saat ini:
@@ -204,7 +276,7 @@ export async function processAiRequest(
 
     if (action === 'pnl_analysis') {
       const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
-      const prompt = `Analisis singkat (1 paragraf, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
+      const prompt = `Analisis singkat (1 paragraf rapi tanpa tabel dan tanpa garis pemisah, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
       const result = await generateWithConfiguredProviders(providerPref, {
         systemInstruction: PNL_ANALYSIS_SYSTEM_INSTRUCTION,
         userPrompt: prompt,
@@ -213,7 +285,7 @@ export async function processAiRequest(
       });
       return {
         status: 200,
-        body: { reply: result.reply, provider: result.provider },
+        body: { reply: cleanAiProse(result.reply), provider: result.provider },
       };
     }
 
@@ -232,7 +304,7 @@ export async function processAiRequest(
 
       const result = await generateWithConfiguredProviders(providerPref, {
         systemInstruction: PNL_CHAT_SYSTEM_INSTRUCTION,
-        initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dengan bahasa sederhana.`,
+        initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dalam bentuk kalimat yang rapi tanpa tabel.`,
         initialModelAck:
           initialAnalysis ||
           'Baik, saya sudah membaca data Laba Rugi tersebut. Silakan ajukan pertanyaan.',
@@ -244,7 +316,7 @@ export async function processAiRequest(
 
       return {
         status: 200,
-        body: { reply: result.reply, provider: result.provider },
+        body: { reply: cleanAiProse(result.reply), provider: result.provider },
       };
     }
 

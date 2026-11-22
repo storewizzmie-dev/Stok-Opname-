@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  BookmarkCheck,
   Calculator,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
@@ -11,13 +13,13 @@ import {
   MessageSquare,
   Percent,
   RefreshCw,
+  RotateCcw,
   Search,
   Send,
   Sparkles,
   Trash2,
   TrendingDown,
   TrendingUp,
-  Upload,
   X,
 } from 'lucide-react';
 import { InfoButton, InfoGuideKey } from './InfoGuide';
@@ -26,16 +28,21 @@ import {
   PnlDataset,
   PnlFollowUpTurn,
   PnlMonthReport,
+  PnlPermanentNote,
   PnlRow,
   PnlSection,
   askPnlFollowUpQuestion,
+  cleanAiProse,
   describePnlRow,
   fetchPnlRowAnalysis,
   formatPercentId,
   formatPnlPeriodRange,
   formatSignedRupiah,
   getCachedPnlAnalysis,
+  getPnlPermanentNote,
   getPnlRowCacheKey,
+  removePnlPermanentNote,
+  savePnlPermanentNote,
 } from '../lib/profitLoss';
 import { formatMonthId, formatRupiah } from '../lib/stockOpname';
 
@@ -52,14 +59,12 @@ export function ProfitLossView({
   pnlData,
   activeMonth,
   onSelectMonth,
-  onUploadClick,
   onDeleteMonth,
   onOpenInfo,
 }: {
   pnlData: PnlDataset;
   activeMonth: string;
   onSelectMonth: (monthKey: string) => void;
-  onUploadClick: () => void;
   onDeleteMonth: (monthKey: string) => void;
   onOpenInfo: (key: InfoGuideKey) => void;
 }) {
@@ -69,6 +74,7 @@ export function ProfitLossView({
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
   const [selectedKpiDesc, setSelectedKpiDesc] = useState<string | null>(null);
   const [deleteArmedMonth, setDeleteArmedMonth] = useState<string | null>(null);
+  const [notesVersion, setNotesVersion] = useState<number>(0);
 
   const allMonths = useMemo(() => Object.keys(pnlData).sort(), [pnlData]);
 
@@ -128,7 +134,7 @@ export function ProfitLossView({
           </h1>
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
             Upload file Excel <strong>Profit Loss Consolidation Report</strong>{' '}
-            dari sistem ESB. Aplikasi langsung menghitung persentase setiap pos{' '}
+            dari sistem ESB melalui menu <strong>Pengaturan</strong>. Aplikasi langsung menghitung persentase setiap pos{' '}
             <strong>Description dibagi Net Sales</strong> secara otomatis.
           </p>
         </div>
@@ -162,14 +168,6 @@ export function ProfitLossView({
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onUploadClick}
-            className="btn-3d-primary px-5 py-3 text-sm font-bold rounded-xl flex items-center gap-2 min-h-[46px] cursor-pointer"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Upload File Profit Loss (.xlsx)</span>
-          </button>
           <InfoButton
             guideKey="profitLoss"
             onOpen={onOpenInfo}
@@ -289,16 +287,6 @@ export function ProfitLossView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onUploadClick}
-              className="btn-3d-primary px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 min-h-[42px] cursor-pointer"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload / Update Bulan Ini</span>
-            </button>
-          </div>
         </div>
       </section>
 
@@ -523,6 +511,11 @@ export function ProfitLossView({
       {/* Detail & Simple App Analysis Panel when a top KPI card is clicked */}
       {selectedKpiRow && (() => {
         const kpiInfo = describePnlRow(selectedKpiRow, report, prevReport);
+        const kpiNote = getPnlPermanentNote(
+          report.monthKey,
+          selectedKpiRow.description
+        );
+        void notesVersion;
         return (
           <section className="rounded-2xl bg-slate-50 dark:bg-[#081226] border border-amber-300/80 dark:border-amber-500/40 p-4 sm:p-5 space-y-3 shadow-sm text-xs">
             <div className="flex items-center justify-between gap-3">
@@ -545,21 +538,33 @@ export function ProfitLossView({
               </button>
             </div>
 
-            <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-blue-200 dark:border-blue-500/35 p-3.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-blue-700 dark:text-blue-300">
-                <Info className="w-3.5 h-3.5 shrink-0" />
-                <span>Analisa Sederhana (Dari Aplikasi)</span>
-              </div>
-              <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
-                {kpiInfo.simpleAnalysis}
-              </p>
-            </div>
+            <SimpleAnalysisCard
+              defaultText={kpiInfo.simpleAnalysis}
+              permanentNote={kpiNote}
+              onResetPermanentNote={() => {
+                removePnlPermanentNote(
+                  report.monthKey,
+                  selectedKpiRow.description
+                );
+                setNotesVersion((v) => v + 1);
+              }}
+            />
 
             <PnlAiAnalysisPanel
               key={getPnlRowCacheKey(selectedKpiRow, report, prevReport)}
               row={selectedKpiRow}
               report={report}
               prevReport={prevReport}
+              permanentNote={kpiNote}
+              onSavePermanentNote={(text, provider) => {
+                savePnlPermanentNote({
+                  monthKey: report.monthKey,
+                  description: selectedKpiRow.description,
+                  text,
+                  provider,
+                });
+                setNotesVersion((v) => v + 1);
+              }}
             />
           </section>
         );
@@ -662,6 +667,9 @@ export function ProfitLossView({
               const info = isExpanded
                 ? describePnlRow(row, report, prevReport)
                 : null;
+              const rowPermanentNote =
+                (void notesVersion,
+                getPnlPermanentNote(report.monthKey, row.description));
 
               return (
                 <div
@@ -703,6 +711,12 @@ export function ProfitLossView({
                         >
                           {row.description}
                         </span>
+                        {rowPermanentNote && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                            <BookmarkCheck className="w-3 h-3 shrink-0" />
+                            <span>Note Tersimpan</span>
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -779,21 +793,18 @@ export function ProfitLossView({
 
                   {isExpanded && info && (
                     <div className="px-4 py-4 border-t border-slate-200/80 dark:border-[#1E355D] bg-slate-50 dark:bg-[#081226] text-xs space-y-3">
-                      {/* 1. Analisa Sederhana Bawaan Aplikasi (Instan tanpa AI) */}
-                      <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-blue-200 dark:border-blue-500/35 p-3.5 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-blue-700 dark:text-blue-300">
-                            <Info className="w-3.5 h-3.5 shrink-0" />
-                            <span>Analisa Sederhana (Dari Aplikasi)</span>
-                          </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
-                            Otomatis · Instan
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
-                          {info.simpleAnalysis}
-                        </p>
-                      </div>
+                      {/* 1. Analisa Sederhana Bawaan Aplikasi / Note Permanen */}
+                      <SimpleAnalysisCard
+                        defaultText={info.simpleAnalysis}
+                        permanentNote={rowPermanentNote}
+                        onResetPermanentNote={() => {
+                          removePnlPermanentNote(
+                            report.monthKey,
+                            row.description
+                          );
+                          setNotesVersion((v) => v + 1);
+                        }}
+                      />
 
                       {/* 2. Arti Pos Ini */}
                       <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1">
@@ -880,6 +891,16 @@ export function ProfitLossView({
                         row={row}
                         report={report}
                         prevReport={prevReport}
+                        permanentNote={rowPermanentNote}
+                        onSavePermanentNote={(text, provider) => {
+                          savePnlPermanentNote({
+                            monthKey: report.monthKey,
+                            description: row.description,
+                            text,
+                            provider,
+                          });
+                          setNotesVersion((v) => v + 1);
+                        }}
                       />
                     </div>
                   )}
@@ -893,14 +914,93 @@ export function ProfitLossView({
   );
 }
 
+function SimpleAnalysisCard({
+  defaultText,
+  permanentNote,
+  onResetPermanentNote,
+}: {
+  defaultText: string;
+  permanentNote: PnlPermanentNote | null;
+  onResetPermanentNote: () => void;
+}) {
+  const displayParagraphs = useMemo(() => {
+    const raw = permanentNote ? cleanAiProse(permanentNote.text) : defaultText;
+    return raw
+      .split(/\n{2,}|\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }, [permanentNote, defaultText]);
+
+  return (
+    <div
+      className={`rounded-xl bg-white dark:bg-[#0D1C34] border p-3.5 space-y-2 ${
+        permanentNote
+          ? 'border-emerald-300 dark:border-emerald-500/45'
+          : 'border-blue-200 dark:border-blue-500/35'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          className={`flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] ${
+            permanentNote
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-blue-700 dark:text-blue-300'
+          }`}
+        >
+          {permanentNote ? (
+            <BookmarkCheck className="w-3.5 h-3.5 shrink-0" />
+          ) : (
+            <Info className="w-3.5 h-3.5 shrink-0" />
+          )}
+          <span>Analisa Sederhana (Dari Aplikasi)</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {permanentNote ? (
+            <>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                Note Permanen ·{' '}
+                {permanentNote.provider === 'groq' ? 'Groq AI' : 'Gemini AI'}
+              </span>
+              <button
+                type="button"
+                onClick={onResetPermanentNote}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#16294C] text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-300 cursor-pointer"
+                title="Hapus note permanen dan kembalikan analisa bawaan aplikasi"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Pakai Bawaan</span>
+              </button>
+            </>
+          ) : (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
+              Otomatis · Instan
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-1.5 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
+        {displayParagraphs.map((para, idx) => (
+          <p key={idx}>{renderAnalysisInlineBold(para)}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PnlAiAnalysisPanel({
   row,
   report,
   prevReport,
+  permanentNote,
+  onSavePermanentNote,
 }: {
   row: PnlRow;
   report: PnlMonthReport;
   prevReport: PnlMonthReport | null;
+  permanentNote: PnlPermanentNote | null;
+  onSavePermanentNote: (text: string, provider: PnlAiProviderChoice) => void;
 }) {
   const [selectedProvider, setSelectedProvider] =
     useState<PnlAiProviderChoice>('gemini');
@@ -1044,15 +1144,23 @@ function PnlAiAnalysisPanel({
       });
   };
 
+  const cleanedMainAnalysis = useMemo(
+    () => (analysisText ? cleanAiProse(analysisText) : ''),
+    [analysisText]
+  );
+
   const paragraphs = useMemo(() => {
-    if (!analysisText) return [];
-    return analysisText
+    if (!cleanedMainAnalysis) return [];
+    return cleanedMainAnalysis
       .split(/\n{2,}|\n/)
       .map((p) => p.trim())
       .filter(Boolean);
-  }, [analysisText]);
+  }, [cleanedMainAnalysis]);
 
   const providerLabel = selectedProvider === 'groq' ? 'Groq AI' : 'Gemini AI';
+  const isMainPinned =
+    Boolean(cleanedMainAnalysis) &&
+    permanentNote?.text === cleanedMainAnalysis;
 
   return (
     <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-amber-300/75 dark:border-amber-500/35 p-3.5 space-y-2.5">
@@ -1161,8 +1269,34 @@ function PnlAiAnalysisPanel({
       {!isLoading && !errorMsg && paragraphs.length > 0 && (
         <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#1A3157]">
           <div className="space-y-2 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-              Hasil Analisa {providerLabel}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                Hasil Analisa {providerLabel}
+              </div>
+              <button
+                type="button"
+                disabled={isMainPinned}
+                onClick={() =>
+                  onSavePermanentNote(cleanedMainAnalysis, selectedProvider)
+                }
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer disabled:cursor-default ${
+                  isMainPinned
+                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/35'
+                    : 'bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/35 hover:bg-amber-100 dark:hover:bg-amber-500/25'
+                }`}
+              >
+                {isMainPinned ? (
+                  <>
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span>Dipakai sbg Note Permanen</span>
+                  </>
+                ) : (
+                  <>
+                    <BookmarkCheck className="w-3 h-3 shrink-0" />
+                    <span>Jadikan Note Permanen</span>
+                  </>
+                )}
+              </button>
             </div>
             {paragraphs.map((para, i) => (
               <p key={i}>{renderAnalysisInlineBold(para)}</p>
@@ -1173,33 +1307,73 @@ function PnlAiAnalysisPanel({
           <div className="pt-2.5 border-t border-slate-100 dark:border-[#1A3157] space-y-2.5">
             {followUpMessages.length > 0 && (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {followUpMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-amber-50 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-500/30 text-slate-900 dark:text-amber-100 ml-4 sm:ml-8'
-                        : 'bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1E355D] text-slate-700 dark:text-slate-200 mr-4 sm:mr-8 space-y-1'
-                    }`}
-                  >
+                {followUpMessages.map((msg, idx) => {
+                  const cleanedReply =
+                    msg.role === 'assistant' ? cleanAiProse(msg.text) : msg.text;
+                  const isReplyPinned =
+                    msg.role === 'assistant' &&
+                    Boolean(cleanedReply) &&
+                    permanentNote?.text === cleanedReply;
+
+                  return (
                     <div
-                      className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${
+                      key={idx}
+                      className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
                         msg.role === 'user'
-                          ? 'text-amber-700 dark:text-amber-300'
-                          : 'text-blue-700 dark:text-blue-300'
+                          ? 'bg-amber-50 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-500/30 text-slate-900 dark:text-amber-100 ml-4 sm:ml-8'
+                          : 'bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1E355D] text-slate-700 dark:text-slate-200 mr-4 sm:mr-8 space-y-1.5'
                       }`}
                     >
-                      {msg.role === 'user' ? 'Pertanyaan Anda' : `Jawaban ${providerLabel}`}
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-0.5">
+                        <div
+                          className={`text-[10px] font-bold uppercase tracking-wide ${
+                            msg.role === 'user'
+                              ? 'text-amber-700 dark:text-amber-300'
+                              : 'text-blue-700 dark:text-blue-300'
+                          }`}
+                        >
+                          {msg.role === 'user'
+                            ? 'Pertanyaan Anda'
+                            : `Jawaban ${providerLabel}`}
+                        </div>
+
+                        {msg.role === 'assistant' && cleanedReply && (
+                          <button
+                            type="button"
+                            disabled={isReplyPinned}
+                            onClick={() =>
+                              onSavePermanentNote(cleanedReply, selectedProvider)
+                            }
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer disabled:cursor-default ${
+                              isReplyPinned
+                                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1F3763] text-amber-700 dark:text-amber-300 hover:border-amber-400'
+                            }`}
+                          >
+                            {isReplyPinned ? (
+                              <>
+                                <Check className="w-3 h-3 shrink-0" />
+                                <span>Note Permanen</span>
+                              </>
+                            ) : (
+                              <>
+                                <BookmarkCheck className="w-3 h-3 shrink-0" />
+                                <span>Jadikan Note Permanen</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      {cleanedReply
+                        .split(/\n{2,}|\n/)
+                        .map((p) => p.trim())
+                        .filter(Boolean)
+                        .map((p, pIdx) => (
+                          <p key={pIdx}>{renderAnalysisInlineBold(p)}</p>
+                        ))}
                     </div>
-                    {msg.text
-                      .split(/\n{2,}|\n/)
-                      .map((p) => p.trim())
-                      .filter(Boolean)
-                      .map((p, pIdx) => (
-                        <p key={pIdx}>{renderAnalysisInlineBold(p)}</p>
-                      ))}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

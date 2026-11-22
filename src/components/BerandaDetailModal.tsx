@@ -24,6 +24,7 @@ import {
   computeSummary,
   convertRowWithMeta,
   formatDateId,
+  formatDateRangeLabel,
   formatMonthId,
   formatPackEquivalent,
   formatQty,
@@ -248,6 +249,8 @@ export function BerandaDetailModal({
   const periodLabel =
     viewScope === 'month'
       ? `Rekap ${formatMonthId(activeMonth)} (${summary.activeDates.length} hari)`
+      : viewScope === 'range'
+      ? `Rentang ${formatDateRangeLabel(summary.rangeStart, summary.rangeEnd)} (${summary.activeDates.length} hari)`
       : `Tanggal ${formatDateId(activeDay)}`;
 
   const absNeg = Math.abs(summary.totalNeg);
@@ -312,6 +315,8 @@ export function BerandaDetailModal({
                   ? 'Daftar Barang Kelebihan Stok'
                   : viewScope === 'month'
                   ? 'Rincian Rumus Hasil Gabungan Bulan Ini'
+                  : viewScope === 'range'
+                  ? 'Rincian Rumus Hasil Gabungan Periode Dipilih'
                   : 'Rincian Rumus Hasil Selisih Akhir'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">

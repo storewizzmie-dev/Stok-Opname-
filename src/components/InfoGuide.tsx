@@ -37,8 +37,8 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
         text: 'Dihitung dari Total Lebih dikurangi Total Kurang. Fungsinya untuk melihat apakah total nilai uang bulan ini masih tekor (minus) atau nilainya tertutupi oleh barang yang lebih. Tetap cek barang minus di bawah satu per satu agar tahu penyebab selisihnya.',
       },
       {
-        label: 'Tombol Rekap Sebulan / Cek 1 Hari',
-        text: 'Pilih "Rekap Sebulan" untuk melihat total 1 bulan penuh, atau pilih "Cek 1 Hari" untuk mengecek 1 tanggal saja.',
+        label: 'Tombol Rekap Sebulan / Rentang Tanggal / Cek 1 Hari',
+        text: 'Pilih "Rekap Sebulan" untuk melihat 1 bulan penuh, pilih "Rentang Tanggal" untuk menarik atau mengklik tanggal mulai sampai tanggal akhir (misal tgl 1 - 15) lalu klik Oke, atau pilih "Cek 1 Hari" untuk 1 tanggal saja.',
       },
     ],
     example:

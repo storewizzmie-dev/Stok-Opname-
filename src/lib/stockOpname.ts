@@ -205,6 +205,17 @@ export function formatMonthId(monthKey: string): string {
   return `${MONTHS_FULL[monthIdx] ?? monthKey} ${year}`;
 }
 
+export function formatDateRangeLabel(start: string, end: string): string {
+  if (!start || !end) return '';
+  const normStart = start <= end ? start : end;
+  const normEnd = start <= end ? end : start;
+  if (normStart === normEnd) return formatDateId(normStart);
+  if (normStart.slice(0, 7) === normEnd.slice(0, 7)) {
+    return `${Number(normStart.slice(8))} – ${formatDateId(normEnd)}`;
+  }
+  return `${formatDateId(normStart)} – ${formatDateId(normEnd)}`;
+}
+
 export function formatShortRupiahTag(amount: number): string {
   const abs = Math.abs(Math.round(amount));
   if (abs >= 1_000_000) {
@@ -592,13 +603,19 @@ export interface CategoryStat {
   totalItems: number;
 }
 
-export type ViewScope = 'month' | 'day';
+export type ViewScope = 'month' | 'range' | 'day';
+
+export interface DateRangeSelection {
+  start: string;
+  end: string;
+}
 
 export function computeSummary(
   data: StockDataset,
   monthKey: string,
   scope: ViewScope = 'month',
-  selectedDate?: string
+  selectedDate?: string,
+  dateRange?: DateRangeSelection
 ) {
   const allMonthDates = Object.keys(data)
     .filter((d) => d.startsWith(monthKey))
@@ -609,11 +626,24 @@ export function computeSummary(
       ? selectedDate
       : allMonthDates[allMonthDates.length - 1] ?? '';
 
+  const fallbackStart = allMonthDates[0] ?? `${monthKey}-01`;
+  const fallbackEnd = allMonthDates[allMonthDates.length - 1] ?? fallbackStart;
+  const rawStart = dateRange?.start?.startsWith(monthKey)
+    ? dateRange.start
+    : fallbackStart;
+  const rawEnd = dateRange?.end?.startsWith(monthKey)
+    ? dateRange.end
+    : fallbackEnd;
+  const rangeStart = rawStart <= rawEnd ? rawStart : rawEnd;
+  const rangeEnd = rawStart <= rawEnd ? rawEnd : rawStart;
+
   const activeDates =
     scope === 'day'
       ? resolvedDate
         ? [resolvedDate]
         : []
+      : scope === 'range'
+      ? allMonthDates.filter((d) => d >= rangeStart && d <= rangeEnd)
       : allMonthDates;
 
   let branchName = '';
@@ -756,7 +786,14 @@ export function computeSummary(
   }
 
   const missingDays: number[] = [];
-  if (allMonthDates.length > 0) {
+  if (scope === 'range' && rangeStart && rangeEnd) {
+    const firstDay = Number(rangeStart.slice(8));
+    const lastDay = Number(rangeEnd.slice(8));
+    for (let d = firstDay; d <= lastDay; d++) {
+      const iso = `${monthKey}-${String(d).padStart(2, '0')}`;
+      if (!data[iso]) missingDays.push(d);
+    }
+  } else if (allMonthDates.length > 0) {
     const firstDay = Number(allMonthDates[0].slice(8));
     const lastDay = Number(allMonthDates[allMonthDates.length - 1].slice(8));
     for (let d = firstDay; d <= lastDay; d++) {
@@ -789,6 +826,8 @@ export function computeSummary(
   return {
     scope,
     resolvedDate,
+    rangeStart,
+    rangeEnd,
     branchName,
     locationName,
     allMonthDates,
@@ -832,6 +871,8 @@ export function buildAiStockContext(
         )} - ${formatDateId(
           summary.activeDates[summary.activeDates.length - 1]
         )})`
+      : summary.scope === 'range'
+      ? `Rentang ${formatDateRangeLabel(summary.rangeStart, summary.rangeEnd)} (${summary.activeDates.length} hari ada data)`
       : `Tanggal ${formatDateId(summary.resolvedDate)} (1 hari saja)`;
 
   const netLabel =
