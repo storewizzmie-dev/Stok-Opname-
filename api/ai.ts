@@ -4,7 +4,7 @@ import {
   AiProviderPreference,
   generateWithConfiguredProviders,
   isTransientErrorMessage,
-} from './_providers';
+} from './_providers.js';
 
 export interface AiRequestBody {
   action?: 'summary' | 'chat' | 'pnl_analysis';
@@ -77,6 +77,9 @@ export async function processAiRequest(
   rawBody: unknown
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   let parsedRaw = rawBody;
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(parsedRaw)) {
+    parsedRaw = parsedRaw.toString('utf8');
+  }
   if (typeof parsedRaw === 'string') {
     try {
       parsedRaw = JSON.parse(parsedRaw);
@@ -224,9 +227,14 @@ export default async function handler(
   req: { method?: string; body?: unknown },
   res: { status: (code: number) => { json: (data: Record<string, unknown>) => void } }
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    const result = await processAiRequest(req.body);
+    return res.status(result.status).json(result.body);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: `Server AI error: ${msg}` });
   }
-  const result = await processAiRequest(req.body);
-  return res.status(result.status).json(result.body);
 }

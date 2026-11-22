@@ -92,7 +92,7 @@ export function AiAssistantCard({
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       throw new Error(
-        'Server AI belum tersedia di hosting ini. Pastikan aplikasi dijalankan lewat Vercel atau AI Studio dengan GEMINI_API_KEY atau GROQ_API_KEY aktif.'
+        `Server AI belum tersedia di hosting ini (HTTP ${res.status}). Pastikan endpoint /api/ai sudah ter-deploy di Vercel dan GEMINI_API_KEY atau GROQ_API_KEY aktif.`
       );
     }
 

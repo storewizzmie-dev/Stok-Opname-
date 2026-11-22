@@ -10,9 +10,12 @@ async function startServer() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  app.post('/api/ai', async (req, res) => {
+  app.all('/api/ai', async (req, res) => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
     const result = await processAiRequest(req.body);
-    res.status(result.status).json(result.body);
+    return res.status(result.status).json(result.body);
   });
 
   const distDir = path.resolve('dist');
