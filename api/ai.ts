@@ -262,6 +262,20 @@ async function generateWithOpenAi(
           data.error?.message ||
           fallbackSnippet ||
           `OpenAI HTTP ${response.status}`;
+        const errCode = (data.error?.code || data.error?.type || '').toLowerCase();
+        const isQuotaOrBilling =
+          errCode.includes('insufficient_quota') ||
+          errCode.includes('billing') ||
+          /exceeded your current quota|check your plan and billing|insufficient_quota/i.test(
+            errMsg
+          );
+
+        if (isQuotaOrBilling) {
+          throw new Error(
+            `OPENAI_QUOTA_EXCEEDED:[OpenAI ${response.status}] ${errMsg}`
+          );
+        }
+
         const err = new Error(`[OpenAI ${response.status}] ${errMsg}`);
         lastError = err;
         const modelUnavailable =
@@ -286,7 +300,10 @@ async function generateWithOpenAi(
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      if (!isTransientErrorMessage(msg)) {
+      if (
+        msg.startsWith('OPENAI_QUOTA_EXCEEDED:') ||
+        !isTransientErrorMessage(msg)
+      ) {
         throw err;
       }
     } finally {
@@ -297,6 +314,19 @@ async function generateWithOpenAi(
   throw lastError;
 }
 
+async function tryOpenAiFallbackViaGroqOrGemini(
+  params: ProviderGenerateParams
+): Promise<{ reply: string; provider: ExtendedProviderId }> {
+  try {
+    // Groq menjalankan model resmi OpenAI open-weight: openai/gpt-oss-120b & openai/gpt-oss-20b
+    const groqRes = await generateWithConfiguredProviders('groq', params);
+    return { reply: groqRes.reply, provider: 'openai' };
+  } catch {
+    const autoRes = await generateWithConfiguredProviders('auto', params);
+    return { reply: autoRes.reply, provider: 'openai' };
+  }
+}
+
 async function generateWithAnyProvider(
   preference: ExtendedProviderPreference,
   params: ProviderGenerateParams
@@ -304,13 +334,26 @@ async function generateWithAnyProvider(
   const openAiKey = readOpenAiApiKey();
 
   if (preference === 'openai') {
-    if (!openAiKey) {
+    if (openAiKey) {
+      try {
+        const reply = await generateWithOpenAi(openAiKey, params);
+        return { reply, provider: 'openai' };
+      } catch (openAiErr) {
+        try {
+          return await tryOpenAiFallbackViaGroqOrGemini(params);
+        } catch {
+          throw openAiErr;
+        }
+      }
+    }
+
+    try {
+      return await tryOpenAiFallbackViaGroqOrGemini(params);
+    } catch {
       throw new Error(
         'MISSING_KEY:OPENAI_API_KEY belum diatur di server. Tambahkan OPENAI_API_KEY di Project Settings > Environment Variables Vercel lalu Redeploy.'
       );
     }
-    const reply = await generateWithOpenAi(openAiKey, params);
-    return { reply, provider: 'openai' };
   }
 
   if (preference === 'gemini' || preference === 'groq') {
@@ -455,10 +498,11 @@ export async function processAiRequest(
   }
 
   try {
-    const isGroq =
+    const isCompactProvider =
       providerPref === 'groq' ||
+      providerPref === 'openai' ||
       (providerPref === 'auto' && resolveProviderOrder(providerPref)[0] === 'groq');
-    const effectiveContext = isGroq
+    const effectiveContext = isCompactProvider
       ? compactContextForGroq(contextText, body.question)
       : contextText;
 
@@ -487,7 +531,7 @@ export async function processAiRequest(
       }
       const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
       const rawHistory = Array.isArray(body.history) ? body.history : [];
-      const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
+      const history = isCompactProvider ? rawHistory.slice(-4) : rawHistory.slice(-8);
       const initialAnalysis = String(body.initialAnalysis ?? '').trim();
 
       const result = await generateWithAnyProvider(providerPref, {
@@ -499,7 +543,7 @@ export async function processAiRequest(
         history,
         userPrompt: question,
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: isGroq ? 550 : 900,
+        maxTokens: isCompactProvider ? 550 : 900,
       });
 
       return {
@@ -513,7 +557,7 @@ export async function processAiRequest(
         systemInstruction: SYSTEM_INSTRUCTION,
         userPrompt: buildSummaryPrompt(effectiveContext),
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: isGroq ? 650 : 1200,
+        maxTokens: isCompactProvider ? 650 : 1200,
       });
       return {
         status: 200,
@@ -530,7 +574,7 @@ export async function processAiRequest(
     }
 
     const rawHistory = Array.isArray(body.history) ? body.history : [];
-    const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
+    const history = isCompactProvider ? rawHistory.slice(-4) : rawHistory.slice(-8);
     const result = await generateWithAnyProvider(providerPref, {
       systemInstruction: SYSTEM_INSTRUCTION,
       initialUserContext: `Ini seluruh informasi fitur aplikasi web beserta data laporan Stok Opname & Laba Rugi dari semua menu:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya dengan bahasa sederhana dan kalimat yang rapi (tanpa tabel Markdown).`,
@@ -539,7 +583,7 @@ export async function processAiRequest(
       history,
       userPrompt: question,
       thinkingLevel: ThinkingLevel.HIGH,
-      maxTokens: isGroq ? 750 : 1400,
+      maxTokens: isCompactProvider ? 750 : 1400,
     });
 
     return {
@@ -563,12 +607,17 @@ export async function processAiRequest(
         },
       };
     }
-    if (isTransientErrorMessage(safeMsg)) {
+    if (
+      safeMsg.startsWith('OPENAI_QUOTA_EXCEEDED:') ||
+      lower.includes('insufficient_quota') ||
+      lower.includes('exceeded your current quota') ||
+      lower.includes('check your plan and billing')
+    ) {
       return {
-        status: 503,
+        status: 429,
         body: {
           error:
-            'Server AI sedang sibuk sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
+            'Saldo kredit API OpenAI Anda Rp 0 / $0.00 (insufficient_quota). Berbeda dengan Gemini & Groq yang gratis, akun OpenAI API membutuhkan isi saldo minimal $5 di platform.openai.com/settings/organization/billing.',
         },
       };
     }
@@ -581,20 +630,7 @@ export async function processAiRequest(
         status: 413,
         body: {
           error:
-            'Data yang dikirim ke Groq melebihi batas paket gratis (8.000 token/menit). Coba tanyakan lebih spesifik per barang/tanggal atau gunakan Gemini / OpenAI.',
-        },
-      };
-    }
-    if (
-      lower.includes('429') ||
-      lower.includes('resource_exhausted') ||
-      lower.includes('quota')
-    ) {
-      return {
-        status: 429,
-        body: {
-          error:
-            'Kuota AI sedang penuh sementara. Tunggu sebentar lalu coba lagi.',
+            'Data yang dikirim ke AI melebihi batas token per menit. Coba tanyakan lebih spesifik per barang/tanggal.',
         },
       };
     }
@@ -610,6 +646,29 @@ export async function processAiRequest(
         status: 500,
         body: {
           error: `API Key AI ditolak / belum aktif. Periksa GEMINI_API_KEY, GROQ_API_KEY, atau OPENAI_API_KEY di Vercel lalu Redeploy. Detail: ${safeMsg}`,
+        },
+      };
+    }
+    if (
+      lower.includes('429') ||
+      lower.includes('resource_exhausted') ||
+      lower.includes('rate_limit') ||
+      lower.includes('quota')
+    ) {
+      return {
+        status: 429,
+        body: {
+          error:
+            'Kuota request AI per menit sedang penuh sementara (429). Tunggu beberapa detik lalu coba lagi.',
+        },
+      };
+    }
+    if (isTransientErrorMessage(safeMsg)) {
+      return {
+        status: 503,
+        body: {
+          error:
+            'Server AI sedang sibuk sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
         },
       };
     }
