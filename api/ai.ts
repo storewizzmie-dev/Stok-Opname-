@@ -4,6 +4,7 @@ import {
   AiProviderPreference,
   generateWithConfiguredProviders,
   isTransientErrorMessage,
+  resolveProviderOrder,
 } from './_providers.js';
 
 export interface AiRequestBody {
@@ -73,6 +74,76 @@ function normalizeProvider(raw: unknown): AiProviderPreference {
   return 'auto';
 }
 
+function compactContextForGroq(
+  contextText: string,
+  question?: string,
+  maxChars = 11_500
+): string {
+  if (contextText.length <= maxChars) return contextText;
+
+  const keywords = (question ?? '')
+    .toLowerCase()
+    .split(/[\s,?.!:/-]+/)
+    .filter((w) => w.length >= 2);
+
+  const lines = contextText.split('\n');
+  const priorityLines: string[] = [];
+  const detailLines: string[] = [];
+  let inLongDetailSection = false;
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (
+      lower.startsWith('semua barang pada periode') ||
+      lower.startsWith('ringkasan barang utama') ||
+      lower.startsWith('rincian harian') ||
+      lower.startsWith('rincian setiap description') ||
+      lower.startsWith('=== seluruh baris laporan')
+    ) {
+      inLongDetailSection = true;
+      priorityLines.push(line);
+      continue;
+    }
+    if (
+      lower.startsWith('daftar semua bulan') ||
+      lower.startsWith('ringkasan per bagian') ||
+      lower.startsWith('barang bolak-balik') ||
+      lower.startsWith('ringkasan harian bulan aktif') ||
+      lower.startsWith('=== data laba rugi')
+    ) {
+      inLongDetailSection = false;
+    }
+
+    if (!inLongDetailSection) {
+      priorityLines.push(line);
+    } else if (
+      keywords.length > 0 &&
+      keywords.some((kw) => lower.includes(kw))
+    ) {
+      priorityLines.push(line);
+    } else {
+      detailLines.push(line);
+    }
+  }
+
+  const out: string[] = [];
+  let used = 0;
+
+  for (const line of priorityLines) {
+    if (used + line.length + 1 > maxChars - 300) break;
+    out.push(line);
+    used += line.length + 1;
+  }
+
+  for (const line of detailLines) {
+    if (used + line.length + 1 > maxChars) break;
+    out.push(line);
+    used += line.length + 1;
+  }
+
+  return out.join('\n');
+}
+
 export async function processAiRequest(
   rawBody: unknown
 ): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -113,9 +184,16 @@ export async function processAiRequest(
   }
 
   try {
+    const isGroq =
+      providerPref === 'groq' ||
+      (providerPref === 'auto' && resolveProviderOrder(providerPref)[0] === 'groq');
+    const effectiveContext = isGroq
+      ? compactContextForGroq(contextText, body.question)
+      : contextText;
+
     if (action === 'pnl_analysis') {
       const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
-      const prompt = `Analisis singkat (1 paragraf, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${contextText}`;
+      const prompt = `Analisis singkat (1 paragraf, 3-4 kalimat, ideal 40-70 kata, maksimal 90 kata) khusus untuk pos "${targetLabel}" menggunakan bahasa sehari-hari yang mudah dipahami:\n\n${effectiveContext}`;
       const result = await generateWithConfiguredProviders(providerPref, {
         systemInstruction: PNL_ANALYSIS_SYSTEM_INSTRUCTION,
         userPrompt: prompt,
@@ -131,9 +209,9 @@ export async function processAiRequest(
     if (action === 'summary') {
       const result = await generateWithConfiguredProviders(providerPref, {
         systemInstruction: SYSTEM_INSTRUCTION,
-        userPrompt: buildSummaryPrompt(contextText),
+        userPrompt: buildSummaryPrompt(effectiveContext),
         thinkingLevel: ThinkingLevel.HIGH,
-        maxTokens: 1200,
+        maxTokens: isGroq ? 650 : 1200,
       });
       return {
         status: 200,
@@ -149,16 +227,17 @@ export async function processAiRequest(
       };
     }
 
-    const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
+    const rawHistory = Array.isArray(body.history) ? body.history : [];
+    const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
     const result = await generateWithConfiguredProviders(providerPref, {
       systemInstruction: SYSTEM_INSTRUCTION,
-      initialUserContext: `Ini data laporan stok opname & keuangan yang sedang saya lihat:\n\n${contextText}\n\nJawab pertanyaan saya berikutnya berdasarkan data ini.`,
+      initialUserContext: `Ini data laporan stok opname & keuangan yang sedang saya lihat:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya berdasarkan data ini.`,
       initialModelAck:
         'Baik, saya sudah membaca data laporan tersebut. Silakan tanyakan apa saja dengan bahasa biasa.',
       history,
       userPrompt: question,
       thinkingLevel: ThinkingLevel.HIGH,
-      maxTokens: 1200,
+      maxTokens: isGroq ? 650 : 1200,
     });
 
     return {
@@ -187,6 +266,19 @@ export async function processAiRequest(
         body: {
           error:
             'Server AI sedang sibuk sementara (503). Tunggu beberapa detik lalu coba klik lagi.',
+        },
+      };
+    }
+    if (
+      /\b413\b/.test(lower) ||
+      lower.includes('request too large') ||
+      lower.includes('tokens per minute')
+    ) {
+      return {
+        status: 413,
+        body: {
+          error:
+            'Data yang dikirim ke Groq melebihi batas paket gratis (8.000 token/menit). Coba tanyakan lebih spesifik per barang/tanggal atau gunakan Gemini AI.',
         },
       };
     }

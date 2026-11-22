@@ -104,18 +104,24 @@ export function AiAssistantCard({
   };
 
   const buildCombinedContext = (question?: string) => {
+    const useCompact = aiProvider === 'groq';
     const parts: string[] = [];
     if (summary && activeMonth) {
       parts.push(
         buildAiStockContext(summary, activeMonth, data, {
           question,
           currentMenu: currentMenuLabel,
+          compact: useCompact,
         })
       );
     }
     if (hasPnl) {
       const pnlContext = buildAiPnlContext(pnlData, resolvedPnlMonth);
-      if (pnlContext) parts.push(pnlContext);
+      if (pnlContext) {
+        parts.push(
+          useCompact ? pnlContext.slice(0, 2600) : pnlContext
+        );
+      }
     }
     return parts.join('\n');
   };
@@ -150,7 +156,8 @@ export function AiAssistantCard({
 
     setErrorMsg(null);
     if (!questionText) setInput('');
-    const historySnapshot = messages.slice(-8);
+    const historySnapshot =
+      aiProvider === 'groq' ? messages.slice(-4) : messages.slice(-8);
     onMessagesChange((prev) => [...prev, { role: 'user', text: q }]);
     setIsLoading(true);
 

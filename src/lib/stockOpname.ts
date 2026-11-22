@@ -818,8 +818,13 @@ export function buildAiStockContext(
   summary: SummaryResult,
   monthKey: string,
   data?: StockDataset,
-  options?: { question?: string; currentMenu?: string }
+  options?: { question?: string; currentMenu?: string; compact?: boolean }
 ): string {
+  const isCompact = Boolean(options?.compact);
+  const keywords = (options?.question ?? '')
+    .toLowerCase()
+    .split(/[\s,?.!:/-]+/)
+    .filter((w) => w.length >= 2);
   const periodLabel =
     summary.scope === 'month'
       ? `Bulan ${formatMonthId(monthKey)} (${summary.activeDates.length} hari: ${formatDateId(
@@ -896,23 +901,58 @@ export function buildAiStockContext(
     }
   }
 
-  // ALL products in active scope (Menu Cek Barang)
+  // Products in active scope (Menu Cek Barang)
   const allProducts = Object.values(summary.productMap).sort(
     (a, b) => Math.abs(b.netVal) - Math.abs(a.netVal)
   );
   if (allProducts.length > 0) {
-    lines.push(`\nSemua Barang pada Periode Dipilih (${allProducts.length} barang):`);
-    for (const p of allProducts) {
+    const selectedProducts = isCompact
+      ? (() => {
+          const matched =
+            keywords.length > 0
+              ? allProducts.filter((p) =>
+                  keywords.some(
+                    (kw) =>
+                      p.name.toLowerCase().includes(kw) ||
+                      p.category.toLowerCase().includes(kw) ||
+                      (p.code || '').toLowerCase().includes(kw)
+                  )
+                )
+              : [];
+          const picked = new Set(matched.slice(0, 25));
+          for (const p of allProducts) {
+            if (picked.size >= 45) break;
+            picked.add(p);
+          }
+          return Array.from(picked);
+        })()
+      : allProducts;
+
+    lines.push(
+      `\n${
+        isCompact
+          ? `Ringkasan Barang Utama (${selectedProducts.length} dari ${allProducts.length} barang):`
+          : `Semua Barang pada Periode Dipilih (${allProducts.length} barang):`
+      }`
+    );
+    for (const p of selectedProducts) {
       const valStr =
         p.netVal < -0.5
           ? `-${formatRupiah(p.netVal)}`
           : p.netVal > 0.5
           ? `+${formatRupiah(p.netVal)}`
           : 'Rp 0';
-      const codeStr = p.code ? `${p.code} ` : '';
-      const subStr = p.subcategory && p.subcategory !== p.category ? `/${p.subcategory}` : '';
-      const purpStr = p.purposes.length ? ` | Kep:${p.purposes.join(',')}` : '';
-      const priceStr = p.lastUnitPrice > 0 ? ` | Hrg:${formatRupiah(p.lastUnitPrice)}` : '';
+      const codeStr = !isCompact && p.code ? `${p.code} ` : '';
+      const subStr =
+        !isCompact && p.subcategory && p.subcategory !== p.category
+          ? `/${p.subcategory}`
+          : '';
+      const purpStr =
+        !isCompact && p.purposes.length ? ` | Kep:${p.purposes.join(',')}` : '';
+      const priceStr =
+        !isCompact && p.lastUnitPrice > 0
+          ? ` | Hrg:${formatRupiah(p.lastUnitPrice)}`
+          : '';
       lines.push(
         `- ${codeStr}${p.name} [${p.category}${subStr}]: ${formatQtyMap(
           p.qtyByUnit,
@@ -974,10 +1014,10 @@ export function buildAiStockContext(
       0
     );
 
-    const keywords = (options?.question ?? '')
+    const rowKeywords = (options?.question ?? '')
       .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length >= 3);
+      .split(/[\s,?.!:/-]+/)
+      .filter((w) => w.length >= 2);
 
     const formatRowLine = (dateKey: string, r: StockRow): string => {
       const unit = r[1] || 'Unit';
@@ -995,32 +1035,36 @@ export function buildAiStockContext(
           : diffVal > 0.5
           ? `+${formatRupiah(diffVal)}`
           : 'Rp 0';
-      const extraParts = [
-        r[13] ? `Kode:${r[13]}` : '',
-        r[10] ? `SP:${r[10]}` : '',
-        r[12] ? `Kep:${r[12]}` : '',
-        r[5] > 0 ? `Hrg:${formatRupiah(r[5])}` : '',
-        r[15] ? r[15] : '',
-      ]
-        .filter(Boolean)
-        .join(',');
+      const extraParts = isCompact
+        ? []
+        : [
+            r[13] ? `Kode:${r[13]}` : '',
+            r[10] ? `SP:${r[10]}` : '',
+            r[12] ? `Kep:${r[12]}` : '',
+            r[5] > 0 ? `Hrg:${formatRupiah(r[5])}` : '',
+            r[15] ? r[15] : '',
+          ].filter(Boolean);
+      const extraJoined = extraParts.join(',');
       return `${dateKey}|${r[0]}|${r[8] || 'Lainnya'}|ESB:${formatQty(
         r[2]
       )}|Gudang:${formatQty(r[3])} ${unit}|${statusStr}|${valStr}${
-        extraParts ? `|${extraParts}` : ''
+        extraJoined ? `|${extraJoined}` : ''
       }`;
     };
 
     const rowLines: string[] = [];
-    const includeAllRowsInMonth = activeMonthRowCount <= 1500;
+    const includeAllRowsInMonth = !isCompact && activeMonthRowCount <= 1500;
+    const compactMatchedRows: string[] = [];
+    const compactTopDiffRows: { absVal: number; line: string }[] = [];
 
     for (const dateKey of summary.allMonthDates) {
       const converted = getConvertedRows(data[dateKey] ?? []);
+      const dayNum = dateKey.slice(8, 10);
       for (const r of converted) {
         const isNonZero = Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5;
         const matchesQuestion =
-          keywords.length > 0 &&
-          keywords.some(
+          rowKeywords.length > 0 &&
+          rowKeywords.some(
             (kw) =>
               r[0].toLowerCase().includes(kw) ||
               (r[8] || '').toLowerCase().includes(kw) ||
@@ -1028,16 +1072,34 @@ export function buildAiStockContext(
               (r[12] || '').toLowerCase().includes(kw) ||
               (r[13] || '').toLowerCase().includes(kw) ||
               (r[14] || '').toLowerCase().includes(kw) ||
-              dateKey.includes(kw)
+              dateKey.includes(kw) ||
+              (kw.length === 2 && dayNum === kw)
           );
-        if (includeAllRowsInMonth || isNonZero || matchesQuestion) {
+        if (isCompact) {
+          if (matchesQuestion && compactMatchedRows.length < 55) {
+            compactMatchedRows.push(formatRowLine(dateKey, r));
+          } else if (isNonZero) {
+            compactTopDiffRows.push({
+              absVal: Math.abs(r[6]),
+              line: formatRowLine(dateKey, r),
+            });
+          }
+        } else if (includeAllRowsInMonth || isNonZero || matchesQuestion) {
           rowLines.push(formatRowLine(dateKey, r));
         }
       }
     }
 
-    // If user asked about a product/date in other stored months too, attach matches
-    if (keywords.length > 0) {
+    if (isCompact) {
+      rowLines.push(...compactMatchedRows);
+      if (rowLines.length < 35) {
+        compactTopDiffRows
+          .sort((a, b) => b.absVal - a.absVal)
+          .slice(0, 35 - rowLines.length)
+          .forEach((item) => rowLines.push(item.line));
+      }
+    } else if (rowKeywords.length > 0) {
+      // If user asked about a product/date in other stored months too, attach matches
       const otherDates = Object.keys(data)
         .filter((d) => !d.startsWith(monthKey))
         .sort();
@@ -1046,7 +1108,7 @@ export function buildAiStockContext(
         if (extraCount >= 250) break;
         const converted = getConvertedRows(data[dateKey] ?? []);
         for (const r of converted) {
-          const matchesQuestion = keywords.some(
+          const matchesQuestion = rowKeywords.some(
             (kw) =>
               r[0].toLowerCase().includes(kw) ||
               (r[8] || '').toLowerCase().includes(kw) ||
@@ -1067,7 +1129,7 @@ export function buildAiStockContext(
 
     if (rowLines.length > 0) {
       lines.push(
-        '\nRincian Harian Lengkap (Format: Tanggal|Nama Barang|Bagian|Sistem ESB|Hitungan Gudang|Selisih|Rupiah|Info Tambahan):'
+        '\nRincian Harian (Format: Tanggal|Nama Barang|Bagian|Sistem ESB|Hitungan Gudang|Selisih|Rupiah):'
       );
       lines.push(...rowLines);
     }
