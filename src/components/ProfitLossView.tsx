@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { InfoButton, InfoGuideKey } from './InfoGuide';
 import {
+  PnlAiProviderChoice,
   PnlDataset,
   PnlMonthReport,
   PnlRow,
@@ -351,7 +352,7 @@ export function ProfitLossView({
         </button>
       </section>
 
-      {/* 5 Main Summary KPI Cards (Klik untuk AI Analysis) */}
+      {/* 5 Main Summary KPI Cards (Klik untuk Rincian & Analisa) */}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Net Sales */}
         <button
@@ -368,7 +369,7 @@ export function ProfitLossView({
               <span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                 Net Sales (Acuan)
               </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
             <div className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
               {formatRupiah(report.netSales)}
@@ -376,7 +377,7 @@ export function ProfitLossView({
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              {selectedKpiDesc === 'net sales' ? 'AI Analysis dibuka' : 'Ketuk · AI Analysis'}
+              {selectedKpiDesc === 'net sales' ? 'Rincian dibuka' : 'Ketuk · Rincian'}
             </span>
             <span className="font-mono font-extrabold text-amber-700 dark:text-amber-300">
               100,00%
@@ -399,7 +400,7 @@ export function ProfitLossView({
               <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Total COGS (HPP)
               </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
             <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
               {formatSignedRupiah(report.totalCogs)}
@@ -407,7 +408,7 @@ export function ProfitLossView({
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              {selectedKpiDesc === 'total cost of goods sold' ? 'AI Analysis' : '÷ Net Sales'}
+              {selectedKpiDesc === 'total cost of goods sold' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
             <span className="font-mono font-extrabold text-rose-600 dark:text-rose-400">
               {formatPercentId(pct(report.totalCogs))}
@@ -430,7 +431,7 @@ export function ProfitLossView({
               <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Gross Profit
               </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
             <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
               {formatSignedRupiah(report.grossProfit)}
@@ -438,7 +439,7 @@ export function ProfitLossView({
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              {selectedKpiDesc === 'gross profit' ? 'AI Analysis' : '÷ Net Sales'}
+              {selectedKpiDesc === 'gross profit' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
             <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
               {formatPercentId(pct(report.grossProfit))}
@@ -461,7 +462,7 @@ export function ProfitLossView({
               <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Biaya Operasional
               </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
             <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
               {formatSignedRupiah(report.totalOpex)}
@@ -469,7 +470,7 @@ export function ProfitLossView({
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              {selectedKpiDesc === 'total operational expense' ? 'AI Analysis' : '÷ Net Sales'}
+              {selectedKpiDesc === 'total operational expense' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
             <span className="font-mono font-extrabold text-amber-600 dark:text-amber-300">
               {formatPercentId(pct(report.totalOpex))}
@@ -499,7 +500,7 @@ export function ProfitLossView({
                 )}
                 <span>Net Profit / Loss</span>
               </span>
-              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <Info className="w-3.5 h-3.5 shrink-0" />
             </div>
             <div className="text-sm sm:text-base font-black font-mono mt-1 tabular-nums break-words leading-snug">
               {formatSignedRupiah(report.netProfit)}
@@ -507,7 +508,7 @@ export function ProfitLossView({
           </div>
           <div className="mt-2 pt-2 border-t border-black/10 dark:border-white/15 flex items-center justify-between text-xs">
             <span className="opacity-80">
-              {selectedKpiDesc === 'net profit' ? 'AI Analysis' : '÷ Net Sales'}
+              {selectedKpiDesc === 'net profit' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
             <span className="font-mono font-black">
               {formatPercentId(pct(report.netProfit))}
@@ -516,36 +517,53 @@ export function ProfitLossView({
         </button>
       </section>
 
-      {/* AI Analysis Panel when a top KPI card is clicked */}
-      {selectedKpiRow && (
-        <section className="rounded-2xl bg-slate-50 dark:bg-[#081226] border border-amber-300/80 dark:border-amber-500/40 p-4 sm:p-5 space-y-3 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                Detail Pos Terpilih
+      {/* Detail & Simple App Analysis Panel when a top KPI card is clicked */}
+      {selectedKpiRow && (() => {
+        const kpiInfo = describePnlRow(selectedKpiRow, report, prevReport);
+        return (
+          <section className="rounded-2xl bg-slate-50 dark:bg-[#081226] border border-amber-300/80 dark:border-amber-500/40 p-4 sm:p-5 space-y-3 shadow-sm text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                  Detail Pos Terpilih
+                </div>
+                <div className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white break-words leading-snug">
+                  {selectedKpiRow.description} · {formatSignedRupiah(selectedKpiRow.value)} (
+                  {formatPercentId(selectedKpiRow.percentToNetSales)})
+                </div>
               </div>
-              <div className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white break-words leading-snug">
-                {selectedKpiRow.description} · {formatSignedRupiah(selectedKpiRow.value)} (
-                {formatPercentId(selectedKpiRow.percentToNetSales)})
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedKpiDesc(null)}
+                aria-label="Tutup rincian kartu"
+                className="btn-3d-soft p-2 rounded-xl text-slate-500 dark:text-slate-300 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedKpiDesc(null)}
-              aria-label="Tutup analisis kartu"
-              className="btn-3d-soft p-2 rounded-xl text-slate-500 dark:text-slate-300 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <PnlAiAnalysisPanel
-            key={getPnlRowCacheKey(selectedKpiRow, report, prevReport)}
-            row={selectedKpiRow}
-            report={report}
-            prevReport={prevReport}
-          />
-        </section>
-      )}
+
+            <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-blue-200 dark:border-blue-500/35 p-3.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-blue-700 dark:text-blue-300">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                <span>Analisa Sederhana (Dari Aplikasi)</span>
+              </div>
+              <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
+                {kpiInfo.simpleAnalysis}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-[#1A3157]">
+                <strong>Asal Angka:</strong> {kpiInfo.originFormula}
+              </p>
+            </div>
+
+            <PnlAiAnalysisPanel
+              key={getPnlRowCacheKey(selectedKpiRow, report, prevReport)}
+              row={selectedKpiRow}
+              report={report}
+              prevReport={prevReport}
+            />
+          </section>
+        );
+      })()}
 
       {/* Formula Info Banner */}
       <section className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-700 dark:text-blue-200">
@@ -641,7 +659,9 @@ export function ProfitLossView({
                 prevRow !== undefined
                   ? row.percentToNetSales - prevRow.percentToNetSales
                   : null;
-              const info = isExpanded ? describePnlRow(row, report) : null;
+              const info = isExpanded
+                ? describePnlRow(row, report, prevReport)
+                : null;
 
               return (
                 <div
@@ -763,15 +783,23 @@ export function ProfitLossView({
 
                   {isExpanded && info && (
                     <div className="px-4 py-4 border-t border-slate-200/80 dark:border-[#1E355D] bg-slate-50 dark:bg-[#081226] text-xs space-y-3">
-                      {/* 0. AI ANALYSIS (Gemini Contextual Financial Analysis) */}
-                      <PnlAiAnalysisPanel
-                        key={getPnlRowCacheKey(row, report, prevReport)}
-                        row={row}
-                        report={report}
-                        prevReport={prevReport}
-                      />
+                      {/* 1. Analisa Sederhana Bawaan Aplikasi (Instan tanpa AI) */}
+                      <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-blue-200 dark:border-blue-500/35 p-3.5 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-blue-700 dark:text-blue-300">
+                            <Info className="w-3.5 h-3.5 shrink-0" />
+                            <span>Analisa Sederhana (Dari Aplikasi)</span>
+                          </div>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
+                            Otomatis · Instan
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
+                          {info.simpleAnalysis}
+                        </p>
+                      </div>
 
-                      {/* 1. Arti Pos Ini */}
+                      {/* 2. Arti Pos Ini */}
                       <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1">
                         <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
                           <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -867,6 +895,14 @@ export function ProfitLossView({
                           </span>
                         )}
                       </div>
+
+                      {/* 5. Analisa Tambahan AI (Opsional: Pilih Gemini atau Groq lalu klik Analisa) */}
+                      <PnlAiAnalysisPanel
+                        key={getPnlRowCacheKey(row, report, prevReport)}
+                        row={row}
+                        report={report}
+                        prevReport={prevReport}
+                      />
                     </div>
                   )}
                 </div>
@@ -888,31 +924,40 @@ function PnlAiAnalysisPanel({
   report: PnlMonthReport;
   prevReport: PnlMonthReport | null;
 }) {
+  const [selectedProvider, setSelectedProvider] =
+    useState<PnlAiProviderChoice>('gemini');
   const cacheKey = useMemo(
-    () => getPnlRowCacheKey(row, report, prevReport),
-    [row, report, prevReport]
+    () => getPnlRowCacheKey(row, report, prevReport, selectedProvider),
+    [row, report, prevReport, selectedProvider]
   );
 
   const [analysisText, setAnalysisText] = useState<string | null>(() =>
     getCachedPnlAnalysis(cacheKey)
   );
-  const [isLoading, setIsLoading] = useState<boolean>(
-    () => !getCachedPnlAnalysis(cacheKey)
-  );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+  const abortRef = React.useRef<AbortController | null>(null);
 
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     const cached = getCachedPnlAnalysis(cacheKey);
-    if (cached && refreshTick === 0) {
-      setAnalysisText(cached);
-      setIsLoading(false);
-      setErrorMsg(null);
-      return;
-    }
+    setAnalysisText(cached);
+    setIsLoading(false);
+    setErrorMsg(null);
 
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [cacheKey]);
+
+  const handleRunAnalysis = (forceRefresh: boolean) => {
+    if (isLoading) return;
+    abortRef.current?.abort();
     const controller = new AbortController();
-    let cancelled = false;
+    abortRef.current = controller;
+
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -920,29 +965,27 @@ function PnlAiAnalysisPanel({
       row,
       report,
       prevReport,
-      forceRefresh: refreshTick > 0,
+      provider: selectedProvider,
+      forceRefresh,
       signal: controller.signal,
     })
       .then((res) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setAnalysisText(res.text);
         setIsLoading(false);
       })
       .catch((err) => {
-        if (cancelled || controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
         setErrorMsg(
           err instanceof Error
             ? err.message
-            : 'Gagal memuat analisis Gemini untuk pos ini.'
+            : `Gagal memuat analisis ${
+                selectedProvider === 'groq' ? 'Groq' : 'Gemini'
+              } untuk pos ini.`
         );
         setIsLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [cacheKey, row, report, prevReport, refreshTick]);
+  };
 
   const paragraphs = useMemo(() => {
     if (!analysisText) return [];
@@ -952,31 +995,77 @@ function PnlAiAnalysisPanel({
       .filter(Boolean);
   }, [analysisText]);
 
+  const providerLabel = selectedProvider === 'groq' ? 'Groq AI' : 'Gemini AI';
+
   return (
     <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-amber-300/75 dark:border-amber-500/35 p-3.5 space-y-2.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-300/60 dark:border-amber-500/35 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5" />
           </span>
-          <span className="font-extrabold tracking-wide uppercase text-[11px] text-amber-800 dark:text-amber-300">
-            AI ANALYSIS
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            · {row.description}
-          </span>
+          <div className="min-w-0">
+            <span className="font-extrabold tracking-wide uppercase text-[11px] text-amber-800 dark:text-amber-300 block">
+              Analisa Tambahan AI (Opsional)
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
+              Pilih Gemini atau Groq, lalu klik Analisa
+            </span>
+          </div>
         </div>
 
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={() => setRefreshTick((t) => t + 1)}
-          title="Perbarui analisis Gemini"
-          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-[#16294C] text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer shrink-0"
-        >
-          <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>{isLoading ? 'Menganalisis...' : 'Analisis Ulang'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div
+            role="group"
+            aria-label="Pilih penyedia AI"
+            className="inline-flex rounded-lg p-0.5 bg-slate-100 dark:bg-[#081226] border border-slate-200 dark:border-[#1E355D]"
+          >
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setSelectedProvider('gemini')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
+                selectedProvider === 'gemini'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Gemini
+            </button>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setSelectedProvider('groq')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
+                selectedProvider === 'groq'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Groq
+            </button>
+          </div>
+
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={() => handleRunAnalysis(Boolean(analysisText))}
+            className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[30px]"
+          >
+            {isLoading ? (
+              <RefreshCw className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3" />
+            )}
+            <span>
+              {isLoading
+                ? 'Menganalisis...'
+                : analysisText
+                ? 'Analisa Ulang'
+                : 'Analisa'}
+            </span>
+          </button>
+        </div>
       </div>
 
       {isLoading && (
@@ -984,7 +1073,7 @@ function PnlAiAnalysisPanel({
           <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
             <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
             <span>
-              AI sedang membaca laporan Laba Rugi &amp; menganalisis{' '}
+              {providerLabel} sedang membaca laporan Laba Rugi &amp; menganalisis{' '}
               <strong>{row.description}</strong>...
             </span>
           </div>
@@ -1004,7 +1093,7 @@ function PnlAiAnalysisPanel({
           </div>
           <button
             type="button"
-            onClick={() => setRefreshTick((t) => t + 1)}
+            onClick={() => handleRunAnalysis(true)}
             className="px-2.5 py-1 rounded-md bg-rose-600 text-white font-semibold text-[11px] shrink-0 cursor-pointer hover:bg-rose-700"
           >
             Coba Lagi
@@ -1013,7 +1102,10 @@ function PnlAiAnalysisPanel({
       )}
 
       {!isLoading && !errorMsg && paragraphs.length > 0 && (
-        <div className="space-y-2.5 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
+        <div className="space-y-2 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed pt-1 border-t border-slate-100 dark:border-[#1A3157]">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            Hasil Analisa {providerLabel}
+          </div>
           {paragraphs.map((para, i) => (
             <p key={i}>{renderAnalysisInlineBold(para)}</p>
           ))}

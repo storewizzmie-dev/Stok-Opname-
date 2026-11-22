@@ -34,6 +34,7 @@ export interface PnlMonthReport {
 export type PnlDataset = Record<string, PnlMonthReport>;
 
 export interface PnlRowDescription {
+  simpleAnalysis: string;
   meaning: string;
   formulaEquation: string;
   perScaleText: string;
@@ -571,10 +572,210 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
 };
 
+function buildSimpleAppAnalysis(
+  row: PnlRow,
+  report: PnlMonthReport,
+  prevReport?: PnlMonthReport | null
+): string {
+  const descKey = normalizeDesc(row.description);
+  const periodDays = getPnlPeriodDays(report);
+  const dailyAvg = row.value / periodDays;
+  const pctStr = formatPercentId(row.percentToNetSales);
+  const valStr = formatSignedRupiah(row.value);
+
+  const prevRow = prevReport
+    ? prevReport.rows.find(
+        (r) => normalizeDesc(r.description) === descKey
+      )
+    : undefined;
+  let prevNote = '';
+  if (prevReport && prevRow) {
+    const diffVal = row.value - prevRow.value;
+    const diffPct = row.percentToNetSales - prevRow.percentToNetSales;
+    const prevMonthName = formatMonthId(prevReport.monthKey);
+    if (Math.abs(diffVal) < 1) {
+      prevNote = ` Nilainya hampir sama dibanding ${prevMonthName}.`;
+    } else {
+      const arah = diffVal > 0 ? 'naik' : 'turun';
+      prevNote = ` Dibanding ${prevMonthName}, pos ini ${arah} ${formatSignedRupiah(
+        Math.abs(diffVal)
+      )} (${diffPct >= 0 ? '+' : ''}${formatPercentId(diffPct)} poin).`;
+    }
+  }
+
+  if (descKey === 'net sales') {
+    const discPct =
+      Math.abs(report.totalSales) > 1e-9
+        ? (Math.abs(report.totalDiscount) / Math.abs(report.totalSales)) * 100
+        : 0;
+    return `Penjualan bersih outlet mencapai ${valStr} (rata-rata ${formatSignedRupiah(
+      dailyAvg
+    )}/hari selama ${periodDays} hari), berasal dari penjualan kotor ${formatSignedRupiah(
+      report.totalSales
+    )} dikurangi diskon ${formatSignedRupiah(
+      Math.abs(report.totalDiscount)
+    )} (${formatPercentId(discPct)}). Angka ini menjadi acuan 100,00% untuk mengukur porsi semua biaya dan laba.${prevNote}`;
+  }
+
+  if (descKey === 'total sales') {
+    const revItems = report.rows
+      .filter((r) => r.section === 'revenue' && r.kind === 'item' && r.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const topRev = revItems[0];
+    const topShare =
+      topRev && Math.abs(report.totalSales) > 1e-9
+        ? (topRev.value / report.totalSales) * 100
+        : 0;
+    return `Total penjualan kotor sebelum diskon tercatat ${valStr} (${pctStr} dari Net Sales).${
+      topRev
+        ? ` Penyumbang terbesarnya adalah ${topRev.description} sebesar ${formatSignedRupiah(
+            topRev.value
+          )} (${formatPercentId(topShare)} dari total penjualan).`
+        : ''
+    }${prevNote}`;
+  }
+
+  if (descKey === 'total cost of goods sold') {
+    const cogsItems = report.rows
+      .filter((r) => r.section === 'cogs' && r.kind === 'item' && r.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const topCogs = cogsItems[0];
+    const topShare =
+      topCogs && Math.abs(report.totalCogs) > 1e-9
+        ? (topCogs.value / report.totalCogs) * 100
+        : 0;
+    const wasteRow = report.rows.find(
+      (r) => normalizeDesc(r.description) === 'waste'
+    );
+    const wasteNote =
+      wasteRow && Math.abs(wasteRow.value) > 0
+        ? ` Sementara bahan terbuang (Waste) tercatat ${formatSignedRupiah(
+            wasteRow.value
+          )}.`
+        : '';
+    return `Total modal bahan baku (HPP) menyerap ${valStr} atau ${pctStr} dari penjualan bersih.${
+      topCogs
+        ? ` Komponen terbesarnya berasal dari ${topCogs.description} senilai ${formatSignedRupiah(
+            topCogs.value
+          )} (${formatPercentId(topShare)} dari total COGS).`
+        : ''
+    }${wasteNote}${prevNote}`;
+  }
+
+  if (descKey === 'gross profit') {
+    return `Setelah penjualan bersih ${formatSignedRupiah(
+      report.netSales
+    )} dikurangi modal bahan baku ${formatSignedRupiah(
+      report.totalCogs
+    )}, tersisa Laba Kotor sebesar ${valStr} (${pctStr}). Dana inilah yang dipakai untuk menutup seluruh biaya operasional outlet sebelum menjadi laba bersih.${prevNote}`;
+  }
+
+  if (descKey === 'total operational expense') {
+    const opexItems = report.rows
+      .filter((r) => r.section === 'opex' && r.kind === 'item' && Math.abs(r.value) > 0)
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+    const top1 = opexItems[0];
+    const top2 = opexItems[1];
+    const topDesc = top1
+      ? top2
+        ? ` Pengeluaran terbesar datang dari ${top1.description} senilai ${formatSignedRupiah(
+            top1.value
+          )} dan ${top2.description} senilai ${formatSignedRupiah(top2.value)}.`
+        : ` Pengeluaran terbesar adalah ${top1.description} senilai ${formatSignedRupiah(
+            top1.value
+          )}.`
+      : '';
+    return `Seluruh biaya operasional di luar bahan baku tercatat ${valStr} atau ${pctStr} dari Net Sales (rata-rata ${formatSignedRupiah(
+      dailyAvg
+    )}/hari).${topDesc}${prevNote}`;
+  }
+
+  if (descKey.startsWith('operational profit')) {
+    const statusText =
+      row.value >= 0
+        ? `Outlet menghasilkan Laba Operasional sebesar ${valStr} (${pctStr} dari Net Sales)`
+        : `Operasional outlet mengalami selisih minus sebesar ${valStr} (${pctStr})`;
+    return `${statusText} setelah Laba Kotor ${formatSignedRupiah(
+      report.grossProfit
+    )} dikurangi Biaya Operasional ${formatSignedRupiah(
+      report.totalOpex
+    )}.${prevNote}`;
+  }
+
+  if (descKey.startsWith('net profit') || descKey.startsWith('earning before')) {
+    const otherNet = report.netProfit - report.operationalProfit;
+    const isProfit = row.value >= 0;
+    return `${
+      isProfit ? 'Keuntungan bersih akhir outlet tercatat' : 'Laporan berakhir rugi bersih sebesar'
+    } ${valStr} (${pctStr} dari Net Sales), terbentuk dari hasil operasional ${formatSignedRupiah(
+      report.operationalProfit
+    )} ditambah/dikurangi pos lain-lain bersih ${formatSignedRupiah(
+      otherNet
+    )}.${prevNote}`;
+  }
+
+  if (row.section === 'revenue') {
+    const isNegative = row.value < 0;
+    const shareSales =
+      Math.abs(report.totalSales) > 1e-9
+        ? (Math.abs(row.value) / Math.abs(report.totalSales)) * 100
+        : 0;
+    if (isNegative) {
+      return `Pos ${row.description} memotong pendapatan penjualan sebesar ${valStr} (${pctStr} dari Net Sales, rata-rata ${formatSignedRupiah(
+        dailyAvg
+      )}/hari).${prevNote}`;
+    }
+    return `${row.description} menyumbang ${valStr} (${formatPercentId(
+      shareSales
+    )} dari Total Sales atau ${pctStr} dibanding Net Sales), dengan rata-rata ${formatSignedRupiah(
+      dailyAvg
+    )} per hari.${prevNote}`;
+  }
+
+  if (row.section === 'cogs') {
+    const shareCogs =
+      Math.abs(report.totalCogs) > 1e-9
+        ? (row.value / report.totalCogs) * 100
+        : 0;
+    if (row.value < 0) {
+      return `${row.description} bernilai minus ${valStr} (${pctStr} dari Net Sales), yang menandakan adanya penyesuaian atau koreksi pengurang beban HPP pada sistem ESB.${prevNote}`;
+    }
+    return `${row.description} menyerap biaya bahan sebesar ${valStr} (${pctStr} dari Net Sales) dan menyumbang ${formatPercentId(
+      shareCogs
+    )} dari total seluruh COGS, rata-rata ${formatSignedRupiah(
+      dailyAvg
+    )}/hari.${prevNote}`;
+  }
+
+  if (row.section === 'opex') {
+    const shareOpex =
+      Math.abs(report.totalOpex) > 1e-9
+        ? (row.value / report.totalOpex) * 100
+        : 0;
+    if (row.value < 0) {
+      return `${row.description} tercatat minus ${valStr} (${pctStr} dari Net Sales). Angka minus pada akun biaya biasanya berasal dari retur barang, pengembalian dana, atau koreksi pencatatan ESB.${prevNote}`;
+    }
+    if (Math.abs(row.value) < 0.01) {
+      return `Tidak ada biaya yang tercatat pada pos ${row.description} (Rp 0) sepanjang periode ${formatPnlPeriodRange(
+        report
+      )}.${prevNote}`;
+    }
+    return `Biaya ${row.description} terpakai ${valStr} (${pctStr} dari Net Sales), mengambil porsi ${formatPercentId(
+      shareOpex
+    )} dari total Biaya Operasional dengan rata-rata ${formatSignedRupiah(
+      dailyAvg
+    )}/hari.${prevNote}`;
+  }
+
+  return `Pos ${row.description} tercatat senilai ${valStr} (${pctStr} terhadap Net Sales) selama ${periodDays} hari periode laporan.${prevNote}`;
+}
+
 export function describePnlRow(
   row: PnlRow,
-  report: PnlMonthReport
+  report: PnlMonthReport,
+  prevReport?: PnlMonthReport | null
 ): PnlRowDescription {
+  const simpleAnalysis = buildSimpleAppAnalysis(row, report, prevReport);
   const descKey = normalizeDesc(row.description);
   const specific = SPECIFIC_MEANINGS[descKey];
   const absVal = Math.abs(row.value);
@@ -707,6 +908,7 @@ export function describePnlRow(
   }
 
   return {
+    simpleAnalysis,
     meaning,
     formulaEquation,
     perScaleText,
@@ -829,13 +1031,17 @@ export function getPnlReportVersionKey(
   return `${report.monthKey}|${report.periodStart}|${report.periodEnd}|${report.updatedAt}|${Math.round(report.netSales)}|${Math.round(report.totalCogs)}|${Math.round(report.totalOpex)}|${Math.round(report.netProfit)}|${report.rows.length}|${prevSig}`;
 }
 
+export type PnlAiProviderChoice = 'gemini' | 'groq';
+
 export function getPnlRowCacheKey(
   row: PnlRow,
   report: PnlMonthReport,
-  prevReport: PnlMonthReport | null
+  prevReport: PnlMonthReport | null,
+  provider?: PnlAiProviderChoice
 ): string {
   const versionKey = getPnlReportVersionKey(report, prevReport);
-  return `${versionKey}::${row.account}|${normalizeDesc(row.description)}|${Math.round(row.value)}`;
+  const providerSuffix = provider ? `::${provider}` : '';
+  return `${versionKey}::${row.account}|${normalizeDesc(row.description)}|${Math.round(row.value)}${providerSuffix}`;
 }
 
 export function getCachedPnlAnalysis(cacheKey: string): string | null {
@@ -993,20 +1199,22 @@ export async function fetchPnlRowAnalysis({
   row,
   report,
   prevReport,
+  provider = 'gemini',
   forceRefresh = false,
   signal,
 }: {
   row: PnlRow;
   report: PnlMonthReport;
   prevReport: PnlMonthReport | null;
+  provider?: PnlAiProviderChoice;
   forceRefresh?: boolean;
   signal?: AbortSignal;
-}): Promise<{ text: string; fromCache: boolean }> {
-  const cacheKey = getPnlRowCacheKey(row, report, prevReport);
+}): Promise<{ text: string; provider: PnlAiProviderChoice; fromCache: boolean }> {
+  const cacheKey = getPnlRowCacheKey(row, report, prevReport, provider);
   if (!forceRefresh) {
     const cached = getCachedPnlAnalysis(cacheKey);
     if (cached) {
-      return { text: cached, fromCache: true };
+      return { text: cached, provider, fromCache: true };
     }
   }
 
@@ -1017,6 +1225,7 @@ export async function fetchPnlRowAnalysis({
     signal,
     body: JSON.stringify({
       action: 'pnl_analysis',
+      provider,
       pnlTargetLabel: `${row.description}${row.account ? ` (${row.account})` : ''}`,
       contextText,
     }),
@@ -1029,14 +1238,23 @@ export async function fetchPnlRowAnalysis({
     );
   }
 
-  const payload = (await res.json()) as { reply?: string; error?: string };
+  const payload = (await res.json()) as {
+    reply?: string;
+    error?: string;
+    provider?: PnlAiProviderChoice;
+  };
   if (!res.ok || payload.error) {
-    throw new Error(payload.error || 'Gagal mendapatkan analisis AI dari Gemini.');
+    throw new Error(
+      payload.error ||
+        `Gagal mendapatkan analisis AI dari ${provider === 'groq' ? 'Groq' : 'Gemini'}.`
+    );
   }
 
   const text = (payload.reply ?? '').trim();
   if (!text) {
-    throw new Error('Gemini tidak mengembalikan isi analisis.');
+    throw new Error(
+      `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan isi analisis.`
+    );
   }
 
   hydratePnlAiCache();
@@ -1047,6 +1265,6 @@ export async function fetchPnlRowAnalysis({
   });
   persistPnlAiCache();
 
-  return { text, fromCache: false };
+  return { text, provider: payload.provider ?? provider, fromCache: false };
 }
 
