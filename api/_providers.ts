@@ -45,13 +45,20 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderConfig> = {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function cleanEnvKey(raw: string | undefined): string {
+  return (raw ?? '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim();
+}
+
 export function readApiKey(provider: AiProviderId): string | null {
   if (provider === 'gemini') {
-    const key = process.env.GEMINI_API_KEY?.trim();
+    const key = cleanEnvKey(process.env.GEMINI_API_KEY);
     if (!key || key === 'MY_GEMINI_API_KEY') return null;
     return key;
   }
-  const key = process.env.GROQ_API_KEY?.trim();
+  const key = cleanEnvKey(process.env.GROQ_API_KEY);
   if (!key || key === 'MY_GROQ_API_KEY') return null;
   return key;
 }
@@ -176,7 +183,13 @@ async function generateWithGemini(
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      if (!isTransientErrorMessage(msg)) {
+      const lower = msg.toLowerCase();
+      const isModelFallback =
+        lower.includes('404') ||
+        lower.includes('not_found') ||
+        lower.includes('not found') ||
+        lower.includes('unsupported');
+      if (!isTransientErrorMessage(msg) && !isModelFallback) {
         throw err;
       }
     }
@@ -245,6 +258,8 @@ async function generateWithGroq(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'User-Agent': 'PantauStokOpname/1.0 (+https://stok-opname-ecru.vercel.app)',
             Authorization: `Bearer ${apiKey}`,
           },
           signal: controller.signal,
@@ -257,11 +272,20 @@ async function generateWithGroq(
         }
       );
 
-      const data = (await response.json().catch(() => ({}))) as GroqChatCompletionResponse;
+      const rawText = await response.text();
+      let data: GroqChatCompletionResponse = {};
+      try {
+        data = JSON.parse(rawText) as GroqChatCompletionResponse;
+      } catch {
+        data = {};
+      }
 
       if (!response.ok || data.error) {
+        const fallbackSnippet = rawText.replace(/\s+/g, ' ').trim().slice(0, 180);
         const errMsg =
-          data.error?.message || `Groq HTTP ${response.status}`;
+          data.error?.message ||
+          fallbackSnippet ||
+          `Groq HTTP ${response.status}`;
         const err = new Error(`[Groq ${response.status}] ${errMsg}`);
         lastError = err;
         if (

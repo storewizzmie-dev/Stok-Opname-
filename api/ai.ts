@@ -167,17 +167,21 @@ export async function processAiRequest(
     };
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err);
-    const lower = rawMsg.toLowerCase();
+    const safeMsg = rawMsg
+      .replace(/gsk_[A-Za-z0-9_-]+/g, 'gsk_***')
+      .replace(/AIza[A-Za-z0-9_-]+/g, 'AIza***')
+      .replace(/AQ\.[A-Za-z0-9._-]+/g, 'AQ.***');
+    const lower = safeMsg.toLowerCase();
 
-    if (rawMsg.startsWith('MISSING_KEY:')) {
+    if (safeMsg.startsWith('MISSING_KEY:')) {
       return {
         status: 500,
         body: {
-          error: rawMsg.replace('MISSING_KEY:', ''),
+          error: safeMsg.replace('MISSING_KEY:', ''),
         },
       };
     }
-    if (isTransientErrorMessage(rawMsg)) {
+    if (isTransientErrorMessage(safeMsg)) {
       return {
         status: 503,
         body: {
@@ -200,24 +204,23 @@ export async function processAiRequest(
       };
     }
     if (
-      lower.includes('401') ||
-      lower.includes('403') ||
-      lower.includes('400') ||
-      lower.includes('api_key') ||
-      lower.includes('invalid api key')
+      /\b(401|403)\b/.test(lower) ||
+      lower.includes('api_key_invalid') ||
+      lower.includes('invalid_api_key') ||
+      lower.includes('invalid api key') ||
+      lower.includes('permission_denied')
     ) {
       return {
         status: 500,
         body: {
-          error:
-            'API Key AI tidak valid atau belum aktif. Periksa GEMINI_API_KEY / GROQ_API_KEY di Environment Variables server.',
+          error: `API Key AI ditolak / belum aktif. Periksa GEMINI_API_KEY atau GROQ_API_KEY di Vercel lalu Redeploy. Detail: ${safeMsg}`,
         },
       };
     }
     return {
       status: 500,
       body: {
-        error: `Gagal menghubungi AI: ${rawMsg}`,
+        error: `Gagal menghubungi AI: ${safeMsg}`,
       },
     };
   }
