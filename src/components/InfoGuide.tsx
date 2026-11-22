@@ -9,6 +9,7 @@ export type InfoGuideKey =
   | 'harian'
   | 'cekBarang'
   | 'upload'
+  | 'profitLoss'
   | 'aiAssistant';
 
 export interface InfoGuideData {
@@ -169,6 +170,27 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
     ],
     example:
       'Kalau file tanggal 15 ada perbaikan lalu Anda upload lagi, data tanggal 15 langsung diperbarui otomatis.',
+  },
+  profitLoss: {
+    title: 'Laba Rugi Konsolidasi (Description ÷ Net Sales)',
+    purpose:
+      'Melihat berapa persen porsi setiap pendapatan, bahan baku (COGS), dan biaya operasional dibandingkan penjualan bersih (Net Sales).',
+    steps: [
+      {
+        label: 'Rumus semua Description',
+        text: 'Setiap baris Description otomatis dibagi Net Sales lalu dikali 100%. Net Sales selalu 100,00% sebagai pembagi utama.',
+      },
+      {
+        label: 'Bulan sama, tanggal berbeda',
+        text: 'Jika Anda upload laporan baru di bulan yang sama (misal tgl 1–20 lalu diupload lagi tgl 1–30), data bulan itu otomatis diperbarui tanpa dobel.',
+      },
+      {
+        label: 'Bulan berbeda',
+        text: 'Jika bulan di periode laporan berbeda (misal Desember setelah November), otomatis dibuatkan bulan baru yang terpisah.',
+      },
+    ],
+    example:
+      'Jika Net Sales Rp 707 jt dan COGS - Food Rp 285 jt, rumusnya 285 jt ÷ 707 jt × 100% = 40,34% (artinya 40,34% dari penjualan dipakai untuk bahan makanan).',
   },
   aiAssistant: {
     title: 'Asisten AI Stok',

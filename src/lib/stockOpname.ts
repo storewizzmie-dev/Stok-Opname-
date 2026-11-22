@@ -205,8 +205,27 @@ export function formatMonthId(monthKey: string): string {
   return `${MONTHS_FULL[monthIdx] ?? monthKey} ${year}`;
 }
 
-export function formatRupiah(amount: number): string {
-  return `Rp ${Math.abs(Math.round(amount)).toLocaleString('id-ID')}`;
+export function formatShortRupiahTag(amount: number): string {
+  const abs = Math.abs(Math.round(amount));
+  if (abs >= 1_000_000) {
+    return `${(abs / 1_000_000).toLocaleString('id-ID', {
+      maximumFractionDigits: 1,
+    })} jt`;
+  }
+  if (abs >= 1_000) {
+    return `${(abs / 1_000).toLocaleString('id-ID', {
+      maximumFractionDigits: 1,
+    })} rb`;
+  }
+  return '';
+}
+
+export function formatRupiah(amount: number, includeShort = true): string {
+  const absRounded = Math.abs(Math.round(amount));
+  const base = `Rp ${absRounded.toLocaleString('id-ID')}`;
+  if (!includeShort) return base;
+  const tag = formatShortRupiahTag(absRounded);
+  return tag ? `${base} (${tag})` : base;
 }
 
 export function formatCompactRupiah(amount: number): string {

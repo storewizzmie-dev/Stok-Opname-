@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RotateCcw, Send, Sparkles, X } from 'lucide-react';
 import {
+  PnlDataset,
+  buildAiPnlContext,
+} from '../lib/profitLoss';
+import {
   StockDataset,
   SummaryResult,
   buildAiStockContext,
@@ -24,15 +28,19 @@ export function AiAssistantCard({
   summary,
   activeMonth,
   data,
+  pnlData = {},
+  activePnlMonth = '',
   currentMenuLabel = 'Beranda',
   messages,
   onMessagesChange,
   onOpenInfo,
   onClose,
 }: {
-  summary: SummaryResult;
+  summary: SummaryResult | null;
   activeMonth: string;
   data: StockDataset;
+  pnlData?: PnlDataset;
+  activePnlMonth?: string;
   currentMenuLabel?: string;
   messages: AiChatMessage[];
   onMessagesChange: React.Dispatch<React.SetStateAction<AiChatMessage[]>>;
@@ -44,13 +52,25 @@ export function AiAssistantCard({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const periodLabel =
-    summary.scope === 'month'
-      ? `${formatMonthId(activeMonth)} (sebulan)`
-      : `${formatDateId(summary.resolvedDate)} (1 hari)`;
+  const pnlMonths = Object.keys(pnlData).sort();
+  const hasPnl = pnlMonths.length > 0;
+  const resolvedPnlMonth =
+    activePnlMonth && pnlData[activePnlMonth]
+      ? activePnlMonth
+      : activeMonth && pnlData[activeMonth]
+      ? activeMonth
+      : pnlMonths[pnlMonths.length - 1] ?? '';
 
-  const totalProducts = Object.keys(summary.productMap).length;
-  const totalDates = summary.allMonthDates.length;
+  const periodLabel = summary
+    ? summary.scope === 'month'
+      ? `${formatMonthId(activeMonth)} (sebulan)`
+      : `${formatDateId(summary.resolvedDate)} (1 hari)`
+    : resolvedPnlMonth
+    ? `Laba Rugi ${formatMonthId(resolvedPnlMonth)}`
+    : 'Laporan';
+
+  const totalProducts = summary ? Object.keys(summary.productMap).length : 0;
+  const totalDates = summary ? summary.allMonthDates.length : 0;
 
   useEffect(() => {
     if (messages.length > 0 || isLoading) {
@@ -82,20 +102,35 @@ export function AiAssistantCard({
     return resData.reply || 'Tidak ada jawaban dari AI.';
   };
 
+  const buildCombinedContext = (question?: string) => {
+    const parts: string[] = [];
+    if (summary && activeMonth) {
+      parts.push(
+        buildAiStockContext(summary, activeMonth, data, {
+          question,
+          currentMenu: currentMenuLabel,
+        })
+      );
+    }
+    if (hasPnl) {
+      const pnlContext = buildAiPnlContext(pnlData, resolvedPnlMonth);
+      if (pnlContext) parts.push(pnlContext);
+    }
+    return parts.join('\n');
+  };
+
   const handleAutoSummary = async () => {
     if (isLoading) return;
     setErrorMsg(null);
     setIsLoading(true);
     const userNote: AiChatMessage = {
       role: 'user',
-      text: `Buatkan ringkasan stok untuk ${periodLabel}`,
+      text: `Buatkan ringkasan laporan untuk ${periodLabel}`,
     };
     onMessagesChange((prev) => [...prev, userNote]);
 
     try {
-      const contextText = buildAiStockContext(summary, activeMonth, data, {
-        currentMenu: currentMenuLabel,
-      });
+      const contextText = buildCombinedContext();
       const reply = await callAiEndpoint({
         action: 'summary',
         contextText,
@@ -119,10 +154,7 @@ export function AiAssistantCard({
     setIsLoading(true);
 
     try {
-      const contextText = buildAiStockContext(summary, activeMonth, data, {
-        question: q,
-        currentMenu: currentMenuLabel,
-      });
+      const contextText = buildCombinedContext(q);
       const reply = await callAiEndpoint({
         action: 'chat',
         contextText,
@@ -152,7 +184,13 @@ export function AiAssistantCard({
             <InfoButton guideKey="aiAssistant" onOpen={onOpenInfo} />
           </div>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-            Siap membantu membaca {totalProducts} jenis barang dari {totalDates} hari laporan ({formatMonthId(activeMonth)})
+            {summary
+              ? `Siap membantu membaca ${totalProducts} jenis barang dari ${totalDates} hari laporan (${formatMonthId(activeMonth)})${
+                  hasPnl ? ` + Laba Rugi ${formatMonthId(resolvedPnlMonth)}` : ''
+                }`
+              : `Siap membantu membaca laporan Laba Rugi ${formatMonthId(
+                  resolvedPnlMonth
+                )} (rumus Description ÷ Net Sales)`}
           </p>
         </div>
 

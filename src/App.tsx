@@ -43,10 +43,17 @@ import {
   BerandaModalType,
 } from './components/BerandaDetailModal';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
-import { ProfitLossPage } from './components/ProfitLossPage';
+import { ProfitLossView } from './components/ProfitLossView';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
 import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
 import { buildStandaloneHtml } from './lib/exportHtml';
+import {
+  PnlDataset,
+  detectExcelReportType,
+  formatPnlPeriodRange,
+  parseProfitLossBuffer,
+  sanitizePnlDataset,
+} from './lib/profitLoss';
 import {
   ConvertedStockRow,
   StockDataset,
@@ -67,6 +74,7 @@ import {
 } from './lib/stockOpname';
 
 const STORAGE_KEY = 'so';
+const PNL_STORAGE_KEY = 'so_pnl_v1';
 const THEME_KEY = 'so_theme_v2';
 
 type MenuTab =
@@ -107,11 +115,26 @@ export default function App() {
     return {};
   });
 
+  const [pnlData, setPnlData] = useState<PnlDataset>(() => {
+    try {
+      const raw = localStorage.getItem(PNL_STORAGE_KEY);
+      if (raw) return sanitizePnlDataset(JSON.parse(raw));
+    } catch {
+      // Ignore corrupted localStorage
+    }
+    return {};
+  });
+
   const [activeTab, setActiveTab] = useState<MenuTab>(() =>
-    Object.keys(data).length > 0 ? 'beranda' : 'upload'
+    Object.keys(data).length > 0
+      ? 'beranda'
+      : Object.keys(pnlData).length > 0
+      ? 'labarugi'
+      : 'upload'
   );
   const [viewScope, setViewScope] = useState<ViewScope>('month');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedPnlMonth, setSelectedPnlMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -217,6 +240,17 @@ export default function App() {
     }
   };
 
+  const persistPnlData = (next: PnlDataset) => {
+    try {
+      localStorage.setItem(PNL_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      setStatus({
+        text: 'Gagal menyimpan data Laba Rugi: penyimpanan browser penuh atau diblokir.',
+        isError: true,
+      });
+    }
+  };
+
   const handleFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (!list.length) return;
@@ -230,9 +264,31 @@ export default function App() {
       let pasRows = 0;
       const productSet = new Set<string>();
       const nextData: StockDataset = { ...data };
+      const nextPnlData: PnlDataset = { ...pnlData };
+      const pnlNewMonths: string[] = [];
+      const pnlUpdatedMonths: string[] = [];
+      let lastPnlPeriod = '';
 
       for (const file of list) {
         const buffer = await file.arrayBuffer();
+        const reportType = detectExcelReportType(buffer);
+
+        if (reportType === 'pnl') {
+          const parsedPnl = parseProfitLossBuffer(buffer);
+          if (nextPnlData[parsedPnl.monthKey]) {
+            if (!pnlUpdatedMonths.includes(parsedPnl.monthKey)) {
+              pnlUpdatedMonths.push(parsedPnl.monthKey);
+            }
+          } else {
+            if (!pnlNewMonths.includes(parsedPnl.monthKey)) {
+              pnlNewMonths.push(parsedPnl.monthKey);
+            }
+          }
+          nextPnlData[parsedPnl.monthKey] = parsedPnl;
+          lastPnlPeriod = formatPnlPeriodRange(parsedPnl);
+          continue;
+        }
+
         const parsed = parseExcelBuffer(buffer);
         for (const dateKey of Object.keys(parsed)) {
           if (nextData[dateKey]) {
@@ -252,44 +308,81 @@ export default function App() {
       }
 
       const importedDates = [...addedDates, ...updatedDates].sort();
-      if (!importedDates.length) {
+      const importedPnlCount = pnlNewMonths.length + pnlUpdatedMonths.length;
+
+      if (!importedDates.length && !importedPnlCount) {
         throw new Error('tidak ada baris data yang terbaca');
       }
 
-      const latestDate = importedDates[importedDates.length - 1];
-      const latestMonth = latestDate.slice(0, 7);
-      const monthsAffected = Array.from(
-        new Set(importedDates.map((d) => d.slice(0, 7)))
-      ).sort();
+      if (importedDates.length > 0) {
+        const latestDate = importedDates[importedDates.length - 1];
+        const latestMonth = latestDate.slice(0, 7);
+        const monthsAffected = Array.from(
+          new Set(importedDates.map((d) => d.slice(0, 7)))
+        ).sort();
 
-      setData(nextData);
-      persistData(nextData);
-      setSelectedMonth(latestMonth);
-      setSelectedDay(latestDate);
-      setSelectedProduct('');
-      setSearchQuery('');
-      setDailySearch('');
-      setPurposeFilter('ALL');
-      setProductCategoryFilter('ALL');
-      setActiveBarDate('');
-      setLastUpload({
-        addedDates: addedDates.sort(),
-        updatedDates: updatedDates.sort(),
-        monthsAffected,
-        totalRows,
-        diffRows,
-        pasRows,
-        uniqueProducts: productSet.size,
-      });
-      setStatus({
-        text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updatedDates.length} tanggal diperbarui.`,
-      });
-      setActiveTab('upload');
+        setData(nextData);
+        persistData(nextData);
+        setSelectedMonth(latestMonth);
+        setSelectedDay(latestDate);
+        setSelectedProduct('');
+        setSearchQuery('');
+        setDailySearch('');
+        setPurposeFilter('ALL');
+        setProductCategoryFilter('ALL');
+        setActiveBarDate('');
+        setLastUpload({
+          addedDates: addedDates.sort(),
+          updatedDates: updatedDates.sort(),
+          monthsAffected,
+          totalRows,
+          diffRows,
+          pasRows,
+          uniqueProducts: productSet.size,
+        });
+      }
+
+      if (importedPnlCount > 0) {
+        const allImportedPnl = [...pnlNewMonths, ...pnlUpdatedMonths].sort();
+        const latestPnlMonth = allImportedPnl[allImportedPnl.length - 1];
+        setPnlData(nextPnlData);
+        persistPnlData(nextPnlData);
+        setSelectedPnlMonth(latestPnlMonth);
+      }
+
+      if (importedPnlCount > 0 && importedDates.length === 0) {
+        const latestPnlMonth = [...pnlNewMonths, ...pnlUpdatedMonths]
+          .sort()
+          .pop()!;
+        const actionDesc =
+          pnlUpdatedMonths.includes(latestPnlMonth) &&
+          !pnlNewMonths.includes(latestPnlMonth)
+            ? `Data Laba Rugi ${formatMonthId(
+                latestPnlMonth
+              )} otomatis diperbarui dengan tanggal periode terbaru (${lastPnlPeriod}).`
+            : `Data Laba Rugi bulan baru ${formatMonthId(
+                latestPnlMonth
+              )} (${lastPnlPeriod}) berhasil ditambahkan.`;
+        setStatus({
+          text: `${actionDesc} Semua baris Description otomatis dibagi Net Sales (%).`,
+        });
+        setActiveTab('labarugi');
+      } else if (importedPnlCount > 0 && importedDates.length > 0) {
+        setStatus({
+          text: `Berhasil membaca Stok Opname (${totalRows} baris) dan Laba Rugi (${importedPnlCount} laporan).`,
+        });
+        setActiveTab('upload');
+      } else {
+        setStatus({
+          text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updatedDates.length} tanggal diperbarui.`,
+        });
+        setActiveTab('upload');
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Format file tidak sesuai.';
       setStatus({
-        text: `Gagal membaca file: ${message}. Pastikan file adalah laporan Stock Opname (.xlsx / .xls).`,
+        text: `Gagal membaca file: ${message}. Pastikan file adalah laporan Stock Opname atau Profit Loss Consolidation (.xlsx / .xls).`,
         isError: true,
       });
     }
@@ -312,17 +405,21 @@ export default function App() {
   };
 
   const handleBackupJson = () => {
-    if (!allDates.length) {
+    const pnlKeys = Object.keys(pnlData).sort();
+    if (!allDates.length && !pnlKeys.length) {
       setStatus({ text: 'Belum ada data untuk dicadangkan.', isError: true });
       return;
     }
-    const blob = new Blob([JSON.stringify({ v: 1, data })], {
+    const blob = new Blob([JSON.stringify({ v: 2, data, pnlData })], {
       type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `backup-stok-opname-${allDates[allDates.length - 1]}.json`;
+    const suffix = allDates.length
+      ? allDates[allDates.length - 1]
+      : pnlKeys[pnlKeys.length - 1];
+    a.download = `backup-stok-opname-${suffix}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -350,36 +447,56 @@ export default function App() {
     try {
       const parsed = JSON.parse(await file.text()) as {
         data?: Record<string, StockRow[]>;
+        pnlData?: unknown;
       };
-      if (!parsed || !parsed.data || typeof parsed.data !== 'object') {
+      if (!parsed || typeof parsed !== 'object') {
         throw new Error('format cadangan tidak dikenal');
       }
 
       const nextData: StockDataset = { ...data };
       let restoredCount = 0;
-      for (const dateKey of Object.keys(parsed.data)) {
-        if (
-          /^\d{4}-\d{2}-\d{2}$/.test(dateKey) &&
-          Array.isArray(parsed.data[dateKey])
-        ) {
-          nextData[dateKey] = parsed.data[dateKey];
-          restoredCount++;
+      if (parsed.data && typeof parsed.data === 'object') {
+        for (const dateKey of Object.keys(parsed.data)) {
+          if (
+            /^\d{4}-\d{2}-\d{2}$/.test(dateKey) &&
+            Array.isArray(parsed.data[dateKey])
+          ) {
+            nextData[dateKey] = parsed.data[dateKey];
+            restoredCount++;
+          }
         }
       }
 
-      if (!restoredCount) {
-        throw new Error('tidak ada data tanggal yang valid');
+      const restoredPnl = sanitizePnlDataset(parsed.pnlData);
+      const restoredPnlCount = Object.keys(restoredPnl).length;
+
+      if (!restoredCount && !restoredPnlCount) {
+        throw new Error('tidak ada data yang valid di file cadangan');
       }
 
-      const restoredDates = Object.keys(nextData).sort();
-      const latestMonth = restoredDates[restoredDates.length - 1].slice(0, 7);
-      setData(nextData);
-      persistData(nextData);
-      setSelectedMonth(latestMonth);
-      setSelectedDay('');
-      setSelectedProduct('');
-      setStatus({ text: `Berhasil memulihkan ${restoredCount} tanggal data.` });
-      setActiveTab('beranda');
+      if (restoredCount > 0) {
+        const restoredDates = Object.keys(nextData).sort();
+        const latestMonth = restoredDates[restoredDates.length - 1].slice(0, 7);
+        setData(nextData);
+        persistData(nextData);
+        setSelectedMonth(latestMonth);
+        setSelectedDay('');
+        setSelectedProduct('');
+      }
+      if (restoredPnlCount > 0) {
+        const mergedPnl: PnlDataset = { ...pnlData, ...restoredPnl };
+        const pnlMonths = Object.keys(mergedPnl).sort();
+        setPnlData(mergedPnl);
+        persistPnlData(mergedPnl);
+        setSelectedPnlMonth(pnlMonths[pnlMonths.length - 1]);
+      }
+
+      setStatus({
+        text: `Berhasil memulihkan ${restoredCount} tanggal stok${
+          restoredPnlCount > 0 ? ` dan ${restoredPnlCount} bulan laba rugi` : ''
+        }.`,
+      });
+      setActiveTab(restoredCount > 0 ? 'beranda' : 'labarugi');
     } catch (err) {
       const msgText =
         err instanceof Error ? err.message : 'File tidak dapat dibaca';
@@ -388,6 +505,18 @@ export default function App() {
         isError: true,
       });
     }
+  };
+
+  const handleDeletePnlMonth = (monthKey: string) => {
+    const next = { ...pnlData };
+    delete next[monthKey];
+    setPnlData(next);
+    persistPnlData(next);
+    if (selectedPnlMonth === monthKey) {
+      const remaining = Object.keys(next).sort();
+      setSelectedPnlMonth(remaining[remaining.length - 1] ?? '');
+    }
+    setStatus({ text: `Data Laba Rugi ${formatMonthId(monthKey)} dihapus.` });
   };
 
   const handleWipeData = () => {
@@ -400,7 +529,9 @@ export default function App() {
 
     setWipeArmed(false);
     setData({});
+    setPnlData({});
     setSelectedMonth('');
+    setSelectedPnlMonth('');
     setSelectedDay('');
     setSelectedProduct('');
     setSearchQuery('');
@@ -410,10 +541,11 @@ export default function App() {
     setAiMessages([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PNL_STORAGE_KEY);
     } catch {
       // Ignore storage error
     }
-    setStatus({ text: 'Semua data stok opname telah dihapus.' });
+    setStatus({ text: 'Semua data stok opname dan laba rugi telah dihapus.' });
     setActiveTab('upload');
   };
 
@@ -878,7 +1010,7 @@ export default function App() {
                           <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                             Nilai Kekurangan
                           </div>
-                          <div className="text-xs sm:text-sm font-extrabold font-mono text-rose-600 dark:text-rose-400 truncate tabular-nums">
+                          <div className="text-xs sm:text-sm font-extrabold font-mono text-rose-600 dark:text-rose-400 break-words leading-snug tabular-nums">
                             - {formatRupiah(summary.totalNeg)}
                           </div>
                         </div>
@@ -918,7 +1050,7 @@ export default function App() {
                           <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                             Nilai Kelebihan
                           </div>
-                          <div className="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+                          <div className="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 break-words leading-snug tabular-nums">
                             + {formatRupiah(summary.totalPos)}
                           </div>
                         </div>
@@ -1296,9 +1428,9 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0 max-w-[48%] text-right">
                                   <span
-                                    className={`text-xs sm:text-sm font-mono font-bold tabular-nums ${
+                                    className={`text-xs sm:text-sm font-mono font-bold tabular-nums leading-snug ${
                                       netState === 'neg'
                                         ? 'text-rose-600 dark:text-rose-400'
                                         : netState === 'pos'
@@ -1312,7 +1444,7 @@ export default function App() {
                                       ? `Lebih ${formatRupiah(cat.netVal)}`
                                       : 'Pas Rp 0'}
                                   </span>
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 </div>
                               </button>
                             );
@@ -1444,9 +1576,9 @@ export default function App() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 max-w-[46%] text-right">
                                 <span
-                                  className={`text-xs sm:text-sm font-mono font-extrabold tabular-nums ${
+                                  className={`text-xs sm:text-sm font-mono font-extrabold tabular-nums leading-snug ${
                                     isNeg
                                       ? 'text-rose-600 dark:text-rose-400'
                                       : 'text-emerald-600 dark:text-emerald-400'
@@ -1513,7 +1645,7 @@ export default function App() {
                   <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
                 </div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Pilih file laporan stok (.xlsx atau .xls). Semua baris, kode barang, harga, dan catatan tanggal langsung dirapikan otomatis.
+                  Pilih file laporan <strong>Stock Opname</strong> atau <strong>Profit Loss Consolidation</strong> (.xlsx / .xls). Semua baris, tanggal, bulan, dan rumus langsung dirapikan otomatis.
                 </p>
               </div>
 
@@ -2341,83 +2473,87 @@ export default function App() {
         {/* PAGE 5: CHAT AI */}
         {activeTab === 'ai' && (
           <div className="space-y-5 max-w-4xl">
-            {!summary ? (
+            {!summary && Object.keys(pnlData).length === 0 ? (
               <EmptyStateCard
                 onUploadClick={() => fileInputRef.current?.click()}
                 onRestoreClick={() => restoreInputRef.current?.click()}
               />
             ) : (
               <>
-                <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                        Chat AI Analisis Stok
-                      </h1>
-                      <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                        {viewScope === 'month'
-                          ? `AI sedang membaca seluruh data ${formatMonthId(activeMonth)} (sebulan penuh).`
-                          : `AI sedang membaca data tanggal ${formatDateId(activeDay)} (1 hari).`}
-                      </p>
+                {summary && (
+                  <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                          Chat AI Analisis Stok &amp; Laba Rugi
+                        </h1>
+                        <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                          {viewScope === 'month'
+                            ? `AI sedang membaca seluruh data ${formatMonthId(activeMonth)} (sebulan penuh).`
+                            : `AI sedang membaca data tanggal ${formatDateId(activeDay)} (1 hari).`}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1 p-1 track-3d rounded-xl self-start">
+                        <button
+                          type="button"
+                          onClick={() => setViewScope('month')}
+                          className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'month'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Sebulan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewScope('day')}
+                          className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                            viewScope === 'day'
+                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          1 Hari
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1 p-1 track-3d rounded-xl self-start">
-                      <button
-                        type="button"
-                        onClick={() => setViewScope('month')}
-                        className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                          viewScope === 'month'
-                            ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        Sebulan
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope('day')}
-                        className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                          viewScope === 'day'
-                            ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        1 Hari
-                      </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <MonthSelector
+                        months={allMonths}
+                        activeMonth={activeMonth}
+                        monthCounts={monthCounts}
+                        onSelect={handleSelectMonth}
+                      />
+                      {viewScope === 'day' && (
+                        <select
+                          aria-label="Pilih tanggal untuk dibaca AI"
+                          value={activeDay}
+                          onChange={(e) => setSelectedDay(e.target.value)}
+                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
+                        >
+                          {activeMonthDates
+                            .slice()
+                            .reverse()
+                            .map((d) => (
+                              <option key={d} value={d}>
+                                {formatDateId(d)}
+                              </option>
+                            ))}
+                        </select>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <MonthSelector
-                      months={allMonths}
-                      activeMonth={activeMonth}
-                      monthCounts={monthCounts}
-                      onSelect={handleSelectMonth}
-                    />
-                    {viewScope === 'day' && (
-                      <select
-                        aria-label="Pilih tanggal untuk dibaca AI"
-                        value={activeDay}
-                        onChange={(e) => setSelectedDay(e.target.value)}
-                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
-                      >
-                        {activeMonthDates
-                          .slice()
-                          .reverse()
-                          .map((d) => (
-                            <option key={d} value={d}>
-                              {formatDateId(d)}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  </div>
-                </section>
+                  </section>
+                )}
 
                 <AiAssistantCard
                   summary={summary}
                   activeMonth={activeMonth}
                   data={data}
+                  pnlData={pnlData}
+                  activePnlMonth={selectedPnlMonth}
                   currentMenuLabel="Chat AI"
                   messages={aiMessages}
                   onMessagesChange={setAiMessages}
@@ -2545,7 +2681,16 @@ export default function App() {
         )}
 
         {/* PAGE: LABA RUGI (Profit Loss, % dari Net Sales) */}
-        {activeTab === 'labarugi' && <ProfitLossPage />}
+        {activeTab === 'labarugi' && (
+          <ProfitLossView
+            pnlData={pnlData}
+            activeMonth={selectedPnlMonth}
+            onSelectMonth={setSelectedPnlMonth}
+            onUploadClick={() => fileInputRef.current?.click()}
+            onDeleteMonth={handleDeletePnlMonth}
+            onOpenInfo={setActiveInfoKey}
+          />
+        )}
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
