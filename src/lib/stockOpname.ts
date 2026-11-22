@@ -224,8 +224,9 @@ export function formatRupiah(amount: number, includeShort = true): string {
   const absRounded = Math.abs(Math.round(amount));
   const base = `Rp ${absRounded.toLocaleString('id-ID')}`;
   if (!includeShort) return base;
-  const tag = formatShortRupiahTag(absRounded);
-  return tag ? `${base} (${tag})` : base;
+  if (absRounded >= 1_000_000) return `${base} jt`;
+  if (absRounded >= 1_000) return `${base} rb`;
+  return base;
 }
 
 export function formatCompactRupiah(amount: number): string {

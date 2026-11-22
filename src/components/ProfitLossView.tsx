@@ -683,11 +683,7 @@ export function ProfitLossView({
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        {row.account ? (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#16294C] text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
-                            {row.account}
-                          </span>
-                        ) : (
+                        {(isAnchor || isSummary) && (
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide ${
                               isAnchor
