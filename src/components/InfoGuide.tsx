@@ -9,8 +9,7 @@ export type InfoGuideKey =
   | 'harian'
   | 'cekBarang'
   | 'upload'
-  | 'profitLoss'
-  | 'aiAssistant';
+  | 'profitLoss';
 
 export interface InfoGuideData {
   title: string;
@@ -191,27 +190,6 @@ export const INFO_GUIDES: Record<InfoGuideKey, InfoGuideData> = {
     ],
     example:
       'Jika Net Sales Rp 707 jt dan COGS - Food Rp 285 jt, rumusnya 285 jt ÷ 707 jt × 100% = 40,34% (artinya 40,34% dari penjualan dipakai untuk bahan makanan).',
-  },
-  aiAssistant: {
-    title: 'Asisten AI Stok',
-    purpose:
-      'Membantu Anda membaca angka laporan stok opname secara otomatis memakai bahasa sehari-hari yang gampang dipahami.',
-    steps: [
-      {
-        label: 'Tombol Ringkas Otomatis',
-        text: 'Sekali ketuk, AI langsung menyimpulkan barang mana yang aman, mana yang kurang besar, dan apa yang perlu dicek hari ini.',
-      },
-      {
-        label: 'Tanya Bebas',
-        text: 'Anda bisa bertanya dengan kalimat biasa, misalnya menanyakan barang tertentu atau bagian produksi / operasional yang sering selisih.',
-      },
-      {
-        label: 'Sesuai Pilihan Bulan / Hari',
-        text: 'AI membaca data sesuai tampilan yang sedang Anda pilih di atas (mode Bulan atau mode Hari).',
-      },
-    ],
-    example:
-      'Coba tanya: "Barang apa yang kemarin kurang lalu besoknya lebih?" — AI akan langsung mencarikan daftarnya.',
   },
 };
 

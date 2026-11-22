@@ -8,12 +8,13 @@ import {
 } from './_providers.js';
 
 export interface AiRequestBody {
-  action?: 'summary' | 'chat' | 'pnl_analysis';
+  action?: 'summary' | 'chat' | 'pnl_analysis' | 'pnl_chat';
   provider?: AiProviderPreference;
   contextText?: string;
   question?: string;
   history?: AiMessageTurn[];
   pnlTargetLabel?: string;
+  initialAnalysis?: string;
 }
 
 const SYSTEM_INSTRUCTION = `Kamu adalah Asisten Stok Opname untuk staf toko/restoran (seperti Wizzmie).
@@ -56,6 +57,14 @@ ATURAN FOKUS & KECERDASAN ANALISIS:
    - Saat membahas kategori subtotal (seperti Total COGS atau Biaya Operasional), tunjukkan penyumbang terbesarnya secara singkat.
    - Saat membahas laba (Gross Profit, Operational Profit, Net Profit), jelaskan singkat pembentuk utamanya.
 4. DILARANG mengulang rumus pembagian, mengulang angka secara hambar tanpa makna, menganggap angka besar otomatis bermasalah, menyebut kondisi "sehat" atau "buruk" tanpa data pembanding bulan lalu, atau mengarang penyebab yang tidak ada di laporan.`;
+
+const PNL_CHAT_SYSTEM_INSTRUCTION = `Kamu adalah analis keuangan restoran yang menjawab pertanyaan lanjutan pemilik outlet tentang laporan Laba Rugi dengan bahasa Indonesia sehari-hari yang sederhana, ramah, dan langsung ke inti.
+
+Aturan menjawab:
+1. Gunakan HANYA angka nyata dari data laporan Laba Rugi yang dikirimkan. Jangan mengarang angka atau penyebab yang tidak ada di laporan.
+2. Jawab langsung pertanyaan pengguna secara ringkas dan jelas (2–5 kalimat atau poin pendek bila membandingkan beberapa pos).
+3. Jika pengguna menanyakan cara menghitung, porsi %, selisih bulan lalu, atau pos terbesar/terkecil terkait topik yang ditanya, tampilkan angka Rupiah dan % dari Net Sales-nya secara akurat.
+4. Hindari istilah akuntansi yang kaku atau berbelit-belit.`;
 
 function buildSummaryPrompt(contextText: string): string {
   return `Berikut data laporan stok opname saat ini:
@@ -167,6 +176,8 @@ export async function processAiRequest(
       ? 'summary'
       : body.action === 'pnl_analysis'
       ? 'pnl_analysis'
+      : body.action === 'pnl_chat'
+      ? 'pnl_chat'
       : 'chat';
   const providerPref = normalizeProvider(body.provider);
   const contextText = String(body.contextText ?? '').trim();
@@ -176,7 +187,7 @@ export async function processAiRequest(
       status: 400,
       body: {
         error:
-          action === 'pnl_analysis'
+          action === 'pnl_analysis' || action === 'pnl_chat'
             ? 'Data laporan Laba Rugi belum tersedia untuk dianalisis.'
             : 'Data laporan stok belum tersedia. Upload file Excel terlebih dahulu.',
       },
@@ -200,6 +211,37 @@ export async function processAiRequest(
         thinkingLevel: ThinkingLevel.HIGH,
         maxTokens: 320,
       });
+      return {
+        status: 200,
+        body: { reply: result.reply, provider: result.provider },
+      };
+    }
+
+    if (action === 'pnl_chat') {
+      const question = String(body.question ?? '').trim();
+      if (!question) {
+        return {
+          status: 400,
+          body: { error: 'Pertanyaan tidak boleh kosong.' },
+        };
+      }
+      const targetLabel = String(body.pnlTargetLabel ?? 'Pos Keuangan').trim();
+      const rawHistory = Array.isArray(body.history) ? body.history : [];
+      const history = isGroq ? rawHistory.slice(-4) : rawHistory.slice(-8);
+      const initialAnalysis = String(body.initialAnalysis ?? '').trim();
+
+      const result = await generateWithConfiguredProviders(providerPref, {
+        systemInstruction: PNL_CHAT_SYSTEM_INSTRUCTION,
+        initialUserContext: `Ini data laporan Laba Rugi aktual untuk pos "${targetLabel}":\n\n${effectiveContext}\n\nJawab pertanyaan lanjutan saya berdasarkan data laporan ini dengan bahasa sederhana.`,
+        initialModelAck:
+          initialAnalysis ||
+          'Baik, saya sudah membaca data Laba Rugi tersebut. Silakan ajukan pertanyaan.',
+        history,
+        userPrompt: question,
+        thinkingLevel: ThinkingLevel.HIGH,
+        maxTokens: isGroq ? 550 : 900,
+      });
+
       return {
         status: 200,
         body: { reply: result.reply, provider: result.provider },

@@ -5,13 +5,14 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
-  Coins,
   FileSpreadsheet,
   Info,
   Lightbulb,
+  MessageSquare,
   Percent,
   RefreshCw,
   Search,
+  Send,
   Sparkles,
   Trash2,
   TrendingDown,
@@ -23,9 +24,11 @@ import { InfoButton, InfoGuideKey } from './InfoGuide';
 import {
   PnlAiProviderChoice,
   PnlDataset,
+  PnlFollowUpTurn,
   PnlMonthReport,
   PnlRow,
   PnlSection,
+  askPnlFollowUpQuestion,
   describePnlRow,
   fetchPnlRowAnalysis,
   formatPercentId,
@@ -550,9 +553,6 @@ export function ProfitLossView({
               <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
                 {kpiInfo.simpleAnalysis}
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-[#1A3157]">
-                <strong>Asal Angka:</strong> {kpiInfo.originFormula}
-              </p>
             </div>
 
             <PnlAiAnalysisPanel
@@ -806,36 +806,18 @@ export function ProfitLossView({
                         </p>
                       </div>
 
-                      {/* 2. Rumus & Asal Angkanya */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1.5">
-                          <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300">
-                            <Calculator className="w-3.5 h-3.5 shrink-0" />
-                            <span>Rumus Persentase (÷ Net Sales)</span>
-                          </div>
-                          <div className="font-mono text-[11px] sm:text-xs bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] rounded-lg px-2.5 py-2 text-slate-800 dark:text-slate-100 tabular-nums">
-                            {info.formulaEquation}
-                          </div>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {info.perScaleText}
-                          </p>
+                      {/* 2. Rumus Persentase */}
+                      <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300">
+                          <Calculator className="w-3.5 h-3.5 shrink-0" />
+                          <span>Rumus Persentase (÷ Net Sales)</span>
                         </div>
-
-                        <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1.5">
-                          <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
-                            <Coins className="w-3.5 h-3.5 shrink-0" />
-                            <span>Asal Angka &amp; Porsinya</span>
-                          </div>
-                          <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
-                            {info.originFormula}
-                          </p>
-                          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-[#1A3157] tabular-nums">
-                            Rata-rata per hari ({info.periodDays} hr):{' '}
-                            <strong className="text-slate-800 dark:text-slate-200">
-                              {formatSignedRupiah(info.dailyAvgValue)}/hari
-                            </strong>
-                          </div>
+                        <div className="font-mono text-[11px] sm:text-xs bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] rounded-lg px-2.5 py-2 text-slate-800 dark:text-slate-100 tabular-nums">
+                          {info.formulaEquation}
                         </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {info.perScaleText}
+                        </p>
                       </div>
 
                       {/* 3. Perbandingan Bulan Lalu (jika ada) */}
@@ -932,30 +914,43 @@ function PnlAiAnalysisPanel({
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [qaByKey, setQaByKey] = useState<Record<string, PnlFollowUpTurn[]>>({});
+  const [questionInput, setQuestionInput] = useState<string>('');
+  const [isAsking, setIsAsking] = useState<boolean>(false);
+  const [qaError, setQaError] = useState<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const qaAbortRef = React.useRef<AbortController | null>(null);
 
   useEffect(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    qaAbortRef.current?.abort();
+    qaAbortRef.current = null;
     const cached = getCachedPnlAnalysis(cacheKey);
     setAnalysisText(cached);
     setIsLoading(false);
     setErrorMsg(null);
+    setIsAsking(false);
+    setQaError(null);
 
     return () => {
       abortRef.current?.abort();
       abortRef.current = null;
+      qaAbortRef.current?.abort();
+      qaAbortRef.current = null;
     };
   }, [cacheKey]);
 
   const handleRunAnalysis = (forceRefresh: boolean) => {
     if (isLoading) return;
     abortRef.current?.abort();
+    qaAbortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     setIsLoading(true);
     setErrorMsg(null);
+    setQaError(null);
 
     fetchPnlRowAnalysis({
       row,
@@ -968,6 +963,13 @@ function PnlAiAnalysisPanel({
       .then((res) => {
         if (controller.signal.aborted) return;
         setAnalysisText(res.text);
+        if (forceRefresh) {
+          setQaByKey((prev) => {
+            const next = { ...prev };
+            delete next[cacheKey];
+            return next;
+          });
+        }
         setIsLoading(false);
       })
       .catch((err) => {
@@ -980,6 +982,65 @@ function PnlAiAnalysisPanel({
               } untuk pos ini.`
         );
         setIsLoading(false);
+      });
+  };
+
+  const followUpMessages = qaByKey[cacheKey] ?? [];
+
+  const handleAskQuestion = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = questionInput.trim();
+    if (!trimmed || !analysisText || isAsking || isLoading) return;
+
+    qaAbortRef.current?.abort();
+    const controller = new AbortController();
+    qaAbortRef.current = controller;
+
+    const priorTurns = followUpMessages;
+    setQuestionInput('');
+    setQaError(null);
+    setIsAsking(true);
+    setQaByKey((prev) => ({
+      ...prev,
+      [cacheKey]: [...priorTurns, { role: 'user', text: trimmed }],
+    }));
+
+    askPnlFollowUpQuestion({
+      row,
+      report,
+      prevReport,
+      provider: selectedProvider,
+      initialAnalysis: analysisText,
+      history: priorTurns,
+      question: trimmed,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setQaByKey((prev) => ({
+          ...prev,
+          [cacheKey]: [
+            ...(prev[cacheKey] ?? [...priorTurns, { role: 'user', text: trimmed }]),
+            { role: 'assistant', text: res.text },
+          ],
+        }));
+        setIsAsking(false);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setQaByKey((prev) => ({
+          ...prev,
+          [cacheKey]: priorTurns,
+        }));
+        setQuestionInput(trimmed);
+        setQaError(
+          err instanceof Error
+            ? err.message
+            : `Gagal mengirim pertanyaan ke ${
+                selectedProvider === 'groq' ? 'Groq' : 'Gemini'
+              }.`
+        );
+        setIsAsking(false);
       });
   };
 
@@ -1018,7 +1079,7 @@ function PnlAiAnalysisPanel({
           >
             <button
               type="button"
-              disabled={isLoading}
+              disabled={isLoading || isAsking}
               onClick={() => setSelectedProvider('gemini')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
                 selectedProvider === 'gemini'
@@ -1030,7 +1091,7 @@ function PnlAiAnalysisPanel({
             </button>
             <button
               type="button"
-              disabled={isLoading}
+              disabled={isLoading || isAsking}
               onClick={() => setSelectedProvider('groq')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
                 selectedProvider === 'groq'
@@ -1044,7 +1105,7 @@ function PnlAiAnalysisPanel({
 
           <button
             type="button"
-            disabled={isLoading}
+            disabled={isLoading || isAsking}
             onClick={() => handleRunAnalysis(Boolean(analysisText))}
             className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[30px]"
           >
@@ -1098,13 +1159,91 @@ function PnlAiAnalysisPanel({
       )}
 
       {!isLoading && !errorMsg && paragraphs.length > 0 && (
-        <div className="space-y-2 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed pt-1 border-t border-slate-100 dark:border-[#1A3157]">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-            Hasil Analisa {providerLabel}
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#1A3157]">
+          <div className="space-y-2 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              Hasil Analisa {providerLabel}
+            </div>
+            {paragraphs.map((para, i) => (
+              <p key={i}>{renderAnalysisInlineBold(para)}</p>
+            ))}
           </div>
-          {paragraphs.map((para, i) => (
-            <p key={i}>{renderAnalysisInlineBold(para)}</p>
-          ))}
+
+          {/* Follow-up Q&A thread + input */}
+          <div className="pt-2.5 border-t border-slate-100 dark:border-[#1A3157] space-y-2.5">
+            {followUpMessages.length > 0 && (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {followUpMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-amber-50 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-500/30 text-slate-900 dark:text-amber-100 ml-4 sm:ml-8'
+                        : 'bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1E355D] text-slate-700 dark:text-slate-200 mr-4 sm:mr-8 space-y-1'
+                    }`}
+                  >
+                    <div
+                      className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${
+                        msg.role === 'user'
+                          ? 'text-amber-700 dark:text-amber-300'
+                          : 'text-blue-700 dark:text-blue-300'
+                      }`}
+                    >
+                      {msg.role === 'user' ? 'Pertanyaan Anda' : `Jawaban ${providerLabel}`}
+                    </div>
+                    {msg.text
+                      .split(/\n{2,}|\n/)
+                      .map((p) => p.trim())
+                      .filter(Boolean)
+                      .map((p, pIdx) => (
+                        <p key={pIdx}>{renderAnalysisInlineBold(p)}</p>
+                      ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isAsking && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 px-1">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                <span>{providerLabel} sedang menyiapkan jawaban...</span>
+              </div>
+            )}
+
+            {qaError && (
+              <div className="rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 px-3 py-2 text-xs text-rose-800 dark:text-rose-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{qaError}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={handleAskQuestion}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <MessageSquare className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={questionInput}
+                  onChange={(e) => setQuestionInput(e.target.value)}
+                  disabled={isAsking}
+                  placeholder={`Tanya lanjutan ke ${
+                    selectedProvider === 'groq' ? 'Groq' : 'Gemini'
+                  } tentang ${row.description}...`}
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px] disabled:opacity-60"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isAsking || !questionInput.trim()}
+                className="btn-3d-primary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 min-h-[38px] disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Tanya AI</span>
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>

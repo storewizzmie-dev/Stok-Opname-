@@ -27,7 +27,6 @@ import {
   Scale,
   Search,
   Settings,
-  Sparkles,
   Sun,
   Trash2,
   TrendingDown,
@@ -37,7 +36,6 @@ import {
   Utensils,
   X,
 } from 'lucide-react';
-import { AiAssistantCard, AiChatMessage } from './components/AiAssistantCard';
 import {
   BerandaDetailModal,
   BerandaModalType,
@@ -49,9 +47,12 @@ import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
 import { buildStandaloneHtml } from './lib/exportHtml';
 import {
   PnlDataset,
+  PnlMonthReport,
   clearPnlAiCache,
   detectExcelReportType,
+  formatPercentId,
   formatPnlPeriodRange,
+  formatSignedRupiah,
   parseProfitLossBuffer,
   sanitizePnlDataset,
 } from './lib/profitLoss';
@@ -84,7 +85,6 @@ type MenuTab =
   | 'harian'
   | 'barang'
   | 'labarugi'
-  | 'ai'
   | 'pengaturan';
 type DailyFilter = 'all' | 'diff' | 'neg' | 'pos' | 'pas';
 type ProductFilter = 'all' | 'neg' | 'pos' | 'pas';
@@ -151,7 +151,6 @@ export default function App() {
   const [activeBarDate, setActiveBarDate] = useState<string>('');
   const [activeInfoKey, setActiveInfoKey] = useState<InfoGuideKey | null>(null);
   const [berandaModal, setBerandaModal] = useState<BerandaModalType>(null);
-  const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -545,7 +544,6 @@ export default function App() {
     setOpenDays({});
     setActiveBarDate('');
     setLastUpload(null);
-    setAiMessages([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(PNL_STORAGE_KEY);
@@ -648,6 +646,17 @@ export default function App() {
     return worstDay && worstDay.negVal < 0 ? worstDay : null;
   }, [summary, viewScope, activeDay, activeBarDate, worstDay]);
 
+  const pnlMonths = useMemo(() => Object.keys(pnlData).sort(), [pnlData]);
+
+  const berandaPnlReport = useMemo<PnlMonthReport | null>(() => {
+    if (!pnlMonths.length) return null;
+    if (activeMonth && pnlData[activeMonth]) return pnlData[activeMonth];
+    if (selectedPnlMonth && pnlData[selectedPnlMonth]) {
+      return pnlData[selectedPnlMonth];
+    }
+    return pnlData[pnlMonths[pnlMonths.length - 1]] ?? null;
+  }, [pnlMonths, pnlData, activeMonth, selectedPnlMonth]);
+
   const navItems: {
     id: MenuTab;
     label: string;
@@ -683,12 +692,6 @@ export default function App() {
       label: 'Laba Rugi',
       mobileLabel: 'Laba',
       icon: <Coins className="w-5 h-5 md:w-4 md:h-4" />,
-    },
-    {
-      id: 'ai',
-      label: 'Chat AI',
-      mobileLabel: 'Chat AI',
-      icon: <Sparkles className="w-5 h-5 md:w-4 md:h-4" />,
     },
     {
       id: 'pengaturan',
@@ -816,10 +819,23 @@ export default function App() {
         {activeTab === 'beranda' && (
           <div className="space-y-4 sm:space-y-5">
             {!summary ? (
-              <EmptyStateCard
-                onUploadClick={() => fileInputRef.current?.click()}
-                onRestoreClick={() => restoreInputRef.current?.click()}
-              />
+              <>
+                <EmptyStateCard
+                  onUploadClick={() => fileInputRef.current?.click()}
+                  onRestoreClick={() => restoreInputRef.current?.click()}
+                />
+                <BerandaProfitLossCard
+                  report={berandaPnlReport}
+                  monthCount={pnlMonths.length}
+                  onOpenProfitLoss={(monthKey) => {
+                    if (monthKey) setSelectedPnlMonth(monthKey);
+                    setActiveTab('labarugi');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onUploadClick={() => fileInputRef.current?.click()}
+                  onOpenInfo={setActiveInfoKey}
+                />
+              </>
             ) : (
               <>
                 {/* Hero Banner */}
@@ -1635,6 +1651,19 @@ export default function App() {
                     </button>
                   </section>
                 </div>
+
+                {/* Informasi Menu Laba Rugi */}
+                <BerandaProfitLossCard
+                  report={berandaPnlReport}
+                  monthCount={pnlMonths.length}
+                  onOpenProfitLoss={(monthKey) => {
+                    if (monthKey) setSelectedPnlMonth(monthKey);
+                    setActiveTab('labarugi');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onUploadClick={() => fileInputRef.current?.click()}
+                  onOpenInfo={setActiveInfoKey}
+                />
               </>
             )}
           </div>
@@ -2477,101 +2506,7 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 5: CHAT AI */}
-        {activeTab === 'ai' && (
-          <div className="space-y-5 max-w-4xl">
-            {!summary && Object.keys(pnlData).length === 0 ? (
-              <EmptyStateCard
-                onUploadClick={() => fileInputRef.current?.click()}
-                onRestoreClick={() => restoreInputRef.current?.click()}
-              />
-            ) : (
-              <>
-                {summary && (
-                  <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                          Chat AI Analisis Stok &amp; Laba Rugi
-                        </h1>
-                        <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                          {viewScope === 'month'
-                            ? `AI sedang membaca seluruh data ${formatMonthId(activeMonth)} (sebulan penuh).`
-                            : `AI sedang membaca data tanggal ${formatDateId(activeDay)} (1 hari).`}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-1 p-1 track-3d rounded-xl self-start">
-                        <button
-                          type="button"
-                          onClick={() => setViewScope('month')}
-                          className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                            viewScope === 'month'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          Sebulan
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setViewScope('day')}
-                          className={`px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                            viewScope === 'day'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          1 Hari
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <MonthSelector
-                        months={allMonths}
-                        activeMonth={activeMonth}
-                        monthCounts={monthCounts}
-                        onSelect={handleSelectMonth}
-                      />
-                      {viewScope === 'day' && (
-                        <select
-                          aria-label="Pilih tanggal untuk dibaca AI"
-                          value={activeDay}
-                          onChange={(e) => setSelectedDay(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
-                        >
-                          {activeMonthDates
-                            .slice()
-                            .reverse()
-                            .map((d) => (
-                              <option key={d} value={d}>
-                                {formatDateId(d)}
-                              </option>
-                            ))}
-                        </select>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                <AiAssistantCard
-                  summary={summary}
-                  activeMonth={activeMonth}
-                  data={data}
-                  pnlData={pnlData}
-                  activePnlMonth={selectedPnlMonth}
-                  currentMenuLabel="Chat AI"
-                  messages={aiMessages}
-                  onMessagesChange={setAiMessages}
-                  onOpenInfo={setActiveInfoKey}
-                />
-              </>
-            )}
-          </div>
-        )}
-
-        {/* PAGE 6: PENGATURAN */}
+        {/* PAGE 5: PENGATURAN */}
         {activeTab === 'pengaturan' && (
           <div className="space-y-5 max-w-3xl">
             <section className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
@@ -2705,7 +2640,7 @@ export default function App() {
         aria-label="Menu utama"
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#1C3259] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
       >
-        <div className="grid grid-cols-7 h-16">
+        <div className="grid grid-cols-6 h-16">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -2977,5 +2912,167 @@ function ReadableStockRow({
         </div>
       </div>
     </div>
+  );
+}
+
+function BerandaProfitLossCard({
+  report,
+  monthCount,
+  onOpenProfitLoss,
+  onUploadClick,
+  onOpenInfo,
+}: {
+  report: PnlMonthReport | null;
+  monthCount: number;
+  onOpenProfitLoss: (monthKey?: string) => void;
+  onUploadClick: () => void;
+  onOpenInfo: (key: InfoGuideKey) => void;
+}) {
+  if (!report) {
+    return (
+      <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300/60 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Coins className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
+                Informasi Menu Laba Rugi
+              </h2>
+              <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300/85 leading-relaxed">
+              Belum ada laporan Profit Loss yang diupload. Upload file Excel <strong>Profit Loss Consolidation (.xlsx / .xls)</strong> untuk melihat Net Sales (100%), Total COGS, Gross Profit, Biaya Operasional, Net Profit, serta analisa sederhana setiap pos.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onUploadClick}
+            className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Laba Rugi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenProfitLoss()}
+            className="btn-3d-soft px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
+          >
+            <span>Buka Menu Laba Rugi</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const pct = (value: number) =>
+    report.netSales > 0 ? (value / report.netSales) * 100 : 0;
+
+  const isLoss = report.netProfit < 0;
+
+  const metrics = [
+    {
+      label: 'Net Sales',
+      sub: 'Acuan 100,00%',
+      value: formatSignedRupiah(report.netSales),
+      tone: 'text-amber-700 dark:text-amber-300',
+      box: 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/25',
+    },
+    {
+      label: 'Total COGS',
+      sub: `${formatPercentId(pct(report.totalCogs))} dari Net Sales`,
+      value: formatSignedRupiah(report.totalCogs),
+      tone: 'text-slate-900 dark:text-white',
+      box: 'bg-slate-50/90 dark:bg-[#0D1C34] border-slate-200/80 dark:border-[#1A3157]',
+    },
+    {
+      label: 'Gross Profit',
+      sub: `${formatPercentId(pct(report.grossProfit))} dari Net Sales`,
+      value: formatSignedRupiah(report.grossProfit),
+      tone: 'text-sky-700 dark:text-sky-300',
+      box: 'bg-sky-50/70 dark:bg-sky-500/10 border-sky-200/80 dark:border-sky-500/25',
+    },
+    {
+      label: 'Biaya Operasional',
+      sub: `${formatPercentId(pct(report.totalOpex))} dari Net Sales`,
+      value: formatSignedRupiah(report.totalOpex),
+      tone: 'text-slate-900 dark:text-white',
+      box: 'bg-slate-50/90 dark:bg-[#0D1C34] border-slate-200/80 dark:border-[#1A3157]',
+    },
+    {
+      label: isLoss ? 'Net Loss (Rugi Bersih)' : 'Net Profit (Laba Bersih)',
+      sub: `${formatPercentId(pct(report.netProfit))} dari Net Sales`,
+      value: formatSignedRupiah(report.netProfit),
+      tone: isLoss
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-emerald-600 dark:text-emerald-400',
+      box: isLoss
+        ? 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 col-span-2 sm:col-span-1'
+        : 'bg-emerald-50/80 dark:bg-emerald-500/10 border-emerald-200/80 dark:border-emerald-500/30 col-span-2 sm:col-span-1',
+    },
+  ];
+
+  return (
+    <section className="wizzmie-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300/60 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+            <Coins className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1">
+              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">
+                Ringkasan Menu Laba Rugi · {formatMonthId(report.monthKey)}
+              </h2>
+              <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
+            </div>
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+              Periode {formatPnlPeriodRange(report)}
+              {report.branchName ? ` · ${report.branchName}` : ''}
+              {monthCount > 1 ? ` · ${monthCount} bulan tersimpan` : ''}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onOpenProfitLoss(report.monthKey)}
+          className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px] cursor-pointer"
+        >
+          <span>Buka Detail Laba Rugi</span>
+          <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        {metrics.map((m) => (
+          <div
+            key={m.label}
+            className={`rounded-xl border p-3 space-y-1 ${m.box}`}
+          >
+            <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">
+              {m.label}
+            </div>
+            <div
+              className={`text-xs sm:text-sm font-black font-mono tabular-nums break-words leading-snug ${m.tone}`}
+            >
+              {m.value}
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium tabular-nums truncate">
+              {m.sub}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        Ketuk <strong>Buka Detail Laba Rugi</strong> untuk melihat seluruh baris Description ÷ Net Sales (%) beserta penjelasan sederhana langsung dari aplikasi atau analisa tambahan Gemini / Groq.
+      </p>
+    </section>
   );
 }

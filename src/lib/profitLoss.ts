@@ -1268,3 +1268,78 @@ export async function fetchPnlRowAnalysis({
   return { text, provider: payload.provider ?? provider, fromCache: false };
 }
 
+export interface PnlFollowUpTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export async function askPnlFollowUpQuestion({
+  row,
+  report,
+  prevReport,
+  provider = 'gemini',
+  initialAnalysis,
+  history,
+  question,
+  signal,
+}: {
+  row: PnlRow;
+  report: PnlMonthReport;
+  prevReport: PnlMonthReport | null;
+  provider?: PnlAiProviderChoice;
+  initialAnalysis: string;
+  history: PnlFollowUpTurn[];
+  question: string;
+  signal?: AbortSignal;
+}): Promise<{ text: string; provider: PnlAiProviderChoice }> {
+  const trimmedQuestion = question.trim();
+  if (!trimmedQuestion) {
+    throw new Error('Pertanyaan tidak boleh kosong.');
+  }
+
+  const contextText = buildPnlAnalysisContext(row, report, prevReport);
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({
+      action: 'pnl_chat',
+      provider,
+      pnlTargetLabel: `${row.description}${row.account ? ` (${row.account})` : ''}`,
+      contextText,
+      initialAnalysis,
+      history,
+      question: trimmedQuestion,
+    }),
+  });
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      `Server AI belum tersedia di hosting ini (HTTP ${res.status}). Pastikan endpoint /api/ai sudah ter-deploy di Vercel dan GEMINI_API_KEY atau GROQ_API_KEY aktif.`
+    );
+  }
+
+  const payload = (await res.json()) as {
+    reply?: string;
+    error?: string;
+    provider?: PnlAiProviderChoice;
+  };
+  if (!res.ok || payload.error) {
+    throw new Error(
+      payload.error ||
+        `Gagal mengirim pertanyaan ke ${provider === 'groq' ? 'Groq' : 'Gemini'}.`
+    );
+  }
+
+  const text = (payload.reply ?? '').trim();
+  if (!text) {
+    throw new Error(
+      `${provider === 'groq' ? 'Groq' : 'Gemini'} tidak mengembalikan jawaban.`
+    );
+  }
+
+  return { text, provider: payload.provider ?? provider };
+}
+
+
