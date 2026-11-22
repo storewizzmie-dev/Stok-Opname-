@@ -43,6 +43,7 @@ import {
   BerandaModalType,
 } from './components/BerandaDetailModal';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
+import { ProfitLossPage } from './components/ProfitLossPage';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
 import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
 import { buildStandaloneHtml } from './lib/exportHtml';
@@ -68,7 +69,14 @@ import {
 const STORAGE_KEY = 'so';
 const THEME_KEY = 'so_theme_v2';
 
-type MenuTab = 'beranda' | 'upload' | 'harian' | 'barang' | 'ai' | 'pengaturan';
+type MenuTab =
+  | 'beranda'
+  | 'upload'
+  | 'harian'
+  | 'barang'
+  | 'labarugi'
+  | 'ai'
+  | 'pengaturan';
 type DailyFilter = 'all' | 'diff' | 'neg' | 'pos' | 'pas';
 type ProductFilter = 'all' | 'neg' | 'pos' | 'pas';
 type RankMode = 'neg' | 'pos';
@@ -530,6 +538,12 @@ export default function App() {
       label: 'Cek Barang',
       mobileLabel: 'Barang',
       icon: <PackageSearch className="w-5 h-5 md:w-4 md:h-4" />,
+    },
+    {
+      id: 'labarugi',
+      label: 'Laba Rugi',
+      mobileLabel: 'Laba',
+      icon: <Coins className="w-5 h-5 md:w-4 md:h-4" />,
     },
     {
       id: 'ai',
@@ -2529,6 +2543,9 @@ export default function App() {
             </section>
           </div>
         )}
+
+        {/* PAGE: LABA RUGI (Profit Loss, % dari Net Sales) */}
+        {activeTab === 'labarugi' && <ProfitLossPage />}
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
@@ -2536,7 +2553,7 @@ export default function App() {
         aria-label="Menu utama"
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#1C3259] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
       >
-        <div className="grid grid-cols-6 h-16">
+        <div className="grid grid-cols-7 h-16">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
