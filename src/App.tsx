@@ -23,7 +23,6 @@ import {
   Moon,
   Package,
   PackageSearch,
-  RefreshCw,
   Scale,
   Search,
   Settings,
@@ -132,7 +131,7 @@ export default function App() {
       ? 'labarugi'
       : 'pengaturan'
   );
-  const [viewScope, setViewScope] = useState<ViewScope>('month');
+  const [viewScope, setViewScope] = useState<ViewScope>('range');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedPnlMonth, setSelectedPnlMonth] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('');
@@ -416,7 +415,8 @@ export default function App() {
       (viewScope === 'day' && activeDay !== dateKey) ||
       (viewScope === 'range' && !summary?.activeDates.includes(dateKey))
     ) {
-      setViewScope('month');
+      setDateRange(null);
+      setViewScope('range');
     }
     setOpenDays((prev) => ({ ...prev, [dateKey]: true }));
     setActiveTab('harian');
@@ -702,249 +702,201 @@ export default function App() {
               </>
             ) : (
               <>
-                {/* Hero Banner */}
+                {/* Hero Banner dengan Tombol Rentang Tanggal & Cek 1 Hari di Pojok Kanan */}
                 <section className="wizzmie-hero-card relative overflow-hidden rounded-2xl p-4 sm:p-6">
                   <div className="hidden dark:block absolute -right-10 -bottom-10 w-44 h-44 bg-blue-600/15 rounded-full blur-2xl pointer-events-none" />
-                  <div className="flex items-center gap-4 sm:gap-5 relative z-10">
-                    {/* 3D Style Clipboard & Box Badge */}
-                    <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 p-0.5 shadow-xl shadow-blue-900/40 flex items-center justify-center">
-                      <div className="w-full h-full rounded-2xl bg-slate-900 dark:bg-[#0F2244] flex flex-col items-center justify-center relative">
-                        <ClipboardCheck className="w-10 h-10 sm:w-11 sm:h-11 text-blue-400" />
-                        <div className="absolute -bottom-1 -right-1 w-7 h-7 sm:w-8 sm:h-8 bg-amber-400 rounded-lg flex items-center justify-center shadow-md rotate-6">
-                          <Package className="w-4 h-4 text-slate-950" />
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 relative z-10">
+                    <div className="flex items-center gap-4 sm:gap-5 min-w-0 flex-1">
+                      {/* 3D Style Clipboard & Box Badge */}
+                      <div className="relative shrink-0 w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 p-0.5 shadow-xl shadow-blue-900/40 flex items-center justify-center">
+                        <div className="w-full h-full rounded-2xl bg-slate-900 dark:bg-[#0F2244] flex flex-col items-center justify-center relative">
+                          <ClipboardCheck className="w-9 h-9 sm:w-10 sm:h-10 text-blue-400" />
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-amber-400 rounded-lg flex items-center justify-center shadow-md rotate-6">
+                            <Package className="w-3.5 h-3.5 text-slate-950" />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Hero Text */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-700 dark:text-amber-400 truncate">
-                          {viewScope === 'month'
-                            ? 'Rekap Stok Bulanan'
-                            : viewScope === 'range'
-                            ? 'Rekap Rentang Tanggal'
-                            : 'Pemeriksaan Harian'}
-                          {summary.locationName || summary.branchName
-                            ? ` · ${summary.locationName || summary.branchName}`
-                            : ''}
+                      {/* Hero Text */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-700 dark:text-amber-400 truncate">
+                            {viewScope === 'month'
+                              ? 'Rekap Stok Bulanan'
+                              : viewScope === 'range'
+                              ? 'Rekap Rentang Tanggal'
+                              : 'Pemeriksaan Harian'}
+                            {summary.locationName || summary.branchName
+                              ? ` · ${summary.locationName || summary.branchName}`
+                              : ''}
+                          </div>
+                          <InfoButton
+                            guideKey="overview"
+                            onOpen={setActiveInfoKey}
+                          />
                         </div>
-                        <InfoButton
-                          guideKey="overview"
-                          onOpen={setActiveInfoKey}
-                        />
-                      </div>
 
-                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
-                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                          {viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'}
-                        </h1>
-                        <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
-                          {viewScope === 'month'
-                            ? formatMonthId(activeMonth)
-                            : viewScope === 'range'
-                            ? formatDateRangeLabel(
-                                summary.rangeStart,
-                                summary.rangeEnd
-                              )
-                            : formatDateId(activeDay)}
-                        </span>
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 mt-1 leading-relaxed tabular-nums">
-                        {viewScope === 'month' ? (
-                          <>
-                            Gabungan hitungan gudang dari {summary.allMonthDates.length} hari vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
-                          </>
-                        ) : viewScope === 'range' ? (
-                          <>
-                            Gabungan hitungan gudang dari {summary.activeDates.length} hari ({formatDateRangeLabel(summary.rangeStart, summary.rangeEnd)}) vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
-                          </>
-                        ) : (
-                          <>
-                            Menampilkan perbandingan hitungan gudang tanggal {formatDateId(activeDay)} dengan catatan sistem ESB ({summary.totalRowsCount} baris).
-                          </>
-                        )}
-                        {summary.missingDays.length > 0 && (
-                          <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                            {' '}
-                            · Tgl {summary.missingDays.join(', ')} belum diupload
+                        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
+                          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                            {viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'}
+                          </h1>
+                          <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
+                            {viewScope === 'month'
+                              ? formatMonthId(activeMonth)
+                              : viewScope === 'range'
+                              ? formatDateRangeLabel(
+                                  summary.rangeStart,
+                                  summary.rangeEnd
+                                )
+                              : formatDateId(activeDay)}
                           </span>
-                        )}
-                      </p>
+                        </div>
+
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 mt-1 leading-relaxed tabular-nums">
+                          {viewScope === 'month' ? (
+                            <>
+                              Gabungan hitungan gudang dari {summary.allMonthDates.length} hari vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
+                            </>
+                          ) : viewScope === 'range' ? (
+                            <>
+                              Gabungan hitungan gudang dari {summary.activeDates.length} hari ({formatDateRangeLabel(summary.rangeStart, summary.rangeEnd)}) vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
+                            </>
+                          ) : (
+                            <>
+                              Menampilkan perbandingan hitungan gudang tanggal {formatDateId(activeDay)} dengan catatan sistem ESB ({summary.totalRowsCount} baris).
+                            </>
+                          )}
+                          {summary.missingDays.length > 0 && (
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                              {' '}
+                              · Tgl {summary.missingDays.join(', ')} belum diupload
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </section>
 
-                {/* Period Toggle, Month Selector & Date Selector */}
-                <section className="space-y-2.5">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewScope('month');
-                        setIsRangePickerOpen(false);
-                      }}
-                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
-                        viewScope === 'month'
-                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
-                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
-                      }`}
-                    >
-                      <RefreshCw className="w-4 h-4 shrink-0" />
-                      <span className="truncate">Rekap Sebulan</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const wasRange = viewScope === 'range';
-                        setViewScope('range');
-                        setIsRangePickerOpen((prev) =>
-                          wasRange ? !prev : true
-                        );
-                      }}
-                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
-                        viewScope === 'range'
-                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
-                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
-                      }`}
-                    >
-                      <CalendarRange className="w-4 h-4 shrink-0" />
-                      <span className="truncate">Rentang Tanggal</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewScope('day');
-                        setIsRangePickerOpen(false);
-                      }}
-                      className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-2 sm:px-3 rounded-xl text-xs sm:text-sm active:scale-[0.98] transition-all cursor-pointer min-h-[46px] ${
-                        viewScope === 'day'
-                          ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25'
-                          : 'bg-white dark:bg-[#0D1C36] border border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 font-semibold'
-                      }`}
-                    >
-                      <CalendarDays className="w-4 h-4 shrink-0" />
-                      <span className="truncate">Cek 1 Hari</span>
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
-                    <MonthSelector
-                      months={allMonths}
-                      activeMonth={activeMonth}
-                      monthCounts={monthCounts}
-                      onSelect={handleSelectMonth}
-                    />
-
-                    {viewScope === 'range' && (
-                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
-                        <DateRangePicker
-                          monthKey={activeMonth}
-                          availableDates={activeMonthDates}
-                          rangeStart={activeRange.start}
-                          rangeEnd={activeRange.end}
-                          isOpen={isRangePickerOpen}
-                          onToggleOpen={() =>
-                            setIsRangePickerOpen((prev) => !prev)
-                          }
-                          onClose={() => setIsRangePickerOpen(false)}
-                          onConfirm={(start, end) => {
-                            setDateRange({ start, end });
+                    {/* Pojok Kanan: Tombol Rentang Tanggal & Cek 1 Hari */}
+                    <div className="flex flex-col items-end gap-2 self-end lg:self-start shrink-0">
+                      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-[#0A162B] border border-slate-200 dark:border-[#1C3259]">
+                        <button
+                          type="button"
+                          onClick={() => {
                             setViewScope('range');
+                            setIsRangePickerOpen(true);
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
+                            viewScope === 'range'
+                              ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <CalendarRange className="w-3.5 h-3.5 shrink-0" />
+                          <span>Rentang Tanggal</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewScope('day');
                             setIsRangePickerOpen(false);
                           }}
-                        />
-                      </div>
-                    )}
-
-                    {viewScope === 'day' && (
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          aria-label="Tanggal sebelumnya"
-                          disabled={activeDayIndex <= 0}
-                          onClick={() => {
-                            if (activeDayIndex > 0) {
-                              setSelectedDay(
-                                activeMonthDates[activeDayIndex - 1]
-                              );
-                            }
-                          }}
-                          className="p-2.5 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
+                            viewScope === 'day'
+                              ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                          }`}
                         >
-                          <ChevronLeft className="w-4 h-4" />
+                          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cek 1 Hari</span>
                         </button>
+                      </div>
 
-                        <div className="relative flex-1 sm:min-w-[200px]">
-                          <CalendarDays className="w-4 h-4 text-amber-600 dark:text-amber-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <select
-                            aria-label="Pilih tanggal"
-                            value={activeDay}
-                            onChange={(e) => setSelectedDay(e.target.value)}
-                            className="w-full appearance-none pl-10 pr-9 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1F3763] bg-white dark:bg-[#0F2244] text-slate-900 dark:text-slate-200 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                      {viewScope === 'day' && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Tanggal sebelumnya"
+                            disabled={activeDayIndex <= 0}
+                            onClick={() => {
+                              if (activeDayIndex > 0) {
+                                setSelectedDay(
+                                  activeMonthDates[activeDayIndex - 1]
+                                );
+                              }
+                            }}
+                            className="p-2 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {activeMonthDates
-                              .slice()
-                              .reverse()
-                              .map((d) => (
-                                <option key={d} value={d}>
-                                  {formatDateId(d)}
-                                </option>
-                              ))}
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
 
-                        <button
-                          type="button"
-                          aria-label="Tanggal berikutnya"
-                          disabled={
-                            activeDayIndex < 0 ||
-                            activeDayIndex >= activeMonthDates.length - 1
-                          }
-                          onClick={() => {
-                            if (
-                              activeDayIndex >= 0 &&
-                              activeDayIndex < activeMonthDates.length - 1
-                            ) {
-                              setSelectedDay(
-                                activeMonthDates[activeDayIndex + 1]
-                              );
+                          <div className="relative">
+                            <select
+                              aria-label="Pilih tanggal"
+                              value={activeDay}
+                              onChange={(e) => setSelectedDay(e.target.value)}
+                              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-[#1F3763] bg-white dark:bg-[#0F2244] text-slate-900 dark:text-slate-200 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                            >
+                              {activeMonthDates
+                                .slice()
+                                .reverse()
+                                .map((d) => (
+                                  <option key={d} value={d}>
+                                    {formatDateId(d)}
+                                  </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+
+                          <button
+                            type="button"
+                            aria-label="Tanggal berikutnya"
+                            disabled={
+                              activeDayIndex < 0 ||
+                              activeDayIndex >= activeMonthDates.length - 1
                             }
-                          }}
-                          className="p-2.5 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {viewScope === 'range' && summary.activeDates.length === 0 && (
-                    <div className="rounded-2xl p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
-                        Belum ada data file Excel pada rentang{' '}
-                        <strong>
-                          {formatDateRangeLabel(
-                            summary.rangeStart,
-                            summary.rangeEnd
-                          )}
-                        </strong>
-                        . Pilih tanggal yang bertanda titik hijau di kalender.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsRangePickerOpen(true)}
-                        className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl shrink-0 self-start sm:self-auto cursor-pointer"
-                      >
-                        Ubah Rentang Tanggal
-                      </button>
+                            onClick={() => {
+                              if (
+                                activeDayIndex >= 0 &&
+                                activeDayIndex < activeMonthDates.length - 1
+                              ) {
+                                setSelectedDay(
+                                  activeMonthDates[activeDayIndex + 1]
+                                );
+                              }
+                            }}
+                            className="p-2 rounded-xl bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </section>
+
+                {viewScope === 'range' && summary.activeDates.length === 0 && (
+                  <div className="rounded-2xl p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                      Belum ada data file Excel pada rentang{' '}
+                      <strong>
+                        {formatDateRangeLabel(
+                          summary.rangeStart,
+                          summary.rangeEnd
+                        )}
+                      </strong>
+                      . Pilih tanggal yang bertanda titik hijau di kalender.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsRangePickerOpen(true)}
+                      className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl shrink-0 self-start sm:self-auto cursor-pointer"
+                    >
+                      Ubah Rentang Tanggal
+                    </button>
+                  </div>
+                )}
 
                 {/* 2-Column KPI Cards: Kekurangan Stok & Kelebihan Stok */}
                 <section className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -1678,38 +1630,22 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 self-start">
-                      <div className="grid grid-cols-3 gap-1 p-1 track-3d rounded-xl">
+                    <div className="flex flex-col items-end gap-2 self-end sm:self-start shrink-0">
+                      <div className="inline-flex items-center gap-1 p-1 track-3d rounded-xl">
                         <button
                           type="button"
                           onClick={() => {
-                            setViewScope('month');
-                            setIsRangePickerOpen(false);
-                          }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                            viewScope === 'month'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          Sebulan
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const wasRange = viewScope === 'range';
                             setViewScope('range');
-                            setIsRangePickerOpen((prev) =>
-                              wasRange ? !prev : true
-                            );
+                            setIsRangePickerOpen(true);
                           }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'range'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
-                          Rentang
+                          <CalendarRange className="w-3.5 h-3.5 shrink-0" />
+                          <span>Rentang Tanggal</span>
                         </button>
                         <button
                           type="button"
@@ -1717,15 +1653,34 @@ export default function App() {
                             setViewScope('day');
                             setIsRangePickerOpen(false);
                           }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'day'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
-                          1 Hari
+                          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cek 1 Hari</span>
                         </button>
                       </div>
+
+                      {viewScope === 'day' && (
+                        <select
+                          aria-label="Pilih tanggal di Harian"
+                          value={activeDay}
+                          onChange={(e) => setSelectedDay(e.target.value)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[36px]"
+                        >
+                          {activeMonthDates
+                            .slice()
+                            .reverse()
+                            .map((d) => (
+                              <option key={d} value={d}>
+                                {formatDateId(d)}
+                              </option>
+                            ))}
+                        </select>
+                      )}
                     </div>
                   </div>
 
@@ -1807,58 +1762,6 @@ export default function App() {
                       Catatan: Data ini tersimpan sebelum pembaruan kolom lengkap. Upload ulang file Excel Anda sekali lagi untuk memunculkan Kode Barang, No. SP, Sub-bagian, Keperluan, Lokasi, dan Status.
                     </p>
                   )}
-
-                  <div className="flex flex-wrap items-start justify-between gap-2.5">
-                    <MonthSelector
-                      months={allMonths}
-                      activeMonth={activeMonth}
-                      monthCounts={monthCounts}
-                      onSelect={(m) => {
-                        handleSelectMonth(m);
-                        setCategoryFilter('ALL');
-                        setPurposeFilter('ALL');
-                      }}
-                    />
-
-                    {viewScope === 'range' && (
-                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
-                        <DateRangePicker
-                          monthKey={activeMonth}
-                          availableDates={activeMonthDates}
-                          rangeStart={activeRange.start}
-                          rangeEnd={activeRange.end}
-                          isOpen={isRangePickerOpen}
-                          onToggleOpen={() =>
-                            setIsRangePickerOpen((prev) => !prev)
-                          }
-                          onClose={() => setIsRangePickerOpen(false)}
-                          onConfirm={(start, end) => {
-                            setDateRange({ start, end });
-                            setViewScope('range');
-                            setIsRangePickerOpen(false);
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {viewScope === 'day' && (
-                      <select
-                        aria-label="Pilih tanggal di Harian"
-                        value={activeDay}
-                        onChange={(e) => setSelectedDay(e.target.value)}
-                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
-                      >
-                        {activeMonthDates
-                          .slice()
-                          .reverse()
-                          .map((d) => (
-                            <option key={d} value={d}>
-                              {formatDateId(d)}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  </div>
                 </section>
 
                 <section className="space-y-3">
@@ -2090,38 +1993,22 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 self-start">
-                      <div className="grid grid-cols-3 gap-1 p-1 track-3d rounded-xl">
+                    <div className="flex flex-col items-end gap-2 self-end sm:self-start shrink-0">
+                      <div className="inline-flex items-center gap-1 p-1 track-3d rounded-xl">
                         <button
                           type="button"
                           onClick={() => {
-                            setViewScope('month');
-                            setIsRangePickerOpen(false);
-                          }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
-                            viewScope === 'month'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          Sebulan
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const wasRange = viewScope === 'range';
                             setViewScope('range');
-                            setIsRangePickerOpen((prev) =>
-                              wasRange ? !prev : true
-                            );
+                            setIsRangePickerOpen(true);
                           }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'range'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
-                          Rentang
+                          <CalendarRange className="w-3.5 h-3.5 shrink-0" />
+                          <span>Rentang Tanggal</span>
                         </button>
                         <button
                           type="button"
@@ -2129,62 +2016,35 @@ export default function App() {
                             setViewScope('day');
                             setIsRangePickerOpen(false);
                           }}
-                          className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'day'
                               ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
                               : 'text-slate-600 dark:text-slate-300'
                           }`}
                         >
-                          1 Hari
+                          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cek 1 Hari</span>
                         </button>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-start justify-between gap-2.5">
-                    <MonthSelector
-                      months={allMonths}
-                      activeMonth={activeMonth}
-                      monthCounts={monthCounts}
-                      onSelect={handleSelectMonth}
-                    />
-                    {viewScope === 'range' && (
-                      <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end">
-                        <DateRangePicker
-                          monthKey={activeMonth}
-                          availableDates={activeMonthDates}
-                          rangeStart={activeRange.start}
-                          rangeEnd={activeRange.end}
-                          isOpen={isRangePickerOpen}
-                          onToggleOpen={() =>
-                            setIsRangePickerOpen((prev) => !prev)
-                          }
-                          onClose={() => setIsRangePickerOpen(false)}
-                          onConfirm={(start, end) => {
-                            setDateRange({ start, end });
-                            setViewScope('range');
-                            setIsRangePickerOpen(false);
-                          }}
-                        />
-                      </div>
-                    )}
-                    {viewScope === 'day' && (
-                      <select
-                        aria-label="Pilih tanggal di Cek Barang"
-                        value={activeDay}
-                        onChange={(e) => setSelectedDay(e.target.value)}
-                        className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[40px]"
-                      >
-                        {activeMonthDates
-                          .slice()
-                          .reverse()
-                          .map((d) => (
-                            <option key={d} value={d}>
-                              {formatDateId(d)}
-                            </option>
-                          ))}
-                      </select>
-                    )}
+                      {viewScope === 'day' && (
+                        <select
+                          aria-label="Pilih tanggal di Cek Barang"
+                          value={activeDay}
+                          onChange={(e) => setSelectedDay(e.target.value)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[36px]"
+                        >
+                          {activeMonthDates
+                            .slice()
+                            .reverse()
+                            .map((d) => (
+                              <option key={d} value={d}>
+                                {formatDateId(d)}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -2746,6 +2606,29 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Global Date Range Pop-up Modal */}
+      {activeMonth && (
+        <DateRangePicker
+          monthKey={activeMonth}
+          allMonths={allMonths}
+          onSelectMonth={(m) => {
+            handleSelectMonth(m);
+            setCategoryFilter('ALL');
+            setPurposeFilter('ALL');
+          }}
+          availableDates={activeMonthDates}
+          rangeStart={activeRange.start}
+          rangeEnd={activeRange.end}
+          isOpen={isRangePickerOpen}
+          onOpenChange={setIsRangePickerOpen}
+          onConfirm={(start, end) => {
+            setDateRange({ start, end });
+            setViewScope('range');
+            setIsRangePickerOpen(false);
+          }}
+        />
+      )}
+
       {/* Global Info Guide Modal */}
       <InfoDialog
         guideKey={activeInfoKey}
@@ -2771,40 +2654,6 @@ export default function App() {
         activeDay={activeDay}
         viewScope={viewScope}
       />
-    </div>
-  );
-}
-
-function MonthSelector({
-  months,
-  activeMonth,
-  monthCounts,
-  onSelect,
-}: {
-  months: string[];
-  activeMonth: string;
-  monthCounts: Record<string, number>;
-  onSelect: (m: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {months.map((m) => {
-        const isActive = m === activeMonth;
-        return (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onSelect(m)}
-            className={`px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl min-h-[40px] whitespace-nowrap cursor-pointer ${
-              isActive
-                ? 'btn-3d-primary'
-                : 'btn-3d-soft text-slate-700 dark:text-slate-200'
-            }`}
-          >
-            {formatMonthId(m)} ({monthCounts[m] ?? 0} hr)
-          </button>
-        );
-      })}
     </div>
   );
 }

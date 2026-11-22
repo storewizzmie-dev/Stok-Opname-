@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
   CalendarRange,
@@ -6,8 +6,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  Sparkles,
+  ListFilter,
   X,
 } from 'lucide-react';
 import {
@@ -16,139 +15,207 @@ import {
   formatMonthId,
 } from '../lib/stockOpname';
 
+const WEEKDAYS_ID = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const FULL_WEEKDAYS_ID = [
+  'Minggu',
+  'Senin',
+  'Selasa',
+  'Rabu',
+  'Kamis',
+  'Jumat',
+  'Sabtu',
+];
+
 interface DateRangePickerProps {
   monthKey: string;
+  allMonths?: string[];
+  onSelectMonth?: (monthKey: string) => void;
   availableDates: string[];
   rangeStart: string;
   rangeEnd: string;
   isOpen: boolean;
-  onToggleOpen: () => void;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   onConfirm: (start: string, end: string) => void;
-}
-
-interface QuickPreset {
-  id: string;
-  label: string;
-  sublabel: string;
-  start: string;
-  end: string;
 }
 
 export function DateRangePicker({
   monthKey,
+  allMonths = [],
+  onSelectMonth,
   availableDates,
   rangeStart,
   rangeEnd,
   isOpen,
-  onToggleOpen,
-  onClose,
+  onOpenChange,
   onConfirm,
 }: DateRangePickerProps) {
-  const daysInMonth = useMemo(() => {
-    const [yStr, mStr] = monthKey.split('-');
-    const year = Number(yStr);
-    const month = Number(mStr);
-    if (!year || !month) return 31;
-    return new Date(year, month, 0).getDate();
-  }, [monthKey]);
-
-  const makeIso = (dayNum: number) => {
-    const clamped = Math.max(1, Math.min(daysInMonth, dayNum));
-    return `${monthKey}-${String(clamped).padStart(2, '0')}`;
-  };
-
   const normAppliedStart = rangeStart <= rangeEnd ? rangeStart : rangeEnd;
   const normAppliedEnd = rangeStart <= rangeEnd ? rangeEnd : rangeStart;
 
   const [draftStart, setDraftStart] = useState(normAppliedStart);
   const [draftEnd, setDraftEnd] = useState(normAppliedEnd);
   const [activeSlot, setActiveSlot] = useState<'start' | 'end'>('start');
+  // listOpenSlot: null by default; opens a dropdown list of dates when a card is clicked 2x
+  const [listOpenSlot, setListOpenSlot] = useState<'start' | 'end' | null>(
+    null
+  );
+
+  // Double-click / double-tap tracking (works identically on HP touch & laptop mouse)
+  const lastTapRef = useRef<{ slot: 'start' | 'end'; time: number }>({
+    slot: 'start',
+    time: 0,
+  });
+
+  // Dragging (tarik tanggal) refs on the always-visible 1-30 calendar grid
+  const dragAnchorRef = useRef<string | null>(null);
+  const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const activeSlotRef = useRef<'start' | 'end'>('start');
+  const draftStartRef = useRef(normAppliedStart);
+  const draftEndRef = useRef(normAppliedEnd);
 
   useEffect(() => {
-    const s = rangeStart <= rangeEnd ? rangeStart : rangeEnd;
-    const e = rangeStart <= rangeEnd ? rangeEnd : rangeStart;
-    setDraftStart(s);
-    setDraftEnd(e);
-    setActiveSlot('start');
+    activeSlotRef.current = activeSlot;
+  }, [activeSlot]);
+
+  useEffect(() => {
+    draftStartRef.current = draftStart;
+    draftEndRef.current = draftEnd;
+  }, [draftStart, draftEnd]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const s = rangeStart <= rangeEnd ? rangeStart : rangeEnd;
+      const e = rangeStart <= rangeEnd ? rangeEnd : rangeStart;
+      setDraftStart(s);
+      setDraftEnd(e);
+      draftStartRef.current = s;
+      draftEndRef.current = e;
+      setActiveSlot('start');
+      activeSlotRef.current = 'start';
+      setListOpenSlot(null);
+      lastTapRef.current = { slot: 'start', time: 0 };
+    }
   }, [isOpen, monthKey, rangeStart, rangeEnd]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (listOpenSlot) {
+          setListOpenSlot(null);
+        } else {
+          onOpenChange(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, listOpenSlot, onOpenChange]);
+
+  const applySingleDateToSlot = (slot: 'start' | 'end', iso: string) => {
+    if (slot === 'start') {
+      const curEnd = draftEndRef.current;
+      if (iso > curEnd) {
+        setDraftStart(iso);
+        setDraftEnd(iso);
+        draftStartRef.current = iso;
+        draftEndRef.current = iso;
+      } else {
+        setDraftStart(iso);
+        draftStartRef.current = iso;
+      }
+      setActiveSlot('end');
+      activeSlotRef.current = 'end';
+    } else {
+      const curStart = draftStartRef.current;
+      if (iso < curStart) {
+        setDraftStart(iso);
+        setDraftEnd(curStart);
+        draftStartRef.current = iso;
+        draftEndRef.current = curStart;
+      } else {
+        setDraftEnd(iso);
+        draftEndRef.current = iso;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const finishDrag = () => {
+      if (!isDraggingRef.current) return;
+      const anchor = dragAnchorRef.current;
+      const movedToOther = hasDraggedRef.current;
+      isDraggingRef.current = false;
+      hasDraggedRef.current = false;
+      dragAnchorRef.current = null;
+
+      if (!anchor) return;
+
+      if (movedToOther) {
+        // Finished dragging a range across dates 1-30
+        setActiveSlot('end');
+        activeSlotRef.current = 'end';
+      } else {
+        // Single click/tap on a date cell in the 1-30 calendar
+        applySingleDateToSlot(activeSlotRef.current, anchor);
+      }
+    };
+
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
+    return () => {
+      window.removeEventListener('pointerup', finishDrag);
+      window.removeEventListener('pointercancel', finishDrag);
+    };
+  }, [isOpen]);
 
   const availableSet = useMemo(
     () => new Set(availableDates),
     [availableDates]
   );
 
-  const presets = useMemo<QuickPreset[]>(() => {
-    const sorted = [...availableDates].sort();
-    const lastAvailDay = sorted.length
-      ? Number(sorted[sorted.length - 1].slice(8))
-      : daysInMonth;
+  const monthDaysList = useMemo(() => {
+    const [yStr, mStr] = monthKey.split('-');
+    const year = Number(yStr);
+    const month = Number(mStr);
+    if (!year || !month) return [];
 
-    const last7Start = Math.max(1, lastAvailDay - 6);
-    const last14Start = Math.max(1, lastAvailDay - 13);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const list: { day: number; iso: string; weekdayName: string }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month - 1, d);
+      list.push({
+        day: d,
+        iso: `${monthKey}-${String(d).padStart(2, '0')}`,
+        weekdayName: FULL_WEEKDAYS_ID[dateObj.getDay()] || '',
+      });
+    }
+    return list;
+  }, [monthKey]);
 
-    return [
-      {
-        id: 'p1-15',
-        label: 'Tgl 1 – 15',
-        sublabel: 'Paruh Pertama',
-        start: makeIso(1),
-        end: makeIso(Math.min(15, daysInMonth)),
-      },
-      {
-        id: 'p16-end',
-        label: `Tgl 16 – ${daysInMonth}`,
-        sublabel: 'Paruh Kedua',
-        start: makeIso(Math.min(16, daysInMonth)),
-        end: makeIso(daysInMonth),
-      },
-      {
-        id: 'w1',
-        label: 'Tgl 1 – 7',
-        sublabel: 'Minggu 1',
-        start: makeIso(1),
-        end: makeIso(Math.min(7, daysInMonth)),
-      },
-      {
-        id: 'w2',
-        label: 'Tgl 8 – 15',
-        sublabel: 'Minggu 2',
-        start: makeIso(Math.min(8, daysInMonth)),
-        end: makeIso(Math.min(15, daysInMonth)),
-      },
-      {
-        id: 'w3',
-        label: 'Tgl 16 – 23',
-        sublabel: 'Minggu 3',
-        start: makeIso(Math.min(16, daysInMonth)),
-        end: makeIso(Math.min(23, daysInMonth)),
-      },
-      {
-        id: 'w4',
-        label: `Tgl 24 – ${daysInMonth}`,
-        sublabel: 'Minggu 4',
-        start: makeIso(Math.min(24, daysInMonth)),
-        end: makeIso(daysInMonth),
-      },
-      {
-        id: 'last7',
-        label: '7 Hari Terakhir',
-        sublabel: `Tgl ${last7Start} – ${lastAvailDay}`,
-        start: makeIso(last7Start),
-        end: makeIso(lastAvailDay),
-      },
-      {
-        id: 'last14',
-        label: '14 Hari Terakhir',
-        sublabel: `Tgl ${last14Start} – ${lastAvailDay}`,
-        start: makeIso(last14Start),
-        end: makeIso(lastAvailDay),
-      },
-    ];
-  }, [availableDates, daysInMonth, monthKey]);
+  const calendarCells = useMemo(() => {
+    const [yStr, mStr] = monthKey.split('-');
+    const year = Number(yStr);
+    const month = Number(mStr);
+    if (!year || !month) return [];
 
-  const draftStartNum = Number(draftStart.slice(8)) || 1;
-  const draftEndNum = Number(draftEnd.slice(8)) || daysInMonth;
+    const firstWeekdaySun0 = new Date(year, month - 1, 1).getDay();
+    const leadingBlanks = (firstWeekdaySun0 + 6) % 7;
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    const cells: ({ day: number; iso: string } | null)[] = [];
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({
+        day: d,
+        iso: `${monthKey}-${String(d).padStart(2, '0')}`,
+      });
+    }
+    return cells;
+  }, [monthKey]);
 
   const matchingDraftDays = useMemo(() => {
     if (!draftStart || !draftEnd) return 0;
@@ -157,500 +224,506 @@ export function DateRangePicker({
     return availableDates.filter((d) => d >= s && d <= e).length;
   }, [availableDates, draftStart, draftEnd]);
 
-  const appliedMatchingDays = useMemo(() => {
-    if (!normAppliedStart || !normAppliedEnd) return 0;
-    return availableDates.filter(
-      (d) => d >= normAppliedStart && d <= normAppliedEnd
-    ).length;
-  }, [availableDates, normAppliedStart, normAppliedEnd]);
+  if (!isOpen) return null;
 
-  const setNormalizedDraft = (rawA: string, rawB: string) => {
-    if (rawA <= rawB) {
-      setDraftStart(rawA);
-      setDraftEnd(rawB);
+  // Klik 1x = Aktifkan kartu (tutup list jika sedang terbuka di kartu lain)
+  // Klik 2x (dalam 500ms di HP atau laptop) = Munculkan List Tanggal untuk kartu tersebut
+  const handleCardTap = (slot: 'start' | 'end') => {
+    const now = Date.now();
+    const isDoubleTap =
+      lastTapRef.current.slot === slot &&
+      now - lastTapRef.current.time > 0 &&
+      now - lastTapRef.current.time <= 500;
+
+    setActiveSlot(slot);
+    activeSlotRef.current = slot;
+
+    if (isDoubleTap) {
+      lastTapRef.current = { slot, time: 0 };
+      setListOpenSlot((prev) => (prev === slot ? null : slot));
     } else {
-      setDraftStart(rawB);
-      setDraftEnd(rawA);
+      lastTapRef.current = { slot, time: now };
+      if (listOpenSlot && listOpenSlot !== slot) {
+        setListOpenSlot(null);
+      }
     }
   };
 
-  const handlePickDayPill = (dayNum: number) => {
-    const iso = makeIso(dayNum);
-    if (activeSlot === 'start') {
-      if (iso > draftEnd) {
-        setDraftStart(iso);
-        setDraftEnd(iso);
-      } else {
-        setDraftStart(iso);
-      }
-      setActiveSlot('end');
-    } else {
-      if (iso < draftStart) {
-        setDraftStart(iso);
-        setDraftEnd(draftStart);
-      } else {
-        setDraftEnd(iso);
-      }
-      setActiveSlot('start');
+  const handleSelectFromDateList = (slot: 'start' | 'end', iso: string) => {
+    applySingleDateToSlot(slot, iso);
+    setListOpenSlot(null);
+  };
+
+  const handleCellPointerDown = (
+    e: React.PointerEvent<HTMLButtonElement>,
+    iso: string
+  ) => {
+    e.preventDefault();
+    if (listOpenSlot) setListOpenSlot(null);
+    dragAnchorRef.current = iso;
+    isDraggingRef.current = true;
+    hasDraggedRef.current = false;
+  };
+
+  const handleGridPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !dragAnchorRef.current) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = el?.closest('[data-date]');
+    const targetIso = cell?.getAttribute('data-date');
+    if (!targetIso) return;
+
+    const anchor = dragAnchorRef.current;
+    if (targetIso !== anchor) {
+      hasDraggedRef.current = true;
+    }
+    if (hasDraggedRef.current) {
+      const nextStart = anchor <= targetIso ? anchor : targetIso;
+      const nextEnd = anchor <= targetIso ? targetIso : anchor;
+      setDraftStart(nextStart);
+      setDraftEnd(nextEnd);
+      draftStartRef.current = nextStart;
+      draftEndRef.current = nextEnd;
     }
   };
 
-  const shiftStartDay = (delta: number) => {
-    const next = Math.max(1, Math.min(draftEndNum, draftStartNum + delta));
-    setDraftStart(makeIso(next));
-  };
-
-  const shiftEndDay = (delta: number) => {
-    const next = Math.max(
-      draftStartNum,
-      Math.min(daysInMonth, draftEndNum + delta)
-    );
-    setDraftEnd(makeIso(next));
-  };
-
-  const sliderLeftPct =
-    daysInMonth > 1 ? ((draftStartNum - 1) / (daysInMonth - 1)) * 100 : 0;
-  const sliderRightPct =
-    daysInMonth > 1
-      ? ((daysInMonth - draftEndNum) / (daysInMonth - 1)) * 100
-      : 0;
+  const monthIdx = allMonths.indexOf(monthKey);
+  const totalDaysInMonth = monthDaysList.length || 30;
 
   return (
-    <div className="space-y-2.5 w-full">
-      {/* Baris Tombol Utama + Shortcut Cepat 1-Klik */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-        <button
-          type="button"
-          onClick={onToggleOpen}
-          aria-expanded={isOpen}
-          className={`inline-flex items-center justify-between gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl border transition-all min-h-[42px] cursor-pointer ${
-            isOpen
-              ? 'border-amber-400 bg-amber-50/95 dark:bg-[#152A52] text-slate-900 dark:text-white ring-2 ring-amber-400/40 shadow-sm'
-              : 'border-amber-400/60 dark:border-amber-500/40 bg-white dark:bg-[#0F2244] text-slate-900 dark:text-slate-100 hover:border-amber-400 shadow-xs'
-          }`}
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <CalendarRange className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span className="truncate tabular-nums">
-              {formatDateRangeLabel(normAppliedStart, normAppliedEnd)}
-            </span>
-            <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 shrink-0 tabular-nums">
-              {appliedMatchingDays} hr
-            </span>
-          </span>
-          {isOpen ? (
-            <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-          )}
-        </button>
-
-        {/* Quick Preset Chips langsung di luar agar bisa 1-klik ganti periode */}
-        {presets.slice(0, 4).map((p) => {
-          const isCurrent =
-            normAppliedStart === p.start && normAppliedEnd === p.end;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => {
-                setDraftStart(p.start);
-                setDraftEnd(p.end);
-                onConfirm(p.start, p.end);
-              }}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all min-h-[40px] whitespace-nowrap cursor-pointer ${
-                isCurrent
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold border-amber-400 shadow-xs'
-                  : 'bg-white/90 dark:bg-[#0D1C36] border-slate-200 dark:border-[#1C3259] text-slate-700 dark:text-slate-300 hover:border-amber-400/60'
-              }`}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Panel Modern Date Range Selector */}
-      {isOpen && (
-        <div className="surface-3d rounded-2xl p-4 sm:p-5 border border-amber-300/80 dark:border-amber-500/40 space-y-4 w-full max-w-xl shadow-xl">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                  <CalendarDays className="w-4 h-4" />
-                </span>
-                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
-                  Atur Rentang Tanggal · {formatMonthId(monthKey)}
-                </h3>
-              </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Pilih paket cepat di bawah, geser slider, atau ketuk angka tanggal mulai &amp; selesai lalu klik <strong>Terapkan</strong>.
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="date-range-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs"
+      onClick={() => onOpenChange(false)}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-white dark:bg-[#0B162C] border border-slate-200 dark:border-[#1E355D] rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col"
+      >
+        {/* Pop-up Header */}
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 dark:border-[#1E355D] bg-slate-50/80 dark:bg-[#081226] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/35 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <CalendarRange className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2
+                id="date-range-modal-title"
+                className="text-base font-extrabold text-slate-900 dark:text-white truncate"
+              >
+                Pilih Rentang Tanggal
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                Klik 1x kartu untuk aktifkan · Klik 2x kartu untuk buka list tanggal
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Tutup pemilih rentang tanggal"
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* 1. Paket Cepat (Quick Presets) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Pilihan Cepat</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {presets.map((p) => {
-                const isSelected =
-                  draftStart === p.start && draftEnd === p.end;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setDraftStart(p.start);
-                      setDraftEnd(p.end);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-400/15 ring-2 ring-amber-400/35'
-                        : 'border-slate-200 dark:border-[#1E355D] bg-slate-50/70 dark:bg-[#0A162B] hover:border-amber-400/60'
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Tutup pop up rentang tanggal"
+            className="btn-3d-soft p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Pop-up Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5">
+          {/* 2 Kartu: 1. Dari Tanggal Mulai (Emas) & 2. Sampai Tanggal Akhir (Biru Toska) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* KARTU 1: Dari Tanggal Mulai (Warna Amber / Gold) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => handleCardTap('start')}
+                className={`w-full group text-left p-3 sm:p-3.5 rounded-2xl border-2 transition-all select-none cursor-pointer ${
+                  activeSlot === 'start'
+                    ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/70 to-white dark:from-[#261E0D] dark:via-[#191A2E] dark:to-[#0E1A32] ring-2 ring-amber-400/35 shadow-md shadow-amber-500/10'
+                    : 'border-amber-300/60 dark:border-amber-500/30 bg-white dark:bg-[#0D1A32] hover:border-amber-400/80'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-xs shrink-0" />
+                    <span>1. Dari Tanggal Mulai</span>
+                  </span>
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md transition-colors ${
+                      activeSlot === 'start'
+                        ? 'bg-amber-400 text-slate-950'
+                        : 'bg-amber-100/80 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300'
                     }`}
                   >
-                    <div className="text-xs font-extrabold text-slate-900 dark:text-white tabular-nums">
-                      {p.label}
-                    </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                      {p.sublabel}
-                    </div>
-                  </button>
-                );
-              })}
+                    {activeSlot === 'start' ? 'Aktif' : 'Klik 1x Aktif'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white tabular-nums">
+                    {draftStart ? formatDateId(draftStart) : '-'}
+                  </div>
+                  <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400 shrink-0">
+                    <CalendarDays className="w-4 h-4" />
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        listOpenSlot === 'start' ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-1 text-[10px] text-amber-800/80 dark:text-amber-300/80 font-medium">
+                  {listOpenSlot === 'start'
+                    ? 'List tanggal terbuka · Pilih tanggal mulai'
+                    : 'Klik 1x aktif · Klik 2x buka list tanggal'}
+                </div>
+              </button>
+            </div>
+
+            {/* KARTU 2: Sampai Tanggal Akhir (Warna Berbeda: Cyan / Biru Toska) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => handleCardTap('end')}
+                className={`w-full group text-left p-3 sm:p-3.5 rounded-2xl border-2 transition-all select-none cursor-pointer ${
+                  activeSlot === 'end'
+                    ? 'border-cyan-400 bg-gradient-to-br from-cyan-50 via-sky-50/70 to-white dark:from-[#092534] dark:via-[#0D213A] dark:to-[#0E1A32] ring-2 ring-cyan-400/35 shadow-md shadow-cyan-500/10'
+                    : 'border-cyan-300/60 dark:border-cyan-500/30 bg-white dark:bg-[#0D1A32] hover:border-cyan-400/80'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-xs shrink-0" />
+                    <span>2. Sampai Tanggal Akhir</span>
+                  </span>
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md transition-colors ${
+                      activeSlot === 'end'
+                        ? 'bg-cyan-400 text-slate-950'
+                        : 'bg-cyan-100/80 dark:bg-cyan-500/15 text-cyan-800 dark:text-cyan-300'
+                    }`}
+                  >
+                    {activeSlot === 'end' ? 'Aktif' : 'Klik 1x Aktif'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white tabular-nums">
+                    {draftEnd ? formatDateId(draftEnd) : '-'}
+                  </div>
+                  <div className="flex items-center gap-1 text-cyan-500 dark:text-cyan-400 shrink-0">
+                    <CalendarDays className="w-4 h-4" />
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        listOpenSlot === 'end' ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-1 text-[10px] text-cyan-800/80 dark:text-cyan-300/80 font-medium">
+                  {listOpenSlot === 'end'
+                    ? 'List tanggal terbuka · Pilih tanggal akhir'
+                    : 'Klik 1x aktif · Klik 2x buka list tanggal'}
+                </div>
+              </button>
             </div>
           </div>
 
-          {/* 2. Dual Card Dari Tanggal & Sampai Tanggal dengan Stepper +/- & Dropdown */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Dari Tanggal */}
+          {/* LIST TANGGAL (Muncul saat Kartu 1 atau Kartu 2 di-klik 2x) */}
+          {listOpenSlot && (
             <div
-              onClick={() => setActiveSlot('start')}
-              className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                activeSlot === 'start'
-                  ? 'border-amber-400 bg-amber-50/50 dark:bg-[#13264A] ring-2 ring-amber-400/30'
-                  : 'border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B]'
+              className={`rounded-2xl border-2 overflow-hidden shadow-lg transition-all ${
+                listOpenSlot === 'start'
+                  ? 'border-amber-400 bg-amber-50/40 dark:bg-[#191710]'
+                  : 'border-cyan-400 bg-cyan-50/40 dark:bg-[#091E2C]'
               }`}
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                  1. Dari Tanggal Mulai
-                </span>
-                {activeSlot === 'start' && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">
-                    Aktif
+              <div
+                className={`px-3.5 py-2.5 flex items-center justify-between gap-2 border-b ${
+                  listOpenSlot === 'start'
+                    ? 'bg-amber-100/80 dark:bg-amber-500/15 border-amber-200 dark:border-amber-500/30 text-amber-950 dark:text-amber-200'
+                    : 'bg-cyan-100/80 dark:bg-cyan-500/15 border-cyan-200 dark:border-cyan-500/30 text-cyan-950 dark:text-cyan-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-xs font-extrabold">
+                  <ListFilter className="w-4 h-4 shrink-0" />
+                  <span>
+                    List Tanggal{' '}
+                    {listOpenSlot === 'start'
+                      ? 'Mulai (Kartu 1)'
+                      : 'Akhir (Kartu 2)'}{' '}
+                    — 1 s/d {totalDaysInMonth} {formatMonthId(monthKey)}
                   </span>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-1.5">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    shiftStartDay(-1);
-                  }}
-                  disabled={draftStartNum <= 1}
-                  aria-label="Kurangi tanggal mulai"
-                  className="w-8 h-8 rounded-lg border border-slate-200 dark:border-[#223C6A] bg-slate-50 dark:bg-[#0F2244] flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <select
-                  aria-label="Pilih tanggal mulai"
-                  value={draftStart}
-                  onChange={(e) =>
-                    setNormalizedDraft(e.target.value, draftEnd)
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex-1 text-center font-extrabold text-xs sm:text-sm bg-transparent text-slate-900 dark:text-white focus:outline-none cursor-pointer tabular-nums"
-                >
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                    (d) => {
-                      const iso = makeIso(d);
-                      const has = availableSet.has(iso);
-                      return (
-                        <option
-                          key={iso}
-                          value={iso}
-                          className="bg-white dark:bg-[#0F2244] text-slate-900 dark:text-white"
-                        >
-                          {formatDateId(iso)} {has ? '●' : ''}
-                        </option>
-                      );
-                    }
-                  )}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    shiftStartDay(1);
-                  }}
-                  disabled={draftStartNum >= draftEndNum}
-                  aria-label="Tambah tanggal mulai"
-                  className="w-8 h-8 rounded-lg border border-slate-200 dark:border-[#223C6A] bg-slate-50 dark:bg-[#0F2244] flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Sampai Tanggal */}
-            <div
-              onClick={() => setActiveSlot('end')}
-              className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                activeSlot === 'end'
-                  ? 'border-amber-400 bg-amber-50/50 dark:bg-[#13264A] ring-2 ring-amber-400/30'
-                  : 'border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                  2. Sampai Tanggal Akhir
-                </span>
-                {activeSlot === 'end' && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">
-                    Aktif
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-1.5">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    shiftEndDay(-1);
-                  }}
-                  disabled={draftEndNum <= draftStartNum}
-                  aria-label="Kurangi tanggal akhir"
-                  className="w-8 h-8 rounded-lg border border-slate-200 dark:border-[#223C6A] bg-slate-50 dark:bg-[#0F2244] flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <select
-                  aria-label="Pilih tanggal akhir"
-                  value={draftEnd}
-                  onChange={(e) =>
-                    setNormalizedDraft(draftStart, e.target.value)
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex-1 text-center font-extrabold text-xs sm:text-sm bg-transparent text-slate-900 dark:text-white focus:outline-none cursor-pointer tabular-nums"
-                >
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                    (d) => {
-                      const iso = makeIso(d);
-                      const has = availableSet.has(iso);
-                      return (
-                        <option
-                          key={iso}
-                          value={iso}
-                          className="bg-white dark:bg-[#0F2244] text-slate-900 dark:text-white"
-                        >
-                          {formatDateId(iso)} {has ? '●' : ''}
-                        </option>
-                      );
-                    }
-                  )}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    shiftEndDay(1);
-                  }}
-                  disabled={draftEndNum >= daysInMonth}
-                  aria-label="Tambah tanggal akhir"
-                  className="w-8 h-8 rounded-lg border border-slate-200 dark:border-[#223C6A] bg-slate-50 dark:bg-[#0F2244] flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Slider Visual & Deretan Tombol Angka Tanggal (1 s/d Akhir Bulan) */}
-          <div className="space-y-3 p-3.5 rounded-xl bg-slate-50/90 dark:bg-[#0A162B] border border-slate-200/80 dark:border-[#182C4C]">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700 dark:text-slate-200">
-                Geser atau Ketuk Angka Tanggal (
-                {activeSlot === 'start'
-                  ? 'Pilih Tgl Mulai'
-                  : 'Pilih Tgl Akhir'}
-                )
-              </span>
-              <span className="font-mono font-extrabold text-amber-700 dark:text-amber-400 tabular-nums">
-                Tgl {draftStartNum} – {draftEndNum} (
-                {draftEndNum - draftStartNum + 1} hr)
-              </span>
-            </div>
-
-            {/* Dual Slider Bar */}
-            <div className="space-y-2 pt-1">
-              <div className="relative h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="absolute top-0 bottom-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all"
-                  style={{
-                    left: `${sliderLeftPct}%`,
-                    right: `${sliderRightPct}%`,
-                  }}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                    Mulai: {draftStartNum}
-                  </span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={daysInMonth}
-                    value={draftStartNum}
-                    aria-label="Slider tanggal mulai"
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      const iso = makeIso(val);
-                      if (val > draftEndNum) {
-                        setDraftStart(iso);
-                        setDraftEnd(iso);
-                      } else {
-                        setDraftStart(iso);
-                      }
-                    }}
-                    className="w-full accent-amber-500 cursor-pointer h-1.5"
-                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                    Akhir: {draftEndNum}
-                  </span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={daysInMonth}
-                    value={draftEndNum}
-                    aria-label="Slider tanggal akhir"
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      const iso = makeIso(val);
-                      if (val < draftStartNum) {
-                        setDraftStart(iso);
-                        setDraftEnd(iso);
-                      } else {
-                        setDraftEnd(iso);
-                      }
-                    }}
-                    className="w-full accent-amber-500 cursor-pointer h-1.5"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setListOpenSlot(null)}
+                  className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 hover:bg-white cursor-pointer"
+                >
+                  Tutup List
+                </button>
               </div>
-            </div>
 
-            {/* Number Pill Matrix (1..31) */}
-            <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5 pt-1">
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                (dayNum) => {
-                  const iso = makeIso(dayNum);
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-200/70 dark:divide-[#1E355D]/60 bg-white dark:bg-[#0D1A32]">
+                {monthDaysList.map(({ day, iso, weekdayName }) => {
                   const hasData = availableSet.has(iso);
-                  const isStart = dayNum === draftStartNum;
-                  const isEnd = dayNum === draftEndNum;
-                  const isInRange =
-                    dayNum > draftStartNum && dayNum < draftEndNum;
-                  const isEndpoint = isStart || isEnd;
+                  const isSelected =
+                    listOpenSlot === 'start'
+                      ? iso === draftStart
+                      : iso === draftEnd;
+
+                  return (
+                    <button
+                      key={`list-${iso}`}
+                      type="button"
+                      onClick={() =>
+                        handleSelectFromDateList(listOpenSlot, iso)
+                      }
+                      className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                        isSelected
+                          ? listOpenSlot === 'start'
+                            ? 'bg-amber-400/25 dark:bg-amber-500/25 font-extrabold text-slate-950 dark:text-white'
+                            : 'bg-cyan-400/25 dark:bg-cyan-500/25 font-extrabold text-slate-950 dark:text-white'
+                          : 'hover:bg-slate-100 dark:hover:bg-[#15284A] text-slate-800 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black tabular-nums shrink-0 ${
+                            isSelected
+                              ? listOpenSlot === 'start'
+                                ? 'bg-amber-400 text-slate-950'
+                                : 'bg-cyan-400 text-slate-950'
+                              : hasData
+                              ? 'bg-slate-100 dark:bg-[#16294C] text-slate-900 dark:text-white'
+                              : 'bg-slate-50 dark:bg-[#0A1428] text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          {day}
+                        </span>
+                        <div className="truncate">
+                          <span className="text-xs sm:text-sm font-bold">
+                            {formatDateId(iso)}
+                          </span>
+                          <span className="ml-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            ({weekdayName})
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasData ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Ada Data
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                            Kosong
+                          </span>
+                        )}
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-slate-900 dark:text-white stroke-[2.5]" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* KALENDER RENTANG TANGGAL 1 - 30/31 (TETAP ADA / SELALU TAMPIL) */}
+          <div className="rounded-2xl p-3.5 sm:p-4 bg-slate-50/90 dark:bg-[#081226] border border-slate-200 dark:border-[#1E355D] space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {allMonths.length > 1 && onSelectMonth && (
+                  <button
+                    type="button"
+                    disabled={monthIdx <= 0}
+                    onClick={() => {
+                      if (monthIdx > 0) onSelectMonth(allMonths[monthIdx - 1]);
+                    }}
+                    aria-label="Bulan sebelumnya"
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                )}
+                <div>
+                  <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    {formatMonthId(monthKey)} (Tanggal 1–{totalDaysInMonth})
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Tarik atau klik tanggal{' '}
+                    <strong className="text-amber-600 dark:text-amber-400">
+                      Mulai (Emas)
+                    </strong>{' '}
+                    ke{' '}
+                    <strong className="text-cyan-600 dark:text-cyan-300">
+                      Akhir (Biru Toska)
+                    </strong>
+                  </p>
+                </div>
+                {allMonths.length > 1 && onSelectMonth && (
+                  <button
+                    type="button"
+                    disabled={monthIdx < 0 || monthIdx >= allMonths.length - 1}
+                    onClick={() => {
+                      if (monthIdx >= 0 && monthIdx < allMonths.length - 1) {
+                        onSelectMonth(allMonths[monthIdx + 1]);
+                      }
+                    }}
+                    aria-label="Bulan berikutnya"
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-[#1F3763] text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Indikator Tanggal Mulai vs Akhir */}
+              <div className="flex items-center gap-1.5 text-[11px] font-bold shrink-0">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-500/35 tabular-nums">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>{draftStart ? Number(draftStart.slice(8)) : '-'}</span>
+                </span>
+                <span className="text-slate-400">–</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-100 dark:bg-cyan-500/20 text-cyan-900 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-500/35 tabular-nums">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                  <span>{draftEnd ? Number(draftEnd.slice(8)) : '-'}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Grid Tanggal 1 - 30/31 */}
+            <div className="space-y-1.5 select-none">
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {WEEKDAYS_ID.map((w) => (
+                  <div
+                    key={w}
+                    className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 py-1"
+                  >
+                    {w}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                onPointerMove={handleGridPointerMove}
+                className="grid grid-cols-7 gap-y-1.5 touch-none"
+              >
+                {calendarCells.map((cell, idx) => {
+                  if (!cell) {
+                    return <div key={`blank-${idx}`} className="h-10 sm:h-11" />;
+                  }
+
+                  const { day, iso } = cell;
+                  const hasData = availableSet.has(iso);
+                  const isStart = Boolean(draftStart && iso === draftStart);
+                  const isEnd = Boolean(draftEnd && iso === draftEnd);
+                  const isBetween = Boolean(
+                    draftStart &&
+                      draftEnd &&
+                      iso > draftStart &&
+                      iso < draftEnd
+                  );
 
                   return (
                     <button
                       key={iso}
                       type="button"
-                      onClick={() => handlePickDayPill(dayNum)}
-                      className={`relative h-9 rounded-lg font-mono text-xs flex flex-col items-center justify-center transition-all tabular-nums cursor-pointer ${
-                        isEndpoint
-                          ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black shadow-sm scale-[1.03]'
-                          : isInRange
-                          ? 'bg-amber-400/20 dark:bg-amber-400/25 text-amber-950 dark:text-amber-100 font-bold border border-amber-400/40'
+                      data-date={iso}
+                      onPointerDown={(e) => handleCellPointerDown(e, iso)}
+                      className={`relative h-10 sm:h-11 flex flex-col items-center justify-center text-xs sm:text-sm tabular-nums transition-all cursor-pointer ${
+                        isStart && isEnd
+                          ? 'rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-cyan-400 text-slate-950 font-black shadow-md ring-2 ring-amber-300 z-10'
+                          : isStart
+                          ? 'rounded-l-xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black shadow-md ring-2 ring-amber-300 z-10'
+                          : isEnd
+                          ? 'rounded-r-xl bg-gradient-to-br from-cyan-400 to-sky-500 text-slate-950 font-black shadow-md ring-2 ring-cyan-300 z-10'
+                          : isBetween
+                          ? 'bg-gradient-to-r from-amber-400/20 via-teal-400/20 to-cyan-400/25 text-slate-900 dark:text-white font-bold border-y border-cyan-400/35'
                           : hasData
-                          ? 'bg-white dark:bg-[#0F2244] border border-slate-200 dark:border-[#1E355D] text-slate-900 dark:text-slate-100 font-semibold hover:border-amber-400'
-                          : 'bg-slate-100/70 dark:bg-[#0D1A31]/50 text-slate-400 dark:text-slate-600 hover:bg-slate-200/60'
+                          ? 'rounded-xl bg-white dark:bg-[#0D1A32] text-slate-900 dark:text-slate-100 font-semibold hover:bg-slate-100 dark:hover:bg-[#16294C]'
+                          : 'rounded-xl text-slate-400 dark:text-slate-600 hover:bg-slate-100/70 dark:hover:bg-[#132548]/50'
                       }`}
                     >
-                      <span className="leading-none">{dayNum}</span>
-                      {hasData && (
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                            isEndpoint
-                              ? 'bg-slate-950'
-                              : 'bg-emerald-500 dark:bg-emerald-400'
-                          }`}
-                        />
-                      )}
+                      <span className="leading-none">{day}</span>
+                      {isStart && !isEnd ? (
+                        <span className="text-[8px] font-extrabold uppercase leading-none mt-0.5 text-slate-950">
+                          Mulai
+                        </span>
+                      ) : isEnd && !isStart ? (
+                        <span className="text-[8px] font-extrabold uppercase leading-none mt-0.5 text-slate-950">
+                          Akhir
+                        </span>
+                      ) : isStart && isEnd ? (
+                        <span className="text-[8px] font-extrabold uppercase leading-none mt-0.5 text-slate-950">
+                          1 Hr
+                        </span>
+                      ) : hasData ? (
+                        <span className="w-1.5 h-1.5 rounded-full mt-1 bg-emerald-500 dark:bg-emerald-400" />
+                      ) : null}
                     </button>
                   );
-                }
-              )}
-            </div>
-          </div>
-
-          {/* Footer Action Bar */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
-                {formatDateRangeLabel(draftStart, draftEnd)}
+                })}
               </div>
-              <div className="flex items-center gap-3 text-[11px]">
-                <span
-                  className={`font-semibold ${
-                    matchingDraftDays > 0
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : 'text-rose-600 dark:text-rose-400'
-                  }`}
-                >
-                  {matchingDraftDays > 0
-                    ? `${matchingDraftDays} hari ada data Excel`
-                    : 'Belum ada file Excel di rentang ini'}
-                </span>
-                <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  Ada data
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn-3d-soft px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 min-h-[42px] cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => onConfirm(draftStart, draftEnd)}
-                className="btn-3d-primary px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-1.5 min-h-[42px] cursor-pointer"
-              >
-                <Check className="w-4 h-4 stroke-[2.5]" />
-                <span>Terapkan (Oke)</span>
-              </button>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Pop-up Footer */}
+        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 dark:border-[#1E355D] bg-slate-50/80 dark:bg-[#081226] flex items-center justify-between gap-3 shrink-0">
+          <div className="space-y-0.5">
+            <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
+              {formatDateRangeLabel(draftStart, draftEnd)}
+            </div>
+            <div
+              className={`text-[11px] font-medium ${
+                matchingDraftDays > 0
+                  ? 'text-emerald-700 dark:text-emerald-400'
+                  : 'text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {matchingDraftDays > 0
+                ? `${matchingDraftDays} hari ada data Excel`
+                : 'Belum ada file Excel di rentang ini'}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDraftStart(normAppliedStart);
+                setDraftEnd(normAppliedEnd);
+                onOpenChange(false);
+              }}
+              className="btn-3d-soft px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 min-h-[40px] cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const s = draftStart <= draftEnd ? draftStart : draftEnd;
+                const e = draftStart <= draftEnd ? draftEnd : draftStart;
+                onConfirm(s, e);
+                onOpenChange(false);
+              }}
+              className="btn-3d-primary px-5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-1.5 min-h-[40px] cursor-pointer"
+            >
+              <Check className="w-4 h-4 stroke-[2.5]" />
+              <span>Oke</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
