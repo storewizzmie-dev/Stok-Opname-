@@ -1170,6 +1170,77 @@ export function formatPackEquivalent(
   })} ${rule.packLabel}`;
 }
 
+export function formatInnerPackDiff(
+  diffQty: number,
+  unit: string,
+  productName: string
+): string {
+  const absQty = Math.abs(diffQty);
+  if (!absQty || absQty <= 1e-9) return '';
+
+  const spec = getItemPackagingSpec(productName);
+  const srcUnit = resolveCanonicalUnit(unit);
+  if (!spec?.unitRatios || !srcUnit) return '';
+
+  const ratios = spec.unitRatios;
+  let srcRatio = ratios[srcUnit];
+  if (srcRatio === undefined) {
+    if (srcUnit === 'kg' && ratios.gram !== undefined) {
+      srcRatio = ratios.gram * 1000;
+    } else if (srcUnit === 'gram' && ratios.kg !== undefined) {
+      srcRatio = ratios.kg / 1000;
+    } else if (srcUnit === 'liter' && ratios.ml !== undefined) {
+      srcRatio = ratios.ml * 1000;
+    } else if (srcUnit === 'ml' && ratios.liter !== undefined) {
+      srcRatio = ratios.liter / 1000;
+    }
+  }
+
+  if (!srcRatio || srcRatio <= 0) return '';
+
+  const baseAmount = absQty * srcRatio;
+  const preferredUnits: CanonicalUnit[] = [
+    'pack',
+    'botol',
+    'jerigen',
+    'slop',
+    'galon',
+    'porsi',
+    'pcs',
+    'dus',
+    'ball',
+  ];
+
+  let chosenUnit: CanonicalUnit | null = null;
+  for (const candidate of preferredUnits) {
+    const ratio = ratios[candidate];
+    if (!ratio || ratio <= 0) continue;
+    // Skip porsi/pcs if the source unit is already porsi/pcs and there is no container unit
+    if (
+      (candidate === 'porsi' || candidate === 'pcs') &&
+      candidate === srcUnit
+    ) {
+      continue;
+    }
+    chosenUnit = candidate;
+    break;
+  }
+
+  if (!chosenUnit) return '';
+  const targetRatio = ratios[chosenUnit];
+  if (!targetRatio || targetRatio <= 0) return '';
+
+  const converted = baseAmount / targetRatio;
+  const rounded = Math.round(converted * 100) / 100;
+  if (rounded <= 0) return '';
+
+  const prefix = diffQty < -1e-9 ? 'Minus ' : diffQty > 1e-9 ? 'Lebih ' : '';
+  const formattedNum = rounded.toLocaleString('id-ID', {
+    maximumFractionDigits: 2,
+  });
+  return `${prefix}${formattedNum} ${CANONICAL_UNIT_LABELS[chosenUnit]}`;
+}
+
 export function formatQtyMap(
   qtyByUnit: Record<string, number>,
   productName: string,

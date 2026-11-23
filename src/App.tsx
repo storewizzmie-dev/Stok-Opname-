@@ -72,6 +72,7 @@ import {
   formatCompactRupiah,
   formatDateId,
   formatDateRangeLabel,
+  formatInnerPackDiff,
   formatMonthId,
   formatPackEquivalent,
   formatQty,
@@ -492,11 +493,8 @@ export default function App() {
     if (selectedProduct && summary.productMap[selectedProduct]) {
       return selectedProduct;
     }
-    if (searchQuery.trim() && matchingProducts.length === 1) {
-      return matchingProducts[0];
-    }
-    return '';
-  }, [summary, selectedProduct, searchQuery, matchingProducts]);
+    return matchingProducts[0] ?? '';
+  }, [summary, selectedProduct, matchingProducts]);
 
   const selectedProductStat =
     summary && effectiveSelectedProduct
@@ -1728,7 +1726,7 @@ export default function App() {
                           [
                             { id: 'all', label: 'Semua' },
                             { id: 'diff', label: 'Selisih' },
-                            { id: 'neg', label: 'Kurang' },
+                            { id: 'neg', label: 'Minus' },
                             { id: 'pos', label: 'Lebih' },
                             { id: 'pas', label: 'Pas' },
                           ] as const
@@ -1880,90 +1878,141 @@ export default function App() {
                         : [];
 
                       return (
-                        <MotionCard
+                        <div
                           key={day.date}
                           id={`day-${day.date}`}
-                          hoverLift={!isOpen}
-                          className="surface-3d rounded-3xl overflow-hidden"
+                          className="space-y-2.5"
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenDays((prev) => ({
-                                ...prev,
-                                [day.date]: !(prev[day.date] ?? dayIndex === 0),
-                              }))
-                            }
-                            className="w-full p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                          {/* DateSummaryCard */}
+                          <MotionCard
+                            hoverLift={!isOpen}
+                            className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl shadow-md overflow-hidden"
                           >
-                            <div className="flex items-center gap-3">
-                              {isOpen ? (
-                                <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
-                              ) : (
-                                <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
-                              )}
-                              <div>
-                                <div className="text-base font-bold text-slate-900 dark:text-white">
-                                  {formatDateId(day.date)}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenDays((prev) => ({
+                                  ...prev,
+                                  [day.date]: !(prev[day.date] ?? dayIndex === 0),
+                                }))
+                              }
+                              className="w-full p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left hover:bg-slate-50/80 dark:hover:bg-[#17315B]/40 transition-colors cursor-pointer"
+                            >
+                              {/* Left: Calendar & Date Overview */}
+                              <div className="flex items-start space-x-2.5">
+                                <div className="w-9 h-9 rounded-lg bg-amber-400/10 dark:bg-[#FFC400]/10 flex items-center justify-center shrink-0 border border-amber-400/30 dark:border-[#FFC400]/30 mt-0.5">
+                                  <svg
+                                    className="w-5 h-5 text-amber-500 dark:text-[#FFC400]"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <rect
+                                      height="18"
+                                      rx="2"
+                                      ry="2"
+                                      strokeWidth="2"
+                                      width="18"
+                                      x="3"
+                                      y="4"
+                                    />
+                                    <line
+                                      strokeWidth="2"
+                                      x1="16"
+                                      x2="16"
+                                      y1="2"
+                                      y2="6"
+                                    />
+                                    <line
+                                      strokeWidth="2"
+                                      x1="8"
+                                      x2="8"
+                                      y1="2"
+                                      y2="6"
+                                    />
+                                    <line
+                                      strokeWidth="2"
+                                      x1="3"
+                                      x2="21"
+                                      y1="10"
+                                      y2="10"
+                                    />
+                                  </svg>
                                 </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                                  {day.totalCount} baris ({day.diffCount} selisih ·{' '}
-                                  {day.pasCount} pas)
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <h2 className="text-[15px] sm:text-base font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug">
+                                      {formatDateId(day.date)}
+                                    </h2>
+                                    <ChevronDown
+                                      className={`w-4 h-4 text-slate-400 dark:text-[#A8B9D3] transition-transform duration-200 ${
+                                        isOpen ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 dark:text-[#A8B9D3] tracking-tight mt-0.5 tabular-nums">
+                                    {day.totalCount} baris ({day.diffCount} selisih ·{' '}
+                                    {day.pasCount} pas)
+                                  </p>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="grid grid-cols-3 gap-3 sm:gap-5 text-xs sm:text-sm font-mono tabular-nums pl-8 sm:pl-0">
-                              <div>
-                                <div className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                                  Kurang
+                              {/* Right: Summary Metrics */}
+                              <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#203F70]/60 tabular-nums">
+                                <div className="sm:border-l sm:border-slate-200 dark:sm:border-[#203F70] sm:pl-3">
+                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                                    Minus
+                                  </span>
+                                  <span className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-[#FF5B62]">
+                                    - {formatCompactRupiah(day.negVal)}
+                                  </span>
                                 </div>
-                                <div className="font-semibold text-red-700 dark:text-red-400">
-                                  - {formatCompactRupiah(day.negVal)}
+                                <div className="border-l border-slate-200 dark:border-[#203F70] pl-2.5 sm:pl-3">
+                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                                    Lebih
+                                  </span>
+                                  <span className="text-xs sm:text-[13px] font-bold text-emerald-600 dark:text-[#16D6A0]">
+                                    + {formatCompactRupiah(day.posVal)}
+                                  </span>
                                 </div>
-                              </div>
-                              <div>
-                                <div className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                                  Lebih
-                                </div>
-                                <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                  + {formatCompactRupiah(day.posVal)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                                  Hasil Hari Itu
-                                </div>
-                                <div
-                                  className={`font-bold ${
-                                    dayNet < -0.5
-                                      ? 'text-red-700 dark:text-red-400'
+                                <div className="border-l border-slate-200 dark:border-[#203F70] pl-2.5 sm:pl-3">
+                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                                    Hasil Hari Itu
+                                  </span>
+                                  <span
+                                    className={`text-xs sm:text-[13px] font-bold tracking-tight ${
+                                      dayNet < -0.5
+                                        ? 'text-rose-600 dark:text-[#FF5B62]'
+                                        : dayNet > 0.5
+                                        ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                        : 'text-slate-600 dark:text-[#A8B9D3]'
+                                    }`}
+                                  >
+                                    {dayNet < -0.5
+                                      ? `- ${formatRupiah(dayNet)}`
                                       : dayNet > 0.5
-                                      ? 'text-emerald-700 dark:text-emerald-400'
-                                      : 'text-slate-600 dark:text-slate-300'
-                                  }`}
-                                >
-                                  {dayNet < -0.5
-                                    ? `- ${formatRupiah(dayNet)}`
-                                    : dayNet > 0.5
-                                    ? `+ ${formatRupiah(dayNet)}`
-                                    : 'Pas Rp 0'}
+                                      ? `+ ${formatRupiah(dayNet)}`
+                                      : 'Pas Rp 0'}
+                                  </span>
                                 </div>
                               </div>
-                            </div>
-                          </button>
+                            </button>
+                          </MotionCard>
 
+                          {/* Item Cards List for this Date */}
                           {isOpen && (
-                            <div className="border-t border-slate-100 dark:border-slate-800/90 px-4 sm:px-5 pb-3 divide-y divide-slate-100 dark:divide-slate-800/90">
+                            <div className="space-y-2.5">
                               {rows.length === 0 ? (
-                                <p className="py-4 text-sm text-slate-500 dark:text-slate-400">
+                                <div className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl p-4 text-center text-sm text-slate-500 dark:text-[#A8B9D3]">
                                   Tidak ada barang yang cocok dengan filter di tanggal ini.
-                                </p>
+                                </div>
                               ) : (
                                 rows.map((meta, idx) => (
                                   <ReadableStockRow
                                     key={`${day.date}-${meta.row[0]}-${idx}`}
                                     title={meta.row[0]}
+                                    dateLabel={formatDateId(day.date)}
+                                    defaultExpanded={dayIndex === 0 && idx === 0}
                                     meta={meta}
                                     onTitleClick={() =>
                                       handlePickProduct(meta.row[0])
@@ -1973,7 +2022,7 @@ export default function App() {
                               )}
                             </div>
                           )}
-                        </MotionCard>
+                        </div>
                       );
                     });
                   })()}
@@ -2094,7 +2143,7 @@ export default function App() {
                         {(
                           [
                             { id: 'all', label: 'Semua' },
-                            { id: 'neg', label: 'Kurang' },
+                            { id: 'neg', label: 'Minus' },
                             { id: 'pos', label: 'Lebih' },
                             { id: 'pas', label: 'Pas' },
                           ] as const
@@ -2134,38 +2183,46 @@ export default function App() {
                 </MotionSection>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                  {/* Matching list */}
-                  <MotionSection className="lg:col-span-5 surface-3d rounded-3xl p-4 sm:p-5">
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 tabular-nums">
-                      <GsapWordTitle
-                        text={
-                          searchQuery.trim()
-                            ? `Hasil pencarian (${matchingProducts.length})`
-                            : productFilter === 'pos'
-                            ? `Semua barang lebih (${matchingProducts.length})`
-                            : productFilter === 'pas'
-                            ? `Semua barang pas (${matchingProducts.length})`
-                            : productFilter === 'neg'
-                            ? `Semua barang kurang (${matchingProducts.length})`
-                            : `Semua barang tercatat (${matchingProducts.length})`
-                        }
-                      />
-                    </h2>
+                  {/* Left Column: Matching Products List (Reference Card Style) */}
+                  <MotionSection className="lg:col-span-5 bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl p-3.5 sm:p-4 shadow-md">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-[#F4F7FF] tabular-nums">
+                        <GsapWordTitle
+                          text={
+                            searchQuery.trim()
+                              ? `Hasil Pencarian (${matchingProducts.length})`
+                              : productFilter === 'pos'
+                              ? `Daftar Barang Lebih (${matchingProducts.length})`
+                              : productFilter === 'pas'
+                              ? `Daftar Barang Pas (${matchingProducts.length})`
+                              : productFilter === 'neg'
+                              ? `Daftar Barang Minus (${matchingProducts.length})`
+                              : `Semua Barang Tercatat (${matchingProducts.length})`
+                          }
+                        />
+                      </h2>
+                      <span className="text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                        Ketuk untuk detail
+                      </span>
+                    </div>
 
                     {matchingProducts.length === 0 ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400 py-4">
+                      <p className="text-sm text-slate-500 dark:text-[#A8B9D3] py-6 text-center">
                         Barang tidak ditemukan pada periode ini.
                       </p>
                     ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/90 max-h-[540px] overflow-y-auto">
+                      <div className="space-y-2 max-h-[620px] overflow-y-auto pr-0.5">
                         {matchingProducts.map((name) => {
                           const stat = summary.productMap[name];
                           const isPicked = effectiveSelectedProduct === name;
                           const netQtyText = formatQtyMap(
                             stat.qtyByUnit,
                             name,
-                            true
+                            false
                           );
+                          const cleanQtyText = netQtyText
+                            .replace(/^(Kurang|Lebih)\s+/i, '')
+                            .replace(/^Pas\s*\((.*)\)$/i, '$1');
                           const netState =
                             stat.netVal < -0.5
                               ? 'neg'
@@ -2176,50 +2233,84 @@ export default function App() {
                             <button
                               key={name}
                               type="button"
-                              onClick={() => setSelectedProduct(name)}
-                              className={`w-full flex items-center justify-between gap-3 py-3 px-2.5 text-left rounded-xl transition-colors min-h-[56px] cursor-pointer ${
+                              onClick={() => {
+                                setSelectedProduct(name);
+                                const detailEl = document.getElementById(
+                                  'product-detail-panel'
+                                );
+                                if (detailEl && window.innerWidth < 1024) {
+                                  detailEl.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'start',
+                                  });
+                                }
+                              }}
+                              className={`w-full p-3 text-left rounded-xl border transition-all cursor-pointer ${
                                 isPicked
-                                  ? 'bg-amber-50 dark:bg-[#16294C]'
-                                  : 'hover:bg-slate-50 dark:hover:bg-[#132548]/50'
+                                  ? 'bg-amber-50/90 dark:bg-[#17315B] border-amber-400 dark:border-[#FFC400]'
+                                  : 'bg-slate-50/70 dark:bg-[#0c1b35] border-slate-200/80 dark:border-[#203F70]/70 hover:border-amber-400/60 dark:hover:border-[#83B9FF]/50'
                               }`}
                             >
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                  {name}
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="min-w-0 pr-1">
+                                  <div className="text-sm font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug truncate">
+                                    {name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-[#A8B9D3] mt-0.5 truncate">
+                                    {stat.code ? `Kode: ${stat.code} · ` : ''}
+                                    {stat.category}
+                                    {stat.subcategory &&
+                                    stat.subcategory !== stat.category
+                                      ? ` / ${stat.subcategory}`
+                                      : ''}
+                                  </div>
                                 </div>
-                                <div
-                                  className={`text-xs font-semibold tabular-nums ${
-                                    netState === 'neg'
-                                      ? 'text-red-700 dark:text-red-400'
+
+                                <div className="text-right shrink-0 tabular-nums">
+                                  <div className="flex items-center justify-end space-x-1.5">
+                                    <span
+                                      className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded leading-none ${
+                                        netState === 'neg'
+                                          ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
+                                          : netState === 'pos'
+                                          ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
+                                          : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
+                                      }`}
+                                    >
+                                      {netState === 'neg'
+                                        ? 'MINUS'
+                                        : netState === 'pos'
+                                        ? 'LEBIH'
+                                        : 'PAS'}
+                                    </span>
+                                    <span
+                                      className={`text-xs font-bold ${
+                                        netState === 'neg'
+                                          ? 'text-rose-600 dark:text-[#FF5B62]'
+                                          : netState === 'pos'
+                                          ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                          : 'text-slate-500 dark:text-[#A8B9D3]'
+                                      }`}
+                                    >
+                                      {cleanQtyText}
+                                    </span>
+                                  </div>
+                                  <div
+                                    className={`text-[11px] font-semibold mt-0.5 tracking-tight font-mono ${
+                                      netState === 'neg'
+                                        ? 'text-rose-600 dark:text-[#FF5B62]'
+                                        : netState === 'pos'
+                                        ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                        : 'text-slate-500 dark:text-[#A8B9D3]'
+                                    }`}
+                                  >
+                                    {netState === 'neg'
+                                      ? `- ${formatRupiah(stat.netVal)}`
                                       : netState === 'pos'
-                                      ? 'text-emerald-700 dark:text-emerald-400'
-                                      : 'text-slate-500 dark:text-slate-400'
-                                  }`}
-                                >
-                                  {netQtyText}
+                                      ? `+ ${formatRupiah(stat.netVal)}`
+                                      : 'Rp 0'}
+                                  </div>
                                 </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                  {stat.code ? `${stat.code} · ` : ''}
-                                  {stat.category}
-                                  {stat.subcategory && stat.subcategory !== stat.category
-                                    ? ` / ${stat.subcategory}`
-                                    : ''}
-                                </div>
-                              </div>
-                              <div
-                                className={`text-xs sm:text-sm font-mono font-bold tabular-nums whitespace-nowrap shrink-0 ${
-                                  netState === 'neg'
-                                    ? 'text-red-700 dark:text-red-400'
-                                    : netState === 'pos'
-                                    ? 'text-emerald-700 dark:text-emerald-400'
-                                    : 'text-slate-500 dark:text-slate-400'
-                                }`}
-                              >
-                                {netState === 'neg'
-                                  ? `- ${formatRupiah(stat.netVal)}`
-                                  : netState === 'pos'
-                                  ? `+ ${formatRupiah(stat.netVal)}`
-                                  : 'Rp 0'}
                               </div>
                             </button>
                           );
@@ -2228,178 +2319,250 @@ export default function App() {
                     )}
                   </MotionSection>
 
-                  {/* Product Detail */}
-                  <MotionSection className="lg:col-span-7 surface-3d rounded-3xl p-5 sm:p-6">
+                  {/* Right Column: Product Summary Card & Daily Item Cards */}
+                  <div
+                    id="product-detail-panel"
+                    className="lg:col-span-7 space-y-3"
+                  >
                     {!selectedProductStat ? (
-                      <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                        Ketuk salah satu barang di sebelah kiri untuk melihat kode barang, harga satuan, jumlah bungkus/dos/porsi, dan riwayat tanggalnya.
+                      <div className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl p-8 text-center text-sm text-slate-500 dark:text-[#A8B9D3]">
+                        Ketuk salah satu barang di sebelah kiri untuk melihat kode barang, harga satuan, jumlah kemasan, dan riwayat tanggalnya.
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                              <GsapWordTitle text={selectedProductStat.name} />
-                            </h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {selectedProductStat.code && (
-                                <>
-                                  Kode:{' '}
-                                  <strong className="font-mono text-slate-700 dark:text-slate-200">
-                                    {selectedProductStat.code}
-                                  </strong>
-                                  {' · '}
-                                </>
-                              )}
-                              Bagian:{' '}
-                              <strong className="text-slate-700 dark:text-slate-200">
+                      <>
+                        {/* Product Summary Card (Reference DateSummaryCard / ItemCard Header Style) */}
+                        <MotionSection className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl overflow-hidden shadow-md">
+                          <div className="p-3.5 sm:p-4 space-y-3">
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="min-w-0">
+                                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug">
+                                  <GsapWordTitle text={selectedProductStat.name} />
+                                </h2>
+                                <span className="block text-[11px] text-slate-500 dark:text-[#A8B9D3] mt-0.5">
+                                  {selectedProductStat.code
+                                    ? `Kode: ${selectedProductStat.code} · `
+                                    : ''}
+                                  Bagian: {selectedProductStat.category}
+                                  {selectedProductStat.subcategory &&
+                                  selectedProductStat.subcategory !==
+                                    selectedProductStat.category
+                                    ? ` / ${selectedProductStat.subcategory}`
+                                    : ''}
+                                </span>
+                              </div>
+
+                              {(() => {
+                                const netState =
+                                  selectedProductStat.netVal < -0.5
+                                    ? 'neg'
+                                    : selectedProductStat.netVal > 0.5
+                                    ? 'pos'
+                                    : 'eq';
+                                const netQtyLabel = formatQtyMap(
+                                  selectedProductStat.qtyByUnit,
+                                  selectedProductStat.name,
+                                  false
+                                )
+                                  .replace(/^(Kurang|Lebih)\s+/i, '')
+                                  .replace(/^Pas\s*\((.*)\)$/i, '$1');
+                                return (
+                                  <div className="text-right shrink-0 tabular-nums">
+                                    <div className="flex items-center justify-end space-x-1.5">
+                                      <span
+                                        className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded leading-none ${
+                                          netState === 'neg'
+                                            ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
+                                            : netState === 'pos'
+                                            ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
+                                            : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
+                                        }`}
+                                      >
+                                        {netState === 'neg'
+                                          ? 'MINUS'
+                                          : netState === 'pos'
+                                          ? 'LEBIH'
+                                          : 'PAS'}
+                                      </span>
+                                      <span
+                                        className={`text-xs sm:text-sm font-bold ${
+                                          netState === 'neg'
+                                            ? 'text-rose-600 dark:text-[#FF5B62]'
+                                            : netState === 'pos'
+                                            ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                            : 'text-slate-500 dark:text-[#A8B9D3]'
+                                        }`}
+                                      >
+                                        {netQtyLabel}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className={`text-xs font-semibold mt-0.5 tracking-tight font-mono ${
+                                        netState === 'neg'
+                                          ? 'text-rose-600 dark:text-[#FF5B62]'
+                                          : netState === 'pos'
+                                          ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                          : 'text-slate-500 dark:text-[#A8B9D3]'
+                                      }`}
+                                    >
+                                      {netState === 'neg'
+                                        ? `- ${formatRupiah(selectedProductStat.netVal)}`
+                                        : netState === 'pos'
+                                        ? `+ ${formatRupiah(selectedProductStat.netVal)}`
+                                        : 'Rp 0'}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Side-by-Side Period Summary Box */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 dark:bg-[#0c1b35] p-3 rounded-xl border border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+                              <div>
+                                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                                  Saat Minus ({selectedProductStat.negDays} hari)
+                                </p>
+                                <p className="font-bold text-rose-600 dark:text-[#FF5B62] text-xs sm:text-[13px] mt-0.5">
+                                  {Object.keys(selectedProductStat.negQtyByUnit)
+                                    .length > 0
+                                    ? formatQtyMap(
+                                        selectedProductStat.negQtyByUnit,
+                                        selectedProductStat.name,
+                                        true
+                                      )
+                                    : '0'}
+                                </p>
+                                <p className="text-[11px] font-mono font-semibold text-rose-600/90 dark:text-[#FF5B62]/90">
+                                  - {formatRupiah(selectedProductStat.negVal)}
+                                </p>
+                              </div>
+
+                              <div className="sm:border-l border-t sm:border-t-0 border-slate-200 dark:border-[#203F70]/60 pt-2 sm:pt-0 sm:pl-3">
+                                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                                  Saat Lebih ({selectedProductStat.posDays} hari)
+                                </p>
+                                <p className="font-bold text-emerald-600 dark:text-[#16D6A0] text-xs sm:text-[13px] mt-0.5">
+                                  {Object.keys(selectedProductStat.posQtyByUnit)
+                                    .length > 0
+                                    ? formatQtyMap(
+                                        selectedProductStat.posQtyByUnit,
+                                        selectedProductStat.name,
+                                        true
+                                      )
+                                    : '0'}
+                                </p>
+                                <p className="text-[11px] font-mono font-semibold text-emerald-600/90 dark:text-[#16D6A0]/90">
+                                  + {formatRupiah(selectedProductStat.posVal)}
+                                </p>
+                              </div>
+
+                              <div className="sm:border-l border-t sm:border-t-0 border-slate-200 dark:border-[#203F70]/60 pt-2 sm:pt-0 sm:pl-3">
+                                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                                  {viewScope === 'month'
+                                    ? 'Hasil Akhir Bulan Ini'
+                                    : viewScope === 'range'
+                                    ? `Hasil ${formatDateRangeLabel(
+                                        summary.rangeStart,
+                                        summary.rangeEnd
+                                      )}`
+                                    : `Hasil Tgl ${formatDateId(activeDay)}`}
+                                </p>
+                                <p
+                                  className={`font-bold text-xs sm:text-[13px] mt-0.5 ${
+                                    selectedProductStat.netVal < -0.5
+                                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                                      : selectedProductStat.netVal > 0.5
+                                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                      : 'text-slate-900 dark:text-[#F4F7FF]'
+                                  }`}
+                                >
+                                  {formatQtyMap(
+                                    selectedProductStat.qtyByUnit,
+                                    selectedProductStat.name,
+                                    true
+                                  )}
+                                </p>
+                                <p
+                                  className={`text-[11px] font-mono font-semibold ${
+                                    selectedProductStat.netVal < -0.5
+                                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                                      : selectedProductStat.netVal > 0.5
+                                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                                      : 'text-slate-500 dark:text-[#A8B9D3]'
+                                  }`}
+                                >
+                                  {selectedProductStat.netVal < -0.5
+                                    ? `- ${formatRupiah(selectedProductStat.netVal)}`
+                                    : selectedProductStat.netVal > 0.5
+                                    ? `+ ${formatRupiah(selectedProductStat.netVal)}`
+                                    : 'Pas Rp 0'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Product Metadata Strip */}
+                          <div className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 grid grid-cols-2 gap-y-1.5 gap-x-3 text-[11px]">
+                            <div>
+                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                                Harga / Unit:
+                              </span>
+                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium font-mono">
+                                {selectedProductStat.lastUnitPrice > 0
+                                  ? formatRupiah(selectedProductStat.lastUnitPrice)
+                                  : '-'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                                Kemasan / Konversi:
+                              </span>
+                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+                                {getItemPackagingSpec(selectedProductStat.name)
+                                  ?.specText || 'Sesuai satuan dasar'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                                Bagian / Sub-bagian:
+                              </span>
+                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
                                 {selectedProductStat.category}
                                 {selectedProductStat.subcategory &&
                                 selectedProductStat.subcategory !==
                                   selectedProductStat.category
                                   ? ` / ${selectedProductStat.subcategory}`
                                   : ''}
-                              </strong>
-                              {selectedProductStat.lastUnitPrice > 0 && (
-                                <>
-                                  {' · '}Harga/unit:{' '}
-                                  <strong className="font-mono text-slate-700 dark:text-slate-200">
-                                    {formatRupiah(selectedProductStat.lastUnitPrice)}
-                                  </strong>
-                                </>
-                              )}
-                              {selectedProductStat.purposes.length > 0 && (
-                                <>
-                                  {' · '}Keperluan:{' '}
-                                  <strong className="text-slate-700 dark:text-slate-200">
-                                    {selectedProductStat.purposes.join(', ')}
-                                  </strong>
-                                </>
-                              )}
-                            </p>
-                            {(() => {
-                              const spec = getItemPackagingSpec(
-                                selectedProductStat.name
-                              );
-                              if (!spec) return null;
-                              return (
-                                <div className="pt-1">
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100/90 dark:bg-amber-500/15 border border-amber-300/80 dark:border-amber-500/35 text-amber-900 dark:text-amber-300">
-                                    <span>Standar Satuan:</span>
-                                    <span className="font-extrabold">
-                                      {spec.specText}
-                                    </span>
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedProduct('')}
-                            className="btn-3d-soft px-3 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-1 min-h-[36px] shrink-0 cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Tutup</span>
-                          </button>
-                        </div>
-
-                        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/90 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-0 sm:divide-x divide-slate-100 dark:divide-slate-800/90 text-sm tabular-nums">
-                          <div className="sm:pr-4 space-y-0.5">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                              Saat Kurang ({selectedProductStat.negDays} hari)
+                              </span>
                             </div>
-                            <div className="text-sm font-bold text-red-700 dark:text-red-400">
-                              {Object.keys(selectedProductStat.negQtyByUnit)
-                                .length > 0
-                                ? formatQtyMap(
-                                    selectedProductStat.negQtyByUnit,
-                                    selectedProductStat.name,
-                                    true
-                                  )
-                                : '0'}
-                            </div>
-                            <div className="text-xs font-mono font-semibold text-red-700/90 dark:text-red-400/90">
-                              - {formatRupiah(selectedProductStat.negVal)}
+                            <div>
+                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                                Riwayat Tercatat:
+                              </span>
+                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+                                {selectedProductTimeline.length} hari opname
+                              </span>
                             </div>
                           </div>
+                        </MotionSection>
 
-                          <div className="sm:px-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/90 space-y-0.5">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                              Saat Lebih ({selectedProductStat.posDays} hari)
-                            </div>
-                            <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                              {Object.keys(selectedProductStat.posQtyByUnit)
-                                .length > 0
-                                ? formatQtyMap(
-                                    selectedProductStat.posQtyByUnit,
-                                    selectedProductStat.name,
-                                    true
-                                  )
-                                : '0'}
-                            </div>
-                            <div className="text-xs font-mono font-semibold text-emerald-700/90 dark:text-emerald-400/90">
-                              + {formatRupiah(selectedProductStat.posVal)}
-                            </div>
-                          </div>
-
-                          <div className="sm:pl-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/90 space-y-0.5">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                              {viewScope === 'month'
-                                ? 'Hasil Akhir Bulan Ini'
-                                : viewScope === 'range'
-                                ? `Hasil ${formatDateRangeLabel(
-                                    summary.rangeStart,
-                                    summary.rangeEnd
-                                  )}`
-                                : `Hasil Tgl ${formatDateId(activeDay)}`}
-                            </div>
-                            <div
-                              className={`text-sm font-bold ${
-                                selectedProductStat.netVal < -0.5
-                                  ? 'text-red-700 dark:text-red-400'
-                                  : selectedProductStat.netVal > 0.5
-                                  ? 'text-emerald-700 dark:text-emerald-400'
-                                  : 'text-slate-900 dark:text-white'
-                              }`}
-                            >
-                              {formatQtyMap(
-                                selectedProductStat.qtyByUnit,
-                                selectedProductStat.name,
-                                true
-                              )}
-                            </div>
-                            <div
-                              className={`text-xs font-mono font-semibold ${
-                                selectedProductStat.netVal < -0.5
-                                  ? 'text-red-700 dark:text-red-400'
-                                  : selectedProductStat.netVal > 0.5
-                                  ? 'text-emerald-700 dark:text-emerald-400'
-                                  : 'text-slate-600 dark:text-slate-300'
-                              }`}
-                            >
-                              {selectedProductStat.netVal < -0.5
-                                ? `Kurang ${formatRupiah(selectedProductStat.netVal)}`
-                                : selectedProductStat.netVal > 0.5
-                                ? `Lebih ${formatRupiah(selectedProductStat.netVal)}`
-                                : 'Pas Rp 0'}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800/90 border-t border-slate-100 dark:border-slate-800/90">
+                        {/* Daily History Cards for Selected Product */}
+                        <div className="space-y-2.5">
                           {selectedProductTimeline.map(({ date, meta }, idx) => (
                             <ReadableStockRow
                               key={`${date}-${idx}`}
                               title={formatDateId(date)}
+                              subtitle={`${selectedProductStat.name}${
+                                meta.row[13] ? ` · Kode: ${meta.row[13]}` : ''
+                              }`}
+                              dateLabel={formatDateId(date)}
+                              defaultExpanded={idx === 0}
                               meta={meta}
                             />
                           ))}
                         </div>
-                      </div>
+                      </>
                     )}
-                  </MotionSection>
+                  </div>
                 </div>
               </>
             )}
@@ -2625,7 +2788,7 @@ export default function App() {
       {/* Mobile Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Menu utama"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#1C3259] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#061329]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#203F70] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
       >
         <div className="grid grid-cols-5 h-16">
           {navItems.map((item) => {
@@ -2636,16 +2799,19 @@ export default function App() {
                 type="button"
                 aria-label={item.label}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
+                className={`relative flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
                   isActive
-                    ? 'text-amber-600 dark:text-amber-400 font-bold'
-                    : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'text-amber-600 dark:text-[#FFC400] font-bold'
+                    : 'text-slate-500 dark:text-[#A8B9D3] font-medium hover:text-slate-900 dark:hover:text-[#F4F7FF]'
                 }`}
               >
                 {item.icon}
                 <span className="text-[10px] leading-none truncate max-w-full">
                   {item.mobileLabel}
                 </span>
+                {isActive && (
+                  <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-amber-500 dark:bg-[#FFC400]" />
+                )}
               </button>
             );
           })}
@@ -2772,13 +2938,20 @@ function EmptyStateCard({
 
 function ReadableStockRow({
   title,
+  subtitle,
+  dateLabel,
+  defaultExpanded = false,
   meta,
   onTitleClick,
 }: {
   title: string;
+  subtitle?: string;
+  dateLabel?: string;
+  defaultExpanded?: boolean;
   meta: ConvertedStockRow;
   onTitleClick?: () => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { row, wasConverted, originalUnit, originalDiffQty } = meta;
   const sysQty = row[2];
   const opQty = row[3];
@@ -2801,101 +2974,302 @@ function ReadableStockRow({
       ? 'pos'
       : 'eq';
   const packEquiv = formatPackEquivalent(Math.abs(diffQty), unit, row[0]);
+  const innerPackDiff = formatInnerPackDiff(diffQty, unit, row[0]);
   const itemSpec = getItemPackagingSpec(row[0]);
 
-  const metaParts = [
-    itemSpec?.unitRatios ? `Kemasan: ${itemSpec.specText}` : '',
-    productCode ? `Kode ${productCode}` : '',
-    opnameNumber ? `No. ${opnameNumber}` : '',
-    category
-      ? subcategory && subcategory !== category
-        ? `${category} / ${subcategory}`
-        : category
-      : '',
+  const subtitleText =
+    subtitle ??
+    ([
+      productCode ? `Kode: ${productCode}` : '',
+      category
+        ? subcategory && subcategory !== category
+          ? `${category} / ${subcategory}`
+          : category
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' · ') ||
+      'Stok Opname Harian');
+
+  const packagingDisplay = itemSpec?.specText
+    ? packEquiv
+      ? `${itemSpec.specText} (${packEquiv})`
+      : itemSpec.specText
+    : packEquiv || 'Sesuai satuan dasar';
+
+  const extraFooterNotes = [
+    dateLabel ? `Tanggal: ${dateLabel}` : '',
     purpose ? `Keperluan: ${purpose}` : '',
     rowStatus || '',
     info || '',
-  ].filter(Boolean);
+    wasConverted
+      ? `Di file: ${formatSignedQty(originalDiffQty)} ${originalUnit}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <div className="py-3.5 flex items-start justify-between gap-3">
-      <div className="min-w-0 flex-1 space-y-0.5">
-        {onTitleClick ? (
-          <button
-            type="button"
-            onClick={onTitleClick}
-            className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-300 text-left break-words cursor-pointer"
-          >
-            {title}
-          </button>
-        ) : (
-          <div className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white break-words">
-            {title}
+    <article
+      className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl overflow-hidden shadow-sm transition-all duration-200"
+      data-purpose="inventory-item"
+    >
+      <div className="p-3 sm:p-3.5">
+        {/* Top Row: Product Name & Diff Status Tag */}
+        <div className="flex justify-between items-start gap-2 mb-2.5">
+          <div className="pr-2 min-w-0">
+            {onTitleClick ? (
+              <button
+                type="button"
+                onClick={onTitleClick}
+                className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] hover:text-amber-600 dark:hover:text-[#FFC400] leading-snug text-left break-words cursor-pointer"
+              >
+                {title}
+              </button>
+            ) : (
+              <h2 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug break-words">
+                {title}
+              </h2>
+            )}
+            <span className="block text-[10px] sm:text-[11px] text-slate-500 dark:text-[#A8B9D3] mt-0.5">
+              {subtitleText}
+            </span>
           </div>
-        )}
-        <div className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-          Di Sistem ESB:{' '}
-          <strong className="font-mono text-slate-800 dark:text-slate-200">
-            {formatQty(sysQty)}
-          </strong>
-          {' · '}
-          Hitungan Gudang:{' '}
-          <strong className="font-mono text-slate-800 dark:text-slate-200">
-            {formatQty(opQty)} {unit}
-          </strong>
-          {valUnit > 0 && (
-            <span>
-              {' · '}Harga/unit:{' '}
-              <span className="font-mono">{formatRupiah(valUnit)}</span>
-            </span>
-          )}
-          {wasConverted && (
-            <span>
-              {' · '}di file {formatSignedQty(originalDiffQty)} {originalUnit}
-            </span>
-          )}
+
+          <div className="text-right shrink-0 tabular-nums">
+            <div className="flex items-center justify-end space-x-1.5">
+              <span
+                className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full leading-none tracking-wide ${
+                  state === 'neg'
+                    ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
+                    : state === 'pos'
+                    ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
+                    : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
+                }`}
+              >
+                {state === 'neg' ? 'MINUS' : state === 'pos' ? 'LEBIH' : 'PAS'}
+              </span>
+              <span
+                className={`text-xs sm:text-sm font-bold ${
+                  state === 'neg'
+                    ? 'text-rose-600 dark:text-[#FF5B62]'
+                    : state === 'pos'
+                    ? 'text-emerald-600 dark:text-[#16D6A0]'
+                    : 'text-slate-500 dark:text-[#A8B9D3]'
+                }`}
+              >
+                {formatQty(Math.abs(diffQty))} {unit}
+              </span>
+            </div>
+            <div
+              className={`text-[11px] sm:text-xs font-semibold mt-0.5 tracking-tight font-mono ${
+                state === 'neg'
+                  ? 'text-rose-600 dark:text-[#FF5B62]'
+                  : state === 'pos'
+                  ? 'text-emerald-600 dark:text-[#16D6A0]'
+                  : 'text-slate-500 dark:text-[#A8B9D3]'
+              }`}
+            >
+              {state === 'neg'
+                ? `- ${formatRupiah(diffVal)}`
+                : state === 'pos'
+                ? `+ ${formatRupiah(diffVal)}`
+                : 'Rp 0'}
+            </div>
+          </div>
         </div>
-        {metaParts.length > 0 && (
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
-            {metaParts.join(' · ')}
+
+        {/* Middle Row: Compact Side-by-Side Comparison (Di Sistem ESB vs Hitungan Gudang) */}
+        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#0c1b35] p-2.5 rounded-lg border border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+          <div className="flex items-center space-x-2">
+            <svg
+              className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                Di Sistem ESB
+              </p>
+              <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                {formatQty(sysQty)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
+            <svg
+              className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                Hitungan Gudang
+              </p>
+              <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                {formatQty(opQty)} {unit}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in inner packaging unit, or blank if none) */}
+        {isExpanded && (
+          <div className="grid grid-cols-2 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+            <div className="flex items-center space-x-2">
+              <svg
+                className="w-4 h-4 text-amber-500 dark:text-[#FFC400] shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  Harga / Unit
+                </p>
+                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                  {valUnit > 0 ? formatRupiah(valUnit) : '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
+              <svg
+                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  Selisih
+                </p>
+                <p
+                  className={`font-bold text-xs sm:text-[13px] font-mono mt-0.5 min-h-[18px] ${
+                    state === 'neg'
+                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                      : state === 'pos'
+                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                      : 'text-slate-500 dark:text-[#A8B9D3]'
+                  }`}
+                >
+                  {innerPackDiff}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="text-right shrink-0 font-mono tabular-nums">
+      {/* Disclosed Metadata Section */}
+      {isExpanded && (
         <div
-          className={`text-sm font-bold ${
-            state === 'neg'
-              ? 'text-red-600 dark:text-red-400'
-              : state === 'pos'
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-slate-500 dark:text-slate-400'
-          }`}
+          className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-2 text-[11px]"
+          data-purpose="item-expanded-metadata"
         >
-          {state === 'neg'
-            ? `Kurang ${formatQty(diffQty)} ${unit}`
-            : state === 'pos'
-            ? `Lebih ${formatQty(diffQty)} ${unit}`
-            : `Pas (0 ${unit})`}
-          {packEquiv ? ` (${packEquiv})` : ''}
+          <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-slate-500 dark:text-[#A8B9D3]">
+            <div>
+              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                Harga / Unit:
+              </span>
+              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium font-mono">
+                {valUnit > 0 ? `${formatRupiah(valUnit)} / ${unit}` : '-'}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                Kemasan / Konversi:
+              </span>
+              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+                {packagingDisplay}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                No. SO:
+              </span>
+              <span className="text-slate-900 dark:text-[#F4F7FF] font-mono font-medium">
+                {opnameNumber || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                Bagian / Gudang:
+              </span>
+              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+                {category
+                  ? subcategory && subcategory !== category
+                    ? `${category} / ${subcategory}`
+                    : category
+                  : '-'}
+              </span>
+            </div>
+          </div>
+
+          {extraFooterNotes && (
+            <div className="pt-1.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums">
+              {extraFooterNotes}
+            </div>
+          )}
         </div>
-        <div
-          className={`text-xs font-semibold ${
-            state === 'neg'
-              ? 'text-red-600/90 dark:text-red-400/90'
-              : state === 'pos'
-              ? 'text-emerald-600/90 dark:text-emerald-400/90'
-              : 'text-slate-500 dark:text-slate-400'
+      )}
+
+      {/* Toggle Button (Lihat Detail / Tutup Detail) */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="w-full py-1.5 px-3 bg-slate-100/90 hover:bg-slate-200/70 dark:bg-[#14284b] dark:hover:bg-[#17315B]/80 flex items-center justify-center space-x-1.5 text-[11px] text-slate-600 dark:text-[#A8B9D3] font-medium border-t border-slate-200 dark:border-[#203F70] transition-colors cursor-pointer"
+        data-purpose="detail-toggle-button"
+      >
+        <span>{isExpanded ? 'Tutup Detail' : 'Lihat Detail'}</span>
+        <svg
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+            isExpanded ? 'rotate-180' : ''
           }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          {state === 'neg'
-            ? `- ${formatRupiah(diffVal)}`
-            : state === 'pos'
-            ? `+ ${formatRupiah(diffVal)}`
-            : 'Rp 0'}
-        </div>
-      </div>
-    </div>
+          <path
+            d="M19 9l-7 7-7-7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
+        </svg>
+      </button>
+    </article>
   );
 }
 
