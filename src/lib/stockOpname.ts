@@ -1810,6 +1810,91 @@ export function computeSummary(
 
 export type SummaryResult = ReturnType<typeof computeSummary>;
 
+const AI_QUESTION_STOPWORDS = new Set([
+  'pada',
+  'tanggal',
+  'tgl',
+  'bulan',
+  'tahun',
+  'hari',
+  'ini',
+  'itu',
+  'yang',
+  'dan',
+  'atau',
+  'dari',
+  'untuk',
+  'dengan',
+  'kenapa',
+  'mengapa',
+  'berapa',
+  'apa',
+  'apakah',
+  'bagaimana',
+  'gimana',
+  'tolong',
+  'coba',
+  'lihat',
+  'cek',
+  'cari',
+  'data',
+  'stok',
+  'opname',
+  'menu',
+  'harian',
+  'barang',
+  'beranda',
+  'laba',
+  'rugi',
+  'laporan',
+  'selisih',
+  'minus',
+  'kurang',
+  'lebih',
+  'plus',
+  'pas',
+  'pack',
+  'pak',
+  'dus',
+  'dos',
+  'botol',
+  'btl',
+  'jerigen',
+  'galon',
+  'slop',
+  'ball',
+  'pcs',
+  'porsi',
+  'kg',
+  'gram',
+  'gr',
+  'liter',
+  'ml',
+  'rupiah',
+  'rp',
+  'rb',
+  'jt',
+  'sistem',
+  'esb',
+  'gudang',
+  'hitungan',
+  'nov',
+  'november',
+  'okt',
+  'oktober',
+  'des',
+  'desember',
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'mei',
+  'jun',
+  'jul',
+  'agu',
+  'sep',
+]);
+
 export function buildAiStockContext(
   summary: SummaryResult,
   monthKey: string,
@@ -1817,10 +1902,32 @@ export function buildAiStockContext(
   options?: { question?: string; currentMenu?: string; compact?: boolean }
 ): string {
   const isCompact = Boolean(options?.compact);
-  const keywords = (options?.question ?? '')
-    .toLowerCase()
-    .split(/[\s,?.!:/-]+/)
+  const rawQuestion = (options?.question ?? '').toLowerCase();
+
+  // Extract explicit day numbers (1..31) after stripping decimal numbers like "4,18" or "4.18"
+  const questionWithoutDecimals = rawQuestion.replace(/\d+[,.]\d+/g, ' ');
+  const askedDayNums = Array.from(
+    new Set(
+      (questionWithoutDecimals.match(/\b([1-9]|[12]\d|3[01])\b/g) ?? []).map(
+        (n) => n.padStart(2, '0')
+      )
+    )
+  );
+
+  // Meaningful product/category keywords (excluding stopwords and pure numbers)
+  const productKeywords = questionWithoutDecimals
+    .split(/[\s,?.!:/()-]+/)
+    .filter(
+      (w) =>
+        w.length >= 2 &&
+        !/^\d+$/.test(w) &&
+        !AI_QUESTION_STOPWORDS.has(w)
+    );
+
+  const keywords = rawQuestion
+    .split(/[\s,?.!:/()-]+/)
     .filter((w) => w.length >= 2);
+
   const periodLabel =
     summary.scope === 'month'
       ? `Bulan ${formatMonthId(monthKey)} (${summary.activeDates.length} hari: ${formatDateId(
@@ -1834,7 +1941,7 @@ export function buildAiStockContext(
 
   const netLabel =
     summary.netTotal < -0.5
-      ? `KURANG -${formatRupiah(summary.netTotal)}`
+      ? `MINUS -${formatRupiah(summary.netTotal)}`
       : summary.netTotal > 0.5
       ? `LEBIH +${formatRupiah(summary.netTotal)}`
       : 'PAS Rp 0';
@@ -1842,9 +1949,9 @@ export function buildAiStockContext(
   const lines: string[] = [
     `Cabang: ${summary.branchName || 'Toko'}`,
     ...(options?.currentMenu ? [`Menu dibuka: ${options.currentMenu}`] : []),
-    `Periode dipilih: ${periodLabel}`,
-    `Hasil Akhir: ${netLabel}`,
-    `Total Kurang (Minus): -${formatRupiah(summary.totalNeg)} (${summary.negProductCount} barang)`,
+    `Periode dipilih di layar: ${periodLabel}`,
+    `Hasil Akhir Periode: ${netLabel}`,
+    `Total Minus (Kurang): -${formatRupiah(summary.totalNeg)} (${summary.negProductCount} barang)`,
     `Total Lebih (Plus): +${formatRupiah(summary.totalPos)} (${summary.posProductCount} barang)`,
   ];
 
@@ -1852,6 +1959,209 @@ export function buildAiStockContext(
     lines.push(
       `Tanggal belum diupload di bulan ini: tgl ${summary.missingDays.join(', ')}`
     );
+  }
+
+  const allProducts = Object.values(summary.productMap).sort(
+    (a, b) => Math.abs(b.netVal) - Math.abs(a.netVal)
+  );
+
+  const formatDetailedRowForAi = (dateKey: string, r: StockRow): string => {
+    const unit = r[1] || 'Unit';
+    const diffQty = r[4];
+    const diffVal = r[6];
+    const innerPack = formatInnerPackDiff(diffQty, unit, r[0]);
+    const packEquiv = formatPackEquivalent(Math.abs(diffQty), unit, r[0]);
+    const statusStr =
+      diffQty < -1e-9 || diffVal < -0.5
+        ? `Minus ${formatQty(diffQty)} ${unit}${
+            innerPack ? ` (${innerPack}${packEquiv ? ` / ${packEquiv}` : ''})` : ''
+          }`
+        : diffQty > 1e-9 || diffVal > 0.5
+        ? `Lebih ${formatQty(diffQty)} ${unit}${
+            innerPack ? ` (${innerPack}${packEquiv ? ` / ${packEquiv}` : ''})` : ''
+          }`
+        : `Pas 0 ${unit}`;
+    const valStr =
+      diffVal < -0.5
+        ? `-${formatRupiah(diffVal)}`
+        : diffVal > 0.5
+        ? `+${formatRupiah(diffVal)}`
+        : 'Rp 0';
+    const extraParts = [
+      r[13] ? `Kode:${r[13]}` : '',
+      r[5] > 0 ? `Harga/Unit:${formatRupiah(r[5])}/${unit}` : '',
+      r[10] ? `No.SO:${r[10]}` : '',
+      r[12] ? `Keperluan:${r[12]}` : '',
+      r[15] ? r[15] : '',
+    ].filter(Boolean);
+    return `${dateKey} (${formatDateId(dateKey)}) | ${r[0]} | Bagian:${
+      r[8] || 'Lainnya'
+    } | Di Sistem ESB: ${formatQty(r[2])} ${unit} | Hitungan Gudang: ${formatQty(
+      r[3]
+    )} ${unit} | Selisih: ${statusStr} | Nilai: ${valStr}${
+      extraParts.length > 0 ? ` | ${extraParts.join(' | ')}` : ''
+    }`;
+  };
+
+  // HIGH-PRIORITY QUESTION SPOTLIGHT: Put exact matched products & dates at the very top!
+  if (data && (productKeywords.length > 0 || askedDayNums.length > 0)) {
+    const spotlightLines: string[] = [];
+
+    if (productKeywords.length > 0) {
+      const scoredProducts = allProducts
+        .map((p) => {
+          const hay = `${p.name} ${p.code || ''} ${p.category}`.toLowerCase();
+          let score = 0;
+          for (const kw of productKeywords) {
+            if (hay.includes(kw)) score += kw.length >= 4 ? 2 : 1;
+          }
+          return { product: p, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score ||
+            Math.abs(b.product.netVal) - Math.abs(a.product.netVal)
+        )
+        .slice(0, 4);
+
+      for (const { product: p } of scoredProducts) {
+        const pkgSpec = getItemPackagingSpec(p.name);
+        const netSummary =
+          p.netVal < -0.5
+            ? `Minus ${formatQtyMap(p.qtyByUnit, p.name, false)} (-${formatRupiah(
+                p.netVal
+              )})`
+            : p.netVal > 0.5
+            ? `Lebih ${formatQtyMap(p.qtyByUnit, p.name, false)} (+${formatRupiah(
+                p.netVal
+              )})`
+            : 'Pas Rp 0';
+
+        spotlightLines.push(
+          `\n[BARANG YANG DITANYAKAN: ${p.code ? `${p.code} ` : ''}${p.name} (Bagian ${
+            p.category
+          })]`,
+          `- Standar Satuan & Kemasan: ${
+            pkgSpec ? pkgSpec.specText : 'Sesuai satuan dasar'
+          }`,
+          `- Harga Satuan Terakhir: ${
+            p.lastUnitPrice > 0 ? formatRupiah(p.lastUnitPrice) : '-'
+          }`,
+          `- Ringkasan Akumulasi Periode (${periodLabel}): Pernah Minus di ${
+            p.negDays
+          } hari (Total Saat Minus: ${
+            Object.keys(p.negQtyByUnit).length > 0
+              ? formatQtyMap(p.negQtyByUnit, p.name, false)
+              : '0'
+          } / -${formatRupiah(p.negVal)}), Pernah Lebih di ${
+            p.posDays
+          } hari (Total Saat Lebih: ${
+            Object.keys(p.posQtyByUnit).length > 0
+              ? formatQtyMap(p.posQtyByUnit, p.name, false)
+              : '0'
+          } / +${formatRupiah(p.posVal)}), Pas di ${
+            p.pasDays
+          } hari -> Hasil Bersih Gabungan Periode = ${netSummary}.`
+        );
+
+        // Collect all daily rows for this product across all stored dates in active month
+        const productDailyRows: { dateKey: string; row: StockRow }[] = [];
+        for (const dateKey of summary.allMonthDates) {
+          const converted = getConvertedRows(data[dateKey] ?? []);
+          for (const r of converted) {
+            if (r[0] === p.name) {
+              productDailyRows.push({ dateKey, row: r });
+            }
+          }
+        }
+
+        // Highlight specific date(s) asked by the user first!
+        if (askedDayNums.length > 0) {
+          for (const dayNum of askedDayNums) {
+            const matchedDayEntries = productDailyRows.filter((e) =>
+              e.dateKey.endsWith(`-${dayNum}`)
+            );
+            for (const entry of matchedDayEntries) {
+              const r = entry.row;
+              const unit = r[1] || 'Unit';
+              const diffQty = r[4];
+              const diffVal = r[6];
+              const innerPack = formatInnerPackDiff(diffQty, unit, r[0]);
+              const isMinus = diffQty < -1e-9 || diffVal < -0.5;
+              const isPlus = diffQty > 1e-9 || diffVal > 0.5;
+              spotlightLines.push(
+                `- >>> DATA SPESIFIK TANGGAL ${formatDateId(
+                  entry.dateKey
+                )} (${entry.dateKey}) UNTUK ${p.name}: Di Sistem ESB tercatat ${formatQty(
+                  r[2]
+                )} ${unit}, sedangkan Hitungan Gudang adalah ${formatQty(
+                  r[3]
+                )} ${unit}. Karena Hitungan Gudang ${
+                  isMinus
+                    ? `lebih sedikit ${formatQty(diffQty)} ${unit} dari Sistem ESB`
+                    : isPlus
+                    ? `lebih banyak ${formatQty(diffQty)} ${unit} dari Sistem ESB`
+                    : 'sama dengan Sistem ESB'
+                }, maka pada tanggal ${formatDateId(entry.dateKey)} tercatat ${
+                  isMinus
+                    ? `MINUS ${formatQty(diffQty)} ${unit}${
+                        innerPack ? ` (setara ${innerPack})` : ''
+                      } dengan nilai -${formatRupiah(diffVal)}`
+                    : isPlus
+                    ? `LEBIH ${formatQty(diffQty)} ${unit}${
+                        innerPack ? ` (setara ${innerPack})` : ''
+                      } dengan nilai +${formatRupiah(diffVal)}`
+                    : 'PAS (Rp 0)'
+                } (Harga/Unit: ${
+                  r[5] > 0 ? `${formatRupiah(r[5])} / ${unit}` : '-'
+                }${r[10] ? `, No.SO: ${r[10]}` : ''}).`
+              );
+            }
+          }
+        }
+
+        if (productDailyRows.length > 0) {
+          spotlightLines.push(
+            `- Riwayat Harian Lengkap ${p.name} per Tanggal:`
+          );
+          for (const entry of productDailyRows) {
+            spotlightLines.push(
+              `  * ${formatDetailedRowForAi(entry.dateKey, entry.row)}`
+            );
+          }
+        }
+      }
+    } else if (askedDayNums.length > 0) {
+      // User asked about specific date(s) without specifying a product name
+      for (const dayNum of askedDayNums) {
+        const matchedDates = summary.allMonthDates.filter((d) =>
+          d.endsWith(`-${dayNum}`)
+        );
+        for (const dateKey of matchedDates) {
+          const converted = getConvertedRows(data[dateKey] ?? []);
+          const diffRows = converted
+            .filter((r) => Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5)
+            .sort((a, b) => a[6] - b[6]);
+          spotlightLines.push(
+            `\n[DATA HARIAN TANGGAL ${formatDateId(dateKey)} (${dateKey}) — ${
+              diffRows.length
+            } barang selisih dari ${converted.length} baris]:`
+          );
+          for (const r of diffRows.slice(0, 40)) {
+            spotlightLines.push(`  * ${formatDetailedRowForAi(dateKey, r)}`);
+          }
+        }
+      }
+    }
+
+    if (spotlightLines.length > 0) {
+      lines.push(
+        '\n=== DATA SPESIFIK YANG COCOK DENGAN PERTANYAAN PENGGUNA (PRIORITAS UTAMA) ===',
+        ...spotlightLines,
+        '=== AKHIR DATA SPESIFIK PERTANYAAN ==='
+      );
+    }
   }
 
   // All stored months overview (Menu Upload / Pengaturan)
@@ -1872,10 +2182,10 @@ export function buildAiStockContext(
         }
         const mNet = mNeg + mPos;
         lines.push(
-          `- ${formatMonthId(m)} (${mDates.length} hari): Kurang -${formatRupiah(
+          `- ${formatMonthId(m)} (${mDates.length} hari): Minus -${formatRupiah(
             mNeg
           )}, Lebih +${formatRupiah(mPos)}, Hasil ${
-            mNet < 0 ? 'KURANG -' : 'LEBIH +'
+            mNet < 0 ? 'MINUS -' : 'LEBIH +'
           }${formatRupiah(mNet)}`
         );
       }
@@ -1887,12 +2197,12 @@ export function buildAiStockContext(
     for (const c of summary.categoryStats) {
       const cNet =
         c.netVal < -0.5
-          ? `Kurang ${formatRupiah(c.netVal)}`
+          ? `Minus ${formatRupiah(c.netVal)}`
           : c.netVal > 0.5
           ? `Lebih ${formatRupiah(c.netVal)}`
           : 'Pas Rp 0';
       lines.push(
-        `- ${c.category}: Kurang ${formatRupiah(c.negVal)}, Lebih ${formatRupiah(
+        `- ${c.category}: Minus ${formatRupiah(c.negVal)}, Lebih ${formatRupiah(
           c.posVal
         )}, Hasil ${cNet}`
       );
@@ -1900,16 +2210,13 @@ export function buildAiStockContext(
   }
 
   // Products in active scope (Menu Cek Barang)
-  const allProducts = Object.values(summary.productMap).sort(
-    (a, b) => Math.abs(b.netVal) - Math.abs(a.netVal)
-  );
   if (allProducts.length > 0) {
     const selectedProducts = isCompact
       ? (() => {
           const matched =
-            keywords.length > 0
+            productKeywords.length > 0
               ? allProducts.filter((p) =>
-                  keywords.some(
+                  productKeywords.some(
                     (kw) =>
                       p.name.toLowerCase().includes(kw) ||
                       p.category.toLowerCase().includes(kw) ||
@@ -1929,7 +2236,7 @@ export function buildAiStockContext(
     lines.push(
       `\n${
         isCompact
-          ? `Ringkasan Barang Utama (${selectedProducts.length} dari ${allProducts.length} barang):`
+          ? `Ringkasan Akumulasi Barang (${selectedProducts.length} dari ${allProducts.length} barang):`
           : `Semua Barang pada Periode Dipilih (${allProducts.length} barang):`
       }`
     );
@@ -1957,11 +2264,15 @@ export function buildAiStockContext(
           ? ` | Kemasan: ${pkgSpec.specText}`
           : '';
       lines.push(
-        `- ${codeStr}${p.name} [${p.category}${subStr}]: ${formatQtyMap(
+        `- ${codeStr}${p.name} [${p.category}${subStr}]: Hasil Akumulasi ${formatQtyMap(
           p.qtyByUnit,
           p.name,
           true
-        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr, pas ${p.pasDays}hr${priceStr}${purpStr}${specStr}`
+        )} (${valStr}) | minus ${p.negDays}hr (-${formatRupiah(
+          p.negVal
+        )}), lebih ${p.posDays}hr (+${formatRupiah(p.posVal)}), pas ${
+          p.pasDays
+        }hr${priceStr}${purpStr}${specStr}`
       );
     }
   }
@@ -1977,11 +2288,11 @@ export function buildAiStockContext(
     .slice(0, 12);
   if (flipFlop.length > 0) {
     lines.push(
-      '\nBarang Bolak-Balik (pernah kurang & pernah lebih, indikasi salah hitung / telat input):'
+      '\nBarang Bolak-Balik (pernah minus & pernah lebih di hari berbeda, indikasi salah hitung / telat input):'
     );
     for (const p of flipFlop) {
       lines.push(
-        `- ${p.name}: Saat kurang ${formatQtyMap(
+        `- ${p.name}: Saat minus ${formatQtyMap(
           p.negQtyByUnit,
           p.name,
           false
@@ -2002,7 +2313,7 @@ export function buildAiStockContext(
   for (const d of summary.dailyStats) {
     const net = d.negVal + d.posVal;
     lines.push(
-      `- ${d.date} (${formatDateId(d.date)}): Kurang -${formatRupiah(
+      `- ${d.date} (${formatDateId(d.date)}): Minus -${formatRupiah(
         d.negVal
       )}, Lebih +${formatRupiah(d.posVal)}, Hasil ${
         net < 0 ? '-' : '+'
@@ -2017,20 +2328,20 @@ export function buildAiStockContext(
       0
     );
 
-    const rowKeywords = (options?.question ?? '')
-      .toLowerCase()
-      .split(/[\s,?.!:/-]+/)
-      .filter((w) => w.length >= 2);
-
     const formatRowLine = (dateKey: string, r: StockRow): string => {
       const unit = r[1] || 'Unit';
       const diffQty = r[4];
       const diffVal = r[6];
+      const innerPack = formatInnerPackDiff(diffQty, unit, r[0]);
       const statusStr =
         diffQty < -1e-9 || diffVal < -0.5
-          ? `Kurang ${formatQty(diffQty)} ${unit}`
+          ? `Minus ${formatQty(diffQty)} ${unit}${
+              innerPack ? ` (${innerPack})` : ''
+            }`
           : diffQty > 1e-9 || diffVal > 0.5
-          ? `Lebih ${formatQty(diffQty)} ${unit}`
+          ? `Lebih ${formatQty(diffQty)} ${unit}${
+              innerPack ? ` (${innerPack})` : ''
+            }`
           : `Pas 0 ${unit}`;
       const valStr =
         diffVal < -0.5
@@ -2039,7 +2350,7 @@ export function buildAiStockContext(
           ? `+${formatRupiah(diffVal)}`
           : 'Rp 0';
       const extraParts = isCompact
-        ? []
+        ? [r[5] > 0 ? `Hrg:${formatRupiah(r[5])}` : ''].filter(Boolean)
         : [
             r[13] ? `Kode:${r[13]}` : '',
             r[10] ? `SP:${r[10]}` : '',
@@ -2057,69 +2368,78 @@ export function buildAiStockContext(
 
     const rowLines: string[] = [];
     const includeAllRowsInMonth = !isCompact && activeMonthRowCount <= 1500;
-    const compactMatchedRows: string[] = [];
+    const compactScoredRows: { score: number; absVal: number; line: string }[] =
+      [];
     const compactTopDiffRows: { absVal: number; line: string }[] = [];
 
-    for (const dateKey of summary.allMonthDates) {
+    // Iterate newest dates first so latest days (e.g. 17 Nov) are prioritized
+    const datesNewestFirst = summary.allMonthDates.slice().reverse();
+
+    for (const dateKey of datesNewestFirst) {
       const converted = getConvertedRows(data[dateKey] ?? []);
       const dayNum = dateKey.slice(8, 10);
+      const isAskedDay = askedDayNums.includes(dayNum);
+
       for (const r of converted) {
         const isNonZero = Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5;
-        const matchesQuestion =
-          rowKeywords.length > 0 &&
-          rowKeywords.some(
-            (kw) =>
-              r[0].toLowerCase().includes(kw) ||
-              (r[8] || '').toLowerCase().includes(kw) ||
-              (r[10] || '').toLowerCase().includes(kw) ||
-              (r[12] || '').toLowerCase().includes(kw) ||
-              (r[13] || '').toLowerCase().includes(kw) ||
-              (r[14] || '').toLowerCase().includes(kw) ||
-              dateKey.includes(kw) ||
-              (kw.length === 2 && dayNum === kw)
-          );
+        let matchScore = isAskedDay ? 3 : 0;
+        if (productKeywords.length > 0) {
+          const rowText = `${r[0]} ${r[8] || ''} ${r[10] || ''} ${
+            r[13] || ''
+          }`.toLowerCase();
+          for (const kw of productKeywords) {
+            if (rowText.includes(kw)) {
+              matchScore += kw.length >= 4 ? 2 : 1;
+            }
+          }
+        }
+
         if (isCompact) {
-          if (matchesQuestion && compactMatchedRows.length < 55) {
-            compactMatchedRows.push(formatRowLine(dateKey, r));
+          if (matchScore > 0) {
+            compactScoredRows.push({
+              score: matchScore,
+              absVal: Math.abs(r[6]),
+              line: formatRowLine(dateKey, r),
+            });
           } else if (isNonZero) {
             compactTopDiffRows.push({
               absVal: Math.abs(r[6]),
               line: formatRowLine(dateKey, r),
             });
           }
-        } else if (includeAllRowsInMonth || isNonZero || matchesQuestion) {
+        } else if (includeAllRowsInMonth || isNonZero || matchScore > 0) {
           rowLines.push(formatRowLine(dateKey, r));
         }
       }
     }
 
     if (isCompact) {
-      rowLines.push(...compactMatchedRows);
+      compactScoredRows
+        .sort((a, b) => b.score - a.score || b.absVal - a.absVal)
+        .slice(0, 60)
+        .forEach((item) => rowLines.push(item.line));
       if (rowLines.length < 35) {
         compactTopDiffRows
           .sort((a, b) => b.absVal - a.absVal)
           .slice(0, 35 - rowLines.length)
           .forEach((item) => rowLines.push(item.line));
       }
-    } else if (rowKeywords.length > 0) {
-      // If user asked about a product/date in other stored months too, attach matches
+    } else if (keywords.length > 0) {
       const otherDates = Object.keys(data)
         .filter((d) => !d.startsWith(monthKey))
-        .sort();
+        .sort()
+        .reverse();
       let extraCount = 0;
       for (const dateKey of otherDates) {
         if (extraCount >= 250) break;
         const converted = getConvertedRows(data[dateKey] ?? []);
         for (const r of converted) {
-          const matchesQuestion = rowKeywords.some(
+          const matchesQuestion = productKeywords.some(
             (kw) =>
               r[0].toLowerCase().includes(kw) ||
               (r[8] || '').toLowerCase().includes(kw) ||
               (r[10] || '').toLowerCase().includes(kw) ||
-              (r[12] || '').toLowerCase().includes(kw) ||
-              (r[13] || '').toLowerCase().includes(kw) ||
-              (r[14] || '').toLowerCase().includes(kw) ||
-              dateKey.includes(kw)
+              (r[13] || '').toLowerCase().includes(kw)
           );
           if (matchesQuestion) {
             rowLines.push(formatRowLine(dateKey, r));

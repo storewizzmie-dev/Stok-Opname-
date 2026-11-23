@@ -29,12 +29,16 @@ Tugasmu adalah menjawab pertanyaan pengguna tentang APA SAJA dengan bahasa Indon
 
 Aturan menjawab:
 1. Gunakan angka nyata dari data yang dikirimkan (baik data Stok Opname maupun data Laba Rugi).
-   - Jika pengguna menanyakan barang atau tanggal tertentu (misal "udang keju tanggal 17"), cari di bagian "Semua Barang" atau "Rincian Harian" lalu sebutkan angka Sistem ESB, Hitungan Gudang, Selisih (jumlah + satuan), dan nilai Rupiahnya secara lengkap.
+   - PENTING — PRIORITASKAN BAGIAN "=== DATA SPESIFIK YANG COCOK DENGAN PERTANYAAN PENGGUNA (PRIORITAS UTAMA) ===":
+     Jika pengguna menanyakan barang atau tanggal tertentu (misalnya "pada tanggal 17 Tepung WizzChick kenapa minus 4,18 pack"), WAJIB baca bagian "DATA SPESIFIK YANG COCOK DENGAN PERTANYAAN PENGGUNA" dan "Rincian Harian".
+   - JANGAN PERNAH menyangkal adanya minus/lebih pada suatu tanggal hanya karena total gabungan 1–17 hari bernilai sebaliknya! Bedakan dengan jelas antara:
+     a) Data pada 1 tanggal yang ditanyakan (sebutkan angka Di Sistem ESB, Hitungan Gudang, Selisih dalam satuan dasar maupun konversi pack/botol/dus, Harga/Unit, dan Nilai Rupiahnya, lalu jelaskan bahwa minus terjadi karena Hitungan Gudang lebih sedikit dari catatan Sistem ESB serta cara konversi kemasannya).
+     b) Riwayat hari-hari lainnya dan total akumulasi periode (jelaskan jika di hari lain barang tersebut tercatat lebih/bolak-balik sehingga hasil gabungannya berbeda, yang sering menandakan selisih waktu input ESB atau salah hitung fisik di salah satu hari).
    - Jika pengguna menanyakan pos Laba Rugi (misal "berapa Net Profit", "biaya gaji", "Sales Food"), sebutkan nilai Rupiah dan persentasenya terhadap Net Sales sesuai data Menu Laba Rugi.
    - Jangan pernah mengarang angka laporan yang tidak ada di data.
 2. Jika pengguna bertanya tentang fungsi fitur atau cara memakai aplikasi ini, jelaskan dengan jelas berdasarkan "PANDUAN FITUR & MENU WEB APP" yang ada di konteks (seperti fungsi Menu Beranda, Harian, Cek Barang, Laba Rugi, Pengaturan, tombol Rentang Tanggal pop-up di pojok kanan dengan klik 1x aktif & klik 2x buka list tanggal serta tarik tanggal 1-30, tombol Cek 1 Hari, atau cara simpan Note Penjelasan Permanen di Laba Rugi).
 3. Gunakan istilah yang konsisten dan mudah dipahami:
-   - "Kurang (Minus)" = Hitungan Gudang lebih sedikit dari catatan Sistem ESB.
+   - "Minus (Kurang)" = Hitungan Gudang lebih sedikit dari catatan Sistem ESB.
    - "Lebih (Plus)" = Hitungan Gudang lebih banyak dari catatan Sistem ESB.
    - "Sistem ESB vs Hitungan Gudang" = perbandingan catatan Sistem ESB dengan hitungan barang nyata di gudang.
    - Jika ada barang yang punya hari minus sekaligus hari plus (bolak-balik), ingatkan bahwa itu sering kali indikasi salah hitung di salah satu hari atau telat input di Sistem ESB.
@@ -418,27 +422,122 @@ async function generateWithAnyProvider(
   }
 }
 
+const COMPACT_STOPWORDS = new Set([
+  'pada',
+  'tanggal',
+  'tgl',
+  'bulan',
+  'tahun',
+  'hari',
+  'ini',
+  'itu',
+  'yang',
+  'dan',
+  'atau',
+  'dari',
+  'untuk',
+  'dengan',
+  'kenapa',
+  'mengapa',
+  'berapa',
+  'apa',
+  'apakah',
+  'bagaimana',
+  'gimana',
+  'tolong',
+  'coba',
+  'lihat',
+  'cek',
+  'cari',
+  'data',
+  'stok',
+  'opname',
+  'menu',
+  'harian',
+  'barang',
+  'beranda',
+  'laba',
+  'rugi',
+  'laporan',
+  'selisih',
+  'minus',
+  'kurang',
+  'lebih',
+  'plus',
+  'pas',
+  'pack',
+  'pak',
+  'dus',
+  'dos',
+  'botol',
+  'btl',
+  'jerigen',
+  'galon',
+  'slop',
+  'ball',
+  'pcs',
+  'porsi',
+  'kg',
+  'gram',
+  'gr',
+  'liter',
+  'ml',
+  'rupiah',
+  'rp',
+  'rb',
+  'jt',
+  'sistem',
+  'esb',
+  'gudang',
+  'hitungan',
+]);
+
 function compactContextForGroq(
   contextText: string,
   question?: string,
-  maxChars = 11_500
+  maxChars = 15_500
 ): string {
   if (contextText.length <= maxChars) return contextText;
 
-  const keywords = (question ?? '')
-    .toLowerCase()
-    .split(/[\s,?.!:/-]+/)
-    .filter((w) => w.length >= 2);
+  const cleanedQ = (question ?? '').toLowerCase().replace(/\d+[,.]\d+/g, ' ');
+  const keywords = cleanedQ
+    .split(/[\s,?.!:/()-]+/)
+    .filter((w) => w.length >= 2 && !COMPACT_STOPWORDS.has(w));
 
   const lines = contextText.split('\n');
+  const spotlightLines: string[] = [];
   const priorityLines: string[] = [];
+  const scoredDetailLines: { score: number; line: string }[] = [];
   const detailLines: string[] = [];
+
+  let inSpotlightSection = false;
   let inLongDetailSection = false;
 
   for (const line of lines) {
     const lower = line.toLowerCase();
+
+    if (
+      lower.startsWith(
+        '=== data spesifik yang cocok dengan pertanyaan pengguna'
+      )
+    ) {
+      inSpotlightSection = true;
+      spotlightLines.push(line);
+      continue;
+    }
+    if (lower.startsWith('=== akhir data spesifik pertanyaan ===')) {
+      spotlightLines.push(line);
+      inSpotlightSection = false;
+      continue;
+    }
+    if (inSpotlightSection) {
+      spotlightLines.push(line);
+      continue;
+    }
+
     if (
       lower.startsWith('semua barang pada periode') ||
+      lower.startsWith('ringkasan akumulasi barang') ||
       lower.startsWith('ringkasan barang utama') ||
       lower.startsWith('rincian harian') ||
       lower.startsWith('rincian setiap description') ||
@@ -453,32 +552,58 @@ function compactContextForGroq(
       lower.startsWith('ringkasan per bagian') ||
       lower.startsWith('barang bolak-balik') ||
       lower.startsWith('ringkasan harian bulan aktif') ||
-      lower.startsWith('=== data laba rugi')
+      lower.startsWith('=== data laba rugi') ||
+      lower.startsWith('=== standar satuan & konversi kemasan')
     ) {
       inLongDetailSection = false;
     }
 
     if (!inLongDetailSection) {
       priorityLines.push(line);
-    } else if (
-      keywords.length > 0 &&
-      keywords.some((kw) => lower.includes(kw))
-    ) {
-      priorityLines.push(line);
+    } else if (keywords.length > 0) {
+      let score = 0;
+      for (const kw of keywords) {
+        if (lower.includes(kw)) {
+          score += kw.length >= 4 ? 2 : 1;
+        }
+      }
+      if (score > 0) {
+        scoredDetailLines.push({ score, line });
+      } else {
+        detailLines.push(line);
+      }
     } else {
       detailLines.push(line);
     }
   }
 
+  scoredDetailLines.sort((a, b) => b.score - a.score);
+
   const out: string[] = [];
   let used = 0;
 
-  for (const line of priorityLines) {
-    if (used + line.length + 1 > maxChars - 300) break;
+  // 1. Always include the question spotlight block first!
+  for (const line of spotlightLines) {
+    if (used + line.length + 1 > maxChars - 500) break;
     out.push(line);
     used += line.length + 1;
   }
 
+  // 2. Include core headers & summaries
+  for (const line of priorityLines) {
+    if (used + line.length + 1 > maxChars - 1500) break;
+    out.push(line);
+    used += line.length + 1;
+  }
+
+  // 3. Include highest-scoring detail rows matching question keywords
+  for (const { line } of scoredDetailLines) {
+    if (used + line.length + 1 > maxChars - 200) break;
+    out.push(line);
+    used += line.length + 1;
+  }
+
+  // 4. Fill remaining budget with general detail lines
   for (const line of detailLines) {
     if (used + line.length + 1 > maxChars) break;
     out.push(line);
@@ -607,13 +732,21 @@ export async function processAiRequest(
 
     const rawHistory = Array.isArray(body.history) ? body.history : [];
     const history = isCompactProvider ? rawHistory.slice(-4) : rawHistory.slice(-8);
+
+    const spotlightMatch = contextText.match(
+      /=== DATA SPESIFIK YANG COCOK DENGAN PERTANYAAN PENGGUNA \(PRIORITAS UTAMA\) ===[\s\S]*?=== AKHIR DATA SPESIFIK PERTANYAAN ===/
+    );
+    const enrichedUserPrompt = spotlightMatch
+      ? `${question}\n\n(Gunakan data aktual berikut yang cocok langsung dengan pertanyaan di atas:\n${spotlightMatch[0]})`
+      : question;
+
     const result = await generateWithAnyProvider(providerPref, {
       systemInstruction: SYSTEM_INSTRUCTION,
       initialUserContext: `Ini seluruh informasi fitur aplikasi web beserta data laporan Stok Opname & Laba Rugi dari semua menu:\n\n${effectiveContext}\n\nJawab pertanyaan saya berikutnya dengan bahasa sederhana, ringkas, tuntas, dan kalimat yang rapi (tanpa tanda bintang *, tanpa <br>, dan tanpa tabel Markdown).`,
       initialModelAck:
         'Baik, saya sudah memahami seluruh fitur aplikasi serta membaca data Stok Opname dan Laba Rugi di semua menu. Silakan tanyakan apa saja.',
       history,
-      userPrompt: question,
+      userPrompt: enrichedUserPrompt,
       thinkingLevel: ThinkingLevel.HIGH,
       maxTokens: 2000,
     });
