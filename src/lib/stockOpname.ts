@@ -51,17 +51,748 @@ interface ConversionRule {
   otherUnits?: Record<string, number>;
 }
 
+export type CanonicalUnit =
+  | 'dus'
+  | 'ball'
+  | 'jerigen'
+  | 'galon'
+  | 'pack'
+  | 'slop'
+  | 'botol'
+  | 'porsi'
+  | 'pcs'
+  | 'kg'
+  | 'gram'
+  | 'liter'
+  | 'ml';
+
+export interface ItemPackagingSpec {
+  name: string;
+  specText: string;
+  unitRatios?: Partial<Record<CanonicalUnit, number>>;
+  displayOrder?: CanonicalUnit[];
+}
+
+const CANONICAL_UNIT_LABELS: Record<CanonicalUnit, string> = {
+  dus: 'Dus',
+  ball: 'Ball',
+  jerigen: 'Jerigen',
+  galon: 'Galon',
+  pack: 'Pack',
+  slop: 'Slop',
+  botol: 'Botol',
+  porsi: 'Porsi',
+  pcs: 'Pcs',
+  kg: 'Kg',
+  gram: 'Gram',
+  liter: 'Liter',
+  ml: 'ml',
+};
+
+export function normalizeItemLookupKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s*\(\s*/g, ' (')
+    .replace(/\s*\)\s*/g, ') ')
+    .replace(/\s*@\s*/g, ' @')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/(\d)\s+(oz|ml|kg|gr|gram|l)\b/gi, '$1$2')
+    .replace(/papper/g, 'paper')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export const ITEM_PACKAGING_CATALOG: ItemPackagingSpec[] = [
+  {
+    name: 'Air Mineral Botol',
+    specText: '1 dus 24 botol',
+    unitRatios: { botol: 1, pcs: 1, dus: 24 },
+    displayOrder: ['dus', 'botol'],
+  },
+  {
+    name: 'Beras',
+    specText: '1 pack 10 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 10000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'DBL - Ayam Potong Dadu',
+    specText: '1 dus 10 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'DBL - Ayam WFC 1.1',
+    specText:
+      '1 dus 10 pack (5 pack ayam besar @10 porsi & 5 pack ayam kecil @8 porsi), total 1 dus = 90 porsi',
+    unitRatios: { porsi: 1, pack: 9, dus: 90 },
+    displayOrder: ['dus', 'pack', 'porsi'],
+  },
+  {
+    name: 'DBL - Cabai Rawit',
+    specText: '1 dus 10 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'DBL - Sayap',
+    specText: '1 dus 10 pack, 1 pack 5 porsi, 1 porsi 2 pcs',
+    unitRatios: { pcs: 1, porsi: 2, pack: 10, dus: 100 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'Fresh Milk',
+    specText: '1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000 },
+    displayOrder: ['botol', 'liter'],
+  },
+  {
+    name: 'Gelato',
+    specText: 'Satuan sesuai unit laporan',
+  },
+  {
+    name: 'Kecap Manis',
+    specText: '1 dus 3 jerigen, 1 jerigen 7 liter',
+    unitRatios: {
+      ml: 1,
+      gram: 1,
+      liter: 1000,
+      kg: 1000,
+      jerigen: 7000,
+      dus: 21000,
+    },
+    displayOrder: ['dus', 'jerigen', 'liter'],
+  },
+  {
+    name: 'Minyak Goreng',
+    specText: '1 dus 18 liter',
+    unitRatios: { ml: 1, liter: 1000, jerigen: 18000, dus: 18000 },
+    displayOrder: ['dus', 'liter'],
+  },
+  {
+    name: 'SKM Carnation @2Kg',
+    specText: '1 dus 8 pack, 1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000, dus: 16000 },
+    displayOrder: ['dus', 'pack', 'kg'],
+  },
+  {
+    name: 'Tong Tji Super Jasmine Tea',
+    specText: '1 ball 50 pack, 1 pack 80 gram',
+    unitRatios: { gram: 1, pack: 80, kg: 1000, ball: 4000 },
+    displayOrder: ['ball', 'pack', 'kg'],
+  },
+  {
+    name: 'Telur Ayam',
+    specText: '1 pcs 60 gram',
+    unitRatios: { gram: 1, pcs: 60, kg: 1000 },
+    displayOrder: ['pcs', 'kg'],
+  },
+  {
+    name: 'Tepung WizzChick (Tepung Krispi)',
+    specText: '1 dus 14 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 14000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'WIP - Adonan Pangsit',
+    specText: '1 dus 6 pack, 1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000, dus: 12000 },
+    displayOrder: ['dus', 'pack', 'kg'],
+  },
+  {
+    name: 'WIP - Ayam Tabur',
+    specText: '1 dus 9 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 9000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'WIP - Bola Keju',
+    specText: '1 dus 14 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 420 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Bumbu Mie',
+    specText: '1 dus 12 botol, 1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
+    displayOrder: ['dus', 'botol'],
+  },
+  {
+    name: 'WIP - Ceker',
+    specText: '1 dus 10 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 300 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Ebi Furai (New)',
+    specText: '1 dus 12 pack, 1 pack 5 porsi, 1 porsi 15 pcs',
+    unitRatios: { pcs: 1, porsi: 15, pack: 75, dus: 900 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Kulit Pangsit',
+    specText: '1 dus 20 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 20000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'WIP - Kulit Udang Rambutan',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'WIP - Lumpia Ayam',
+    specText: '1 dus 13 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 390 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Lumpia Udang',
+    specText: '1 dus 11 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 330 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Mie',
+    specText: '1 dus 8 pack, 1 pack 20 pcs',
+    unitRatios: { pcs: 1, porsi: 1, pack: 20, dus: 160 },
+    displayOrder: ['dus', 'pack', 'pcs'],
+  },
+  {
+    name: 'WIP - Pao Ayam',
+    specText: '1 dus 7 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 210 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Sambal Horeg',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'WIP - Siomay',
+    specText: '1 dus 14 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 420 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Udang Keju',
+    specText: '1 dus 12 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 360 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  {
+    name: 'WIP - Udang Rambutan',
+    specText: '1 dus 14 pack, 1 pack 10 porsi, 1 porsi 3 pcs',
+    unitRatios: { pcs: 1, porsi: 3, pack: 30, dus: 420 },
+    displayOrder: ['dus', 'pack', 'porsi', 'pcs'],
+  },
+  { name: 'Air Galon', specText: 'Satuan Galon' },
+  {
+    name: 'Akeo Galon@19L',
+    specText: '1 galon beratnya 12,8 kg (19 Liter)',
+    unitRatios: { gram: 1, kg: 1000, galon: 12800 },
+    displayOrder: ['galon', 'kg'],
+  },
+  {
+    name: 'Avocado Powder',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Balon (Birthday)', specText: 'Satuan Pcs' },
+  { name: 'Balon (WizzChicken)', specText: 'Satuan Pcs' },
+  { name: 'Bawang Merah', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'Biji Wijen',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Botol (Birthday)', specText: 'Satuan Pcs / Botol' },
+  { name: 'Buah Apel', specText: 'Satuan Kg / Gram' },
+  { name: 'Buah Belimbing / Kiwi', specText: 'Satuan Kg / Gram' },
+  { name: 'Buah Leci', specText: 'Satuan Kaleng / Gram' },
+  { name: 'Bumbu Basic (WPU)', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'Bungkus Dimsum / Sushi',
+    specText: '1 pack 240 pcs',
+    unitRatios: { pcs: 1, pack: 240 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Bungkus Mie / Rice Bowl',
+    specText: '1 pack 120 pcs',
+    unitRatios: { pcs: 1, pack: 120 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Cappucino Powder',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Caramel Powder', specText: 'Satuan Pack / Kg / Gram' },
+  {
+    name: 'Chocolate Powder',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Coffee Bean (Roasted)',
+    specText: '1 dus 8 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 8000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Cone ( Gelato )',
+    specText: '1 dus 25 pack, 1 pack 10 pcs',
+    unitRatios: { pcs: 1, pack: 10, dus: 250 },
+    displayOrder: ['dus', 'pack', 'pcs'],
+  },
+  {
+    name: 'Crabstik',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Cuka Dixi', specText: 'Satuan Botol / ml' },
+  { name: 'Cup 12 / 14oz', specText: 'Satuan Pcs / Slop' },
+  {
+    name: 'Cup 12 oz',
+    specText: '1 ball 20 slop, 1 slop 50 pcs',
+    unitRatios: { pcs: 1, slop: 50, ball: 1000 },
+    displayOrder: ['ball', 'slop', 'pcs'],
+  },
+  { name: 'Cup 16oz', specText: 'Satuan Pcs / Slop' },
+  {
+    name: 'CUP 25 ml',
+    specText: '1 pack 50 pcs',
+    unitRatios: { pcs: 1, pack: 50 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Cup 35ml',
+    specText: '1 pack 50 pcs',
+    unitRatios: { pcs: 1, pack: 50 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  { name: 'Cup Gelato 2 Oz', specText: 'Satuan Pcs / Pack' },
+  { name: 'Cup Gelato 4 Oz', specText: 'Satuan Pcs / Pack' },
+  { name: 'Cup Gelato 5 Oz', specText: 'Satuan Pcs / Pack' },
+  { name: 'Cup Hot', specText: 'Satuan Pcs / Pack' },
+  { name: 'Daun Bawang', specText: 'Satuan Kg / Gram' },
+  { name: 'Daun Jeruk', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'DBL - Ayam Fillet',
+    specText: '1 dus 12 pack, 1 pack 10 porsi, 1 pack 600 gram',
+    unitRatios: { gram: 1, porsi: 60, pack: 600, kg: 1000, dus: 7200 },
+    displayOrder: ['dus', 'pack', 'porsi', 'kg'],
+  },
+  {
+    name: 'Dolley Papper Dimsum( Pack)',
+    specText: '1 dus 8 pack',
+    unitRatios: { pack: 1, dus: 8 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Dolley Paper Dimsum (Pcs)',
+    specText: '1 pack 250 pcs',
+    unitRatios: { pcs: 1, pack: 250 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Es Serut',
+    specText: '1 pack 18 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 18000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Es Tube',
+    specText: '1 pack 18 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 18000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Full Cream', specText: 'Satuan Pack / ml / Liter' },
+  {
+    name: 'Garpu Plastik',
+    specText: '1 dus 30 pack, 1 pack 100 pcs',
+    unitRatios: { pcs: 1, pack: 100, dus: 3000 },
+    displayOrder: ['dus', 'pack', 'pcs'],
+  },
+  {
+    name: 'Green Tea Powder',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Gula Aren Batok',
+    specText: '1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Gula Pasir',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Gula Sachet',
+    specText: '1 pack 150 pcs',
+    unitRatios: { pcs: 1, pack: 150 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  { name: 'Hand Soap', specText: 'Satuan ml / Liter / Jerigen' },
+  {
+    name: 'Hanglove Karet',
+    specText: '1 dus 10 pack, 1 pack 100 pcs',
+    unitRatios: { pcs: 1, pack: 100, dus: 1000 },
+    displayOrder: ['dus', 'pack', 'pcs'],
+  },
+  {
+    name: 'Jelly Bubble',
+    specText: '1 dus 20 pack, 1 pack 500 gram',
+    unitRatios: { gram: 1, pack: 500, kg: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack', 'kg'],
+  },
+  {
+    name: 'Jelly Mie',
+    specText: '1 dus 20 pack, 1 pack 500 gram',
+    unitRatios: { gram: 1, pack: 500, kg: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack', 'kg'],
+  },
+  { name: 'Jeruk Limau', specText: 'Satuan Kg / Gram' },
+  { name: 'Jeruk Nipis', specText: 'Satuan Kg / Gram' },
+  { name: 'KARBOL', specText: 'Satuan ml / Liter / Jerigen' },
+  {
+    name: 'Kertas Dimsum',
+    specText: '1 pack 500 pcs',
+    unitRatios: { pcs: 1, pack: 500 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  { name: 'Kertas Minyak (Wrapper McD)', specText: 'Satuan Pack / Pcs' },
+  {
+    name: 'Kertas Thermal',
+    specText: '1 dus 60 pcs',
+    unitRatios: { pcs: 1, dus: 60 },
+    displayOrder: ['dus', 'pcs'],
+  },
+  { name: 'Kertas Filter', specText: 'Satuan Pack / Pcs' },
+  { name: 'Ketimun', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'Kewpie Mayonaise',
+    specText: '1 dus 6 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 6000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Kewpie Sesame', specText: 'Satuan Botol / Pack / ml' },
+  { name: 'Kresek Sampah 100 x 120', specText: 'Satuan Pack / Pcs' },
+  { name: 'Kresek Sampah 60 x 100', specText: 'Satuan Pack / Pcs' },
+  { name: 'Kresek Sampah Besar', specText: 'Satuan Pack / Pcs' },
+  { name: 'Kubis', specText: 'Satuan Kg / Gram' },
+  { name: 'Mangga', specText: 'Satuan Kg / Gram' },
+  { name: 'Masker', specText: 'Satuan Box / Pcs' },
+  {
+    name: 'Matcha Powder',
+    specText: '1 dus 10 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Mayonaise Maestro',
+    specText: '1 dus 10 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Merchandise Birthday', specText: 'Satuan Pcs' },
+  {
+    name: 'Mica Sauce @100/pack',
+    specText: '1 pack 100 pcs',
+    unitRatios: { pcs: 1, pack: 100 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Nata De Coco',
+    specText: '1 dus 10 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 10000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Nori Sushi',
+    specText: '1 pack 50 pcs',
+    unitRatios: { pcs: 1, pack: 50 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Oreo Crumb',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Paper Tray Dimsum', specText: 'Satuan Pack / Pcs' },
+  { name: 'Paper Tray Mie', specText: 'Satuan Pack / Pcs' },
+  { name: 'Pin CSO', specText: 'Satuan Pcs' },
+  { name: 'Plastik 15', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Besar', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Cup Sealer (Roll)', specText: 'Satuan Roll' },
+  { name: 'Plastik Kecil', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Klip 10 x 7', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Klip 6 x 4', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Klip 8 x 5', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Sampah 80x100', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik STP', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Whipping Cream', specText: 'Satuan Pack / Pcs' },
+  { name: 'Plastik Wrap', specText: 'Satuan Roll' },
+  { name: 'Portex', specText: 'Satuan Botol / ml / Liter' },
+  {
+    name: 'Powder Frappe Milk @ 2kg/ Pack',
+    specText: '1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Redvelvet Powder',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Sabun cuci piring', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Sabun Lantai', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Saos Finna (Sachet)', specText: 'Satuan Sachet / Pack / Pcs' },
+  { name: 'Saos Mentai', specText: 'Satuan Kg / Gram / Pack' },
+  { name: 'Saos Sambal WFC (sachet)', specText: 'Satuan Sachet / Pack / Pcs' },
+  { name: 'Selada', specText: 'Satuan Kg / Gram' },
+  { name: 'Selai Strawberry', specText: 'Satuan Kg / Gram / Pack' },
+  { name: 'Sendok Gelato', specText: 'Satuan Pack / Pcs' },
+  { name: 'Sendok Plastik', specText: 'Satuan Pack / Pcs' },
+  { name: 'Sendok Teh', specText: 'Satuan Pack / Pcs' },
+  { name: 'Sereh', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'SKM Coklat',
+    specText: '1 dus 48 kg, keterangan 495 ml',
+    unitRatios: { gram: 1, kg: 1000, dus: 48000 },
+    displayOrder: ['dus', 'kg'],
+  },
+  { name: 'SKM Coklat (new)', specText: 'Satuan Kaleng / Pack / Kg' },
+  { name: 'Smoked Beef', specText: 'Satuan Pack / Kg / Gram' },
+  { name: 'SPOONS', specText: 'Satuan Pack / Pcs' },
+  { name: 'Sticker (WizzChicken)', specText: 'Satuan Pcs / Lembar' },
+  {
+    name: 'Straw',
+    specText: '1 dus 20 pack',
+    unitRatios: { pack: 1, dus: 20 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Strawberry', specText: 'Satuan Kg / Gram' },
+  {
+    name: 'Sumpit',
+    specText: '1 pack 1400 pcs',
+    unitRatios: { pcs: 1, pack: 1400 },
+    displayOrder: ['pack', 'pcs'],
+  },
+  {
+    name: 'Sunquick Lemon',
+    specText: '1 dus 12 botol, 1 botol 300 ml',
+    unitRatios: { ml: 1, botol: 300, liter: 1000, dus: 3600 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  {
+    name: 'Sunquick Orange',
+    specText: '1 dus 6 botol, 1 botol 2000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 2000, dus: 12000 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  {
+    name: 'Taro Powder',
+    specText: '1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Tas (Birthday)', specText: 'Satuan Pcs' },
+  { name: 'Tas Spunbond Besar', specText: 'Satuan Pcs / Pack' },
+  { name: 'Tas Spunbond Kecil', specText: 'Satuan Pcs / Pack' },
+  { name: 'Teh Sosro', specText: 'Satuan Pack / Gram / Pcs' },
+  { name: 'Tepung Roti', specText: 'Satuan Kg / Gram / Pack' },
+  {
+    name: 'Tepung Segitiga',
+    specText: '1 dus 12 pack, 1 pack 1 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 1000, dus: 12000 },
+    displayOrder: ['dus', 'pack'],
+  },
+  { name: 'Tepung Tapioka', specText: 'Satuan Kg / Gram / Pack' },
+  {
+    name: 'Terasi',
+    specText: '1 pack 500 gram',
+    unitRatios: { gram: 1, pack: 500, kg: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Tissue Besar',
+    specText: '1 dus 24 pack',
+    unitRatios: { pack: 1, pcs: 1, dus: 24 },
+    displayOrder: ['dus', 'pack'],
+  },
+  {
+    name: 'Tong Tji Jasmine Tea',
+    specText: '1 ball 50 pack, 1 pack 80 gram',
+    unitRatios: { gram: 1, pack: 80, kg: 1000, ball: 4000 },
+    displayOrder: ['ball', 'pack', 'kg'],
+  },
+  { name: 'Tobiko', specText: 'Satuan Gram / Kg / Pack' },
+  { name: 'Topi (Birthday)', specText: 'Satuan Pcs' },
+  { name: 'Topi (WizzChicken)', specText: 'Satuan Pcs' },
+  {
+    name: 'Toping Caramel',
+    specText: '1 dus 1 pack, 1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000, dus: 2000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Toping Caramel @2Kg',
+    specText: '1 dus 1 pack, 1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000, dus: 2000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'Toping Coklat @2kg',
+    specText: '1 dus 1 pack, 1 pack 2 kg',
+    unitRatios: { gram: 1, kg: 1000, pack: 2000, dus: 2000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  { name: 'Tutup Cup Hot', specText: 'Satuan Pcs / Pack' },
+  { name: 'Undangan (Birthday)', specText: 'Satuan Pcs / Pack' },
+  {
+    name: 'Whipping Cream Powder',
+    specText: '1 pack 800 gram',
+    unitRatios: { gram: 1, pack: 800, kg: 1000 },
+    displayOrder: ['pack', 'kg'],
+  },
+  {
+    name: 'WIP - Minyak Kelapa @1 L',
+    specText: '1 kemasan 1 liter (1000 ml)',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000, pack: 1000 },
+    displayOrder: ['liter'],
+  },
+  {
+    name: 'WIP - Bawang Goreng',
+    specText: '1 dus 10 pack, 1 pack 500 gram',
+    unitRatios: { gram: 1, pack: 500, kg: 1000, dus: 5000 },
+    displayOrder: ['dus', 'pack', 'kg'],
+  },
+  {
+    name: 'WIP - Cuka Sushi',
+    specText: '1 dus 12 botol, 1 botol 1300 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1300, dus: 15600 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  { name: 'WIP - Dimsum Sushi', specText: 'Satuan Porsi / Pcs / Pack' },
+  {
+    name: 'WIP - Minyak Bawang',
+    specText: '1 dus 12 botol, 1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
+    displayOrder: ['dus', 'botol'],
+  },
+  {
+    name: 'WIP - Saos Asam Manis',
+    specText: '1 dus 12 botol, 1 botol 1100 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1100, dus: 13200 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  {
+    name: 'WIP - Saos Blackpepper',
+    specText: '1 dus 12 botol, 1 botol 1200 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1200, dus: 14400 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  {
+    name: 'WIP - Saos Pedas',
+    specText: '1 dus 12 botol, 1 botol 1200 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1200, dus: 14400 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  {
+    name: 'WIP - Saos Teriyaki',
+    specText: '1 dus 12 botol, 1 botol 1100 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1100, dus: 13200 },
+    displayOrder: ['dus', 'botol', 'liter'],
+  },
+  { name: 'WIP - Sirup Wizzmie Caramel', specText: 'Satuan Botol / ml' },
+  { name: 'WIP - Sirup Wizzmie Hazelnut', specText: 'Satuan Botol / ml' },
+  {
+    name: 'WIP - Sirup Wizzmie Leci',
+    specText: '1 dus 12 botol, 1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
+    displayOrder: ['dus', 'botol'],
+  },
+  {
+    name: 'WIP - Sirup Wizzmie Rozen Roos',
+    specText: '1 dus 12 botol, 1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
+    displayOrder: ['dus', 'botol'],
+  },
+  {
+    name: 'WIP - Sirup Wizzmie Vanila',
+    specText: '1 botol 1000 ml',
+    unitRatios: { ml: 1, liter: 1000, botol: 1000 },
+    displayOrder: ['botol', 'liter'],
+  },
+  { name: 'WIP - Tepung Bumbu (Finna)', specText: 'Satuan Kg / Gram / Pack' },
+  { name: 'WIP - Tepung Bumbu (New)', specText: 'Satuan Kg / Gram / Pack' },
+  { name: 'Wortel', specText: 'Satuan Kg / Gram' },
+  { name: 'Nobla Liquid', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Nobla Liquid (new)', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Oven & Grill Cleaner', specText: 'Satuan ml / Liter / Jerigen' },
+  {
+    name: 'Oven & Grill Cleaner (new)',
+    specText: 'Satuan ml / Liter / Jerigen',
+  },
+  { name: 'Suma Calc D5', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Suma Calc D5 (new)', specText: 'Satuan ml / Liter / Jerigen' },
+  { name: 'Miracle Powder', specText: 'Satuan Gram / Kg / Pack' },
+  { name: 'Plastik T', specText: 'Satuan Pack / Pcs' },
+  { name: 'Terasi Ajinomoto', specText: 'Satuan Pack / Gram' },
+];
+
+const ITEM_PACKAGING_MAP: Map<string, ItemPackagingSpec> = (() => {
+  const map = new Map<string, ItemPackagingSpec>();
+  for (const spec of ITEM_PACKAGING_CATALOG) {
+    map.set(spec.name.toLowerCase().trim(), spec);
+    map.set(normalizeItemLookupKey(spec.name), spec);
+  }
+  return map;
+})();
+
+export function getItemPackagingSpec(
+  productName: string
+): ItemPackagingSpec | null {
+  if (!productName) return null;
+  const direct = ITEM_PACKAGING_MAP.get(productName.toLowerCase().trim());
+  if (direct) return direct;
+  return ITEM_PACKAGING_MAP.get(normalizeItemLookupKey(productName)) ?? null;
+}
+
 export const CONVERSIONS: Record<string, ConversionRule> = {
   beras: {
     baseUnit: 'KG',
-    dosMultiplier: 5,
+    dosMultiplier: 10,
     packLabel: 'Pack',
-    otherUnits: { pack: 5 },
+    otherUnits: { pack: 10 },
   },
   'dbl - ayam potong dadu': {
     baseUnit: 'KG',
     dosMultiplier: 10,
     packLabel: 'Dos',
+  },
+  'dbl - ayam wfc 1.1': {
+    baseUnit: 'PORSI',
+    dosMultiplier: 90,
+    packLabel: 'Dos',
+    otherUnits: { pack: 9 },
   },
   'dbl - cabai rawit': {
     baseUnit: 'KG',
@@ -72,29 +803,31 @@ export const CONVERSIONS: Record<string, ConversionRule> = {
     baseUnit: 'PORSI',
     dosMultiplier: 50,
     packLabel: 'Dos',
-    otherUnits: { 'pack @5porsi': 5 },
+    otherUnits: { 'pack @5porsi': 5, pack: 5 },
   },
   'fresh milk': {
     baseUnit: 'ML',
     dosMultiplier: 1000,
     packLabel: 'Btl',
-    otherUnits: { btl: 1000 },
+    otherUnits: { btl: 1000, botol: 1000 },
   },
   'kecap manis': {
     baseUnit: 'KG',
     dosMultiplier: 21,
     packLabel: 'Dos',
+    otherUnits: { jerigen: 7, jrg: 7 },
   },
   'minyak goreng': {
     baseUnit: 'L',
     dosMultiplier: 18,
-    packLabel: 'Jrg',
-    otherUnits: { jrg: 18 },
+    packLabel: 'Dus',
+    otherUnits: { jrg: 18, jerigen: 18 },
   },
   'skm carnation @2kg': {
     baseUnit: 'KG',
     dosMultiplier: 16,
     packLabel: 'Dos',
+    otherUnits: { pack: 2 },
   },
   'tepung wizzchick (tepung krispi)': {
     baseUnit: 'KG',
@@ -105,12 +838,19 @@ export const CONVERSIONS: Record<string, ConversionRule> = {
     baseUnit: 'GR',
     dosMultiplier: 80,
     packLabel: 'Pack',
-    otherUnits: { pack: 80 },
+    otherUnits: { pack: 80, ball: 4000 },
+  },
+  'tong tji jasmine tea': {
+    baseUnit: 'GR',
+    dosMultiplier: 80,
+    packLabel: 'Pack',
+    otherUnits: { pack: 80, ball: 4000 },
   },
   'wip - adonan pangsit': {
     baseUnit: 'KG',
     dosMultiplier: 12,
     packLabel: 'Dos',
+    otherUnits: { pack: 2 },
   },
   'wip - ayam tabur': {
     baseUnit: 'KG',
@@ -121,46 +861,82 @@ export const CONVERSIONS: Record<string, ConversionRule> = {
     baseUnit: 'PORSI',
     dosMultiplier: 140,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
+  },
+  'wip - bumbu mie': {
+    baseUnit: 'ML',
+    dosMultiplier: 12000,
+    packLabel: 'Dos',
+    otherUnits: { btl: 1000, botol: 1000 },
   },
   'wip - ceker': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 100,
+    packLabel: 'Dos',
+    otherUnits: { pack: 10 },
+  },
+  'wip - ebi furai (new)': {
+    baseUnit: 'PORSI',
+    dosMultiplier: 60,
+    packLabel: 'Dos',
+    otherUnits: { pack: 5 },
+  },
+  'wip - kulit pangsit': {
+    baseUnit: 'KG',
+    dosMultiplier: 20,
+    packLabel: 'Dos',
+  },
+  'wip - kulit udang rambutan': {
+    baseUnit: 'KG',
+    dosMultiplier: 12,
     packLabel: 'Dos',
   },
   'wip - lumpia ayam': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 130,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
   },
   'wip - lumpia udang': {
     baseUnit: 'PORSI',
     dosMultiplier: 110,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
   },
   'wip - mie': {
     baseUnit: 'Pcs',
     dosMultiplier: 160,
     packLabel: 'Dos',
+    otherUnits: { pack: 20 },
   },
   'wip - pao ayam': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 70,
+    packLabel: 'Dos',
+    otherUnits: { pack: 10 },
+  },
+  'wip - sambal horeg': {
+    baseUnit: 'KG',
+    dosMultiplier: 12,
     packLabel: 'Dos',
   },
   'wip - siomay': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 140,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
   },
   'wip - udang keju': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 120,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
   },
   'wip - udang rambutan': {
     baseUnit: 'Porsi @3pcs',
     dosMultiplier: 140,
     packLabel: 'Dos',
+    otherUnits: { pack: 10 },
   },
 };
 
@@ -267,11 +1043,121 @@ export function formatSignedQty(qty: number): string {
   })}`;
 }
 
+function resolveCanonicalUnit(rawUnit: string): CanonicalUnit | null {
+  const u = rawUnit.toLowerCase().trim();
+  if (!u) return null;
+  if (u === 'kg' || u === 'kilo' || u === 'kilogram') return 'kg';
+  if (u === 'gr' || u === 'gram' || u === 'g' || u === 'grm') return 'gram';
+  if (u === 'ml' || u === 'mililiter') return 'ml';
+  if (u === 'l' || u === 'ltr' || u === 'liter') return 'liter';
+  if (u === 'porsi' || u === 'prs' || u.startsWith('porsi')) return 'porsi';
+  if (
+    u === 'pcs' ||
+    u === 'pc' ||
+    u === 'buah' ||
+    u === 'biji' ||
+    u === 'butir' ||
+    u === 'lembar'
+  ) {
+    return 'pcs';
+  }
+  if (
+    u === 'pack' ||
+    u === 'pak' ||
+    u === 'pck' ||
+    u === 'bungkus' ||
+    u === 'bks' ||
+    u.startsWith('pack ')
+  ) {
+    return 'pack';
+  }
+  if (u === 'botol' || u === 'btl') return 'botol';
+  if (u === 'dus' || u === 'dos' || u === 'box' || u === 'karton') return 'dus';
+  if (u === 'ball' || u === 'bal') return 'ball';
+  if (u === 'slop') return 'slop';
+  if (u === 'jerigen' || u === 'jrg' || u === 'jrgn') return 'jerigen';
+  if (u === 'galon' || u === 'gln') return 'galon';
+  return null;
+}
+
 export function formatPackEquivalent(
   absQty: number,
   unit: string,
   productName: string
 ): string {
+  if (!absQty || absQty <= 1e-9) return '';
+
+  const spec = getItemPackagingSpec(productName);
+  const srcUnit = resolveCanonicalUnit(unit);
+
+  if (spec?.unitRatios && srcUnit) {
+    const ratios = spec.unitRatios;
+    let srcRatio = ratios[srcUnit];
+    if (srcRatio === undefined) {
+      if (srcUnit === 'kg' && ratios.gram !== undefined) {
+        srcRatio = ratios.gram * 1000;
+      } else if (srcUnit === 'gram' && ratios.kg !== undefined) {
+        srcRatio = ratios.kg / 1000;
+      } else if (srcUnit === 'liter' && ratios.ml !== undefined) {
+        srcRatio = ratios.ml * 1000;
+      } else if (srcUnit === 'ml' && ratios.liter !== undefined) {
+        srcRatio = ratios.liter / 1000;
+      }
+    }
+
+    if (srcRatio && srcRatio > 0) {
+      const baseAmount = absQty * srcRatio;
+      const order =
+        spec.displayOrder ??
+        (Object.keys(ratios) as CanonicalUnit[]).sort(
+          (a, b) => (ratios[b] ?? 0) - (ratios[a] ?? 0)
+        );
+
+      const parts: string[] = [];
+      for (const targetUnit of order) {
+        if (targetUnit === srcUnit) continue;
+        const targetRatio = ratios[targetUnit];
+        if (!targetRatio || targetRatio <= 0) continue;
+
+        // Avoid redundant 1:1 metric alias when a real packaging unit (pack/botol) is already shown
+        if (
+          parts.length > 0 &&
+          ((targetUnit === 'kg' && ratios.pack === 1000) ||
+            (targetUnit === 'liter' && ratios.botol === 1000))
+        ) {
+          continue;
+        }
+
+        const converted = baseAmount / targetRatio;
+        const isContainer =
+          targetUnit === 'dus' ||
+          targetUnit === 'ball' ||
+          targetUnit === 'jerigen' ||
+          targetUnit === 'galon' ||
+          targetUnit === 'pack' ||
+          targetUnit === 'slop' ||
+          targetUnit === 'botol';
+
+        if (isContainer && converted < 0.2) continue;
+        if (!isContainer && converted < 0.5) continue;
+
+        const rounded = Math.round(converted * 10) / 10;
+        if (rounded <= 0) continue;
+
+        parts.push(
+          `${rounded.toLocaleString('id-ID', {
+            maximumFractionDigits: 1,
+          })} ${CANONICAL_UNIT_LABELS[targetUnit]}`
+        );
+        if (parts.length >= 2) break;
+      }
+
+      if (parts.length > 0) {
+        return `sekitar ${parts.join(' / ')}`;
+      }
+    }
+  }
+
   const rule = CONVERSIONS[productName.toLowerCase()];
   if (!rule) return '';
   if (unit.toLowerCase() !== rule.baseUnit.toLowerCase()) return '';
@@ -994,12 +1880,17 @@ export function buildAiStockContext(
         !isCompact && p.lastUnitPrice > 0
           ? ` | Hrg:${formatRupiah(p.lastUnitPrice)}`
           : '';
+      const pkgSpec = getItemPackagingSpec(p.name);
+      const specStr =
+        pkgSpec && pkgSpec.unitRatios
+          ? ` | Kemasan: ${pkgSpec.specText}`
+          : '';
       lines.push(
         `- ${codeStr}${p.name} [${p.category}${subStr}]: ${formatQtyMap(
           p.qtyByUnit,
           p.name,
           true
-        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr, pas ${p.pasDays}hr${priceStr}${purpStr}`
+        )} (${valStr}) | krg ${p.negDays}hr, lbh ${p.posDays}hr, pas ${p.pasDays}hr${priceStr}${purpStr}${specStr}`
       );
     }
   }

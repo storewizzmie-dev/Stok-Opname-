@@ -78,6 +78,7 @@ import {
   formatQtyMap,
   formatRupiah,
   formatSignedQty,
+  getItemPackagingSpec,
   parseExcelBuffer,
   sanitizeDataset,
 } from './lib/stockOpname';
@@ -2276,6 +2277,22 @@ export default function App() {
                                 </>
                               )}
                             </p>
+                            {(() => {
+                              const spec = getItemPackagingSpec(
+                                selectedProductStat.name
+                              );
+                              if (!spec) return null;
+                              return (
+                                <div className="pt-1">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100/90 dark:bg-amber-500/15 border border-amber-300/80 dark:border-amber-500/35 text-amber-900 dark:text-amber-300">
+                                    <span>Standar Satuan:</span>
+                                    <span className="font-extrabold">
+                                      {spec.specText}
+                                    </span>
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <button
@@ -2784,8 +2801,10 @@ function ReadableStockRow({
       ? 'pos'
       : 'eq';
   const packEquiv = formatPackEquivalent(Math.abs(diffQty), unit, row[0]);
+  const itemSpec = getItemPackagingSpec(row[0]);
 
   const metaParts = [
+    itemSpec?.unitRatios ? `Kemasan: ${itemSpec.specText}` : '',
     productCode ? `Kode ${productCode}` : '',
     opnameNumber ? `No. ${opnameNumber}` : '',
     category

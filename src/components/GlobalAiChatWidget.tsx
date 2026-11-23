@@ -23,6 +23,7 @@ import {
   getPnlPermanentNote,
 } from '../lib/profitLoss';
 import {
+  ITEM_PACKAGING_CATALOG,
   StockDataset,
   SummaryResult,
   ViewScope,
@@ -355,6 +356,23 @@ export function GlobalAiChatWidget({
     }
 
     sections.push(buildAllPnlContext(pnlData, selectedPnlMonth));
+
+    // Attach Master Standar Satuan & Kemasan Barang (matching question or full summary)
+    const qWords = (questionText ?? '')
+      .toLowerCase()
+      .split(/[\s,?.!:/-]+/)
+      .filter((w) => w.length >= 2);
+    const matchedSpecs = ITEM_PACKAGING_CATALOG.filter(
+      (item) =>
+        item.unitRatios ||
+        qWords.some((kw) => item.name.toLowerCase().includes(kw))
+    );
+    if (matchedSpecs.length > 0) {
+      sections.push(
+        '\n=== STANDAR SATUAN & KONVERSI KEMASAN BARANG (DUS / PACK / PORSI / BOTOL / KG / ML / PCS) ===',
+        ...matchedSpecs.map((item) => `- ${item.name}: ${item.specText}`)
+      );
+    }
 
     return sections.join('\n');
   };
