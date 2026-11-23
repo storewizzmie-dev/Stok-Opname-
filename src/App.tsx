@@ -8,6 +8,7 @@ import {
   Boxes,
   CalendarDays,
   CalendarRange,
+  Check,
   ChefHat,
   ChevronDown,
   ChevronLeft,
@@ -18,6 +19,8 @@ import {
   FileSpreadsheet,
   Home,
   Info,
+  Layers,
+  LayoutGrid,
   Leaf,
   Lightbulb,
   Moon,
@@ -72,7 +75,9 @@ import {
   convertRowWithMeta,
   formatCompactContainerDiff,
   formatCompactRupiah,
+  formatDateFullId,
   formatDateId,
+  formatDateRangeFullLabel,
   formatDateRangeLabel,
   formatMonthId,
   formatOuterContainerDiff,
@@ -87,7 +92,7 @@ import {
 
 const STORAGE_KEY = 'so';
 const PNL_STORAGE_KEY = 'so_pnl_v1';
-const THEME_KEY = 'so_theme_v2';
+const THEME_KEY = 'so_theme_v3';
 
 type MenuTab =
   | 'beranda'
@@ -199,9 +204,9 @@ export default function App() {
   const [uploadImgFailed, setUploadImgFailed] = useState(false);
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(THEME_KEY) !== 'light';
+      return localStorage.getItem(THEME_KEY) === 'dark';
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -666,22 +671,22 @@ export default function App() {
       />
 
       {/* Top Navigation Bar (Clean 3-Zone Contract) */}
-      <header className="md:sticky md:top-0 z-30 bg-white/90 dark:bg-[#081226]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-[#1C3259] shadow-[0_4px_20px_-10px_rgba(15,23,42,0.12)]">
+      <header className="md:sticky md:top-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-b border-[#EBC7E9] dark:border-[#1C3259] shadow-[0_4px_20px_-10px_rgba(110,17,104,0.14)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 md:h-16 flex items-center justify-between gap-6">
           <button
             type="button"
             onClick={() => setActiveTab('beranda')}
             className="flex items-center gap-2.5 text-left whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center font-black text-slate-950 text-base shadow-md shadow-amber-500/20 shrink-0">
+            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF35B8] to-[#C61196] dark:from-amber-400 dark:to-amber-500 flex items-center justify-center font-black text-white dark:text-slate-950 text-base shadow-md shadow-[#E0139C]/25 dark:shadow-amber-500/20 shrink-0">
               W
             </span>
             <span className="leading-tight">
-              <span className="font-display block text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white">
+              <span className="font-display block text-sm sm:text-base font-bold tracking-tight text-[#391042] dark:text-white">
                 Pantau Stok Opname
               </span>
               {summary?.locationName || summary?.branchName ? (
-                <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[155px] sm:max-w-[220px]">
+                <span className="block text-[11px] font-medium text-[#7D4E85] dark:text-slate-400 truncate max-w-[155px] sm:max-w-[220px]">
                   {summary.locationName || summary.branchName}
                 </span>
               ) : null}
@@ -696,15 +701,15 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`relative h-full px-1 text-sm font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                  className={`relative h-full px-1 text-sm font-bold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     isActive
-                      ? 'text-amber-700 dark:text-amber-400'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'text-[#C61196] dark:text-amber-400'
+                      : 'text-[#6E4877] dark:text-slate-400 hover:text-[#391042] dark:hover:text-white'
                   }`}
                 >
                   <span>{item.label}</span>
                   {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 dark:bg-amber-400 rounded-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E0139C] dark:bg-amber-400 rounded-full" />
                   )}
                 </button>
               );
@@ -1676,158 +1681,199 @@ export default function App() {
               />
             ) : (
               <>
-                <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                          <GsapWordTitle
-                            text={`Catatan Harian (${
-                              viewScope === 'range'
-                                ? formatDateRangeLabel(
-                                    summary.rangeStart,
-                                    summary.rangeEnd
-                                  )
-                                : viewScope === 'day'
-                                ? formatDateId(activeDay)
-                                : formatMonthId(activeMonth)
-                            })`}
-                          />
-                        </h1>
-                        <InfoButton
-                          guideKey="harian"
-                          onOpen={setActiveInfoKey}
-                        />
+                <MotionSection className="surface-3d rounded-[32px] p-5 sm:p-7 space-y-4">
+                  {/* Top Row: Circular Pink Calendar Badge + SO DAILY ( 1 - 19 November 2026 ) + Info Button */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#FDE4F7] dark:bg-[#231438] border border-[#F5C5EC] dark:border-[#6A2363] flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-6 h-6 sm:w-7 sm:h-7 text-[#6A1064] dark:text-[#FF55C8]" />
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                        Semua {summary.totalRowsCount} baris hitungan dari Excel tampil lengkap (termasuk barang yang Pas). Ketuk tanggal untuk membuka rinciannya.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2 self-end sm:self-start shrink-0">
-                      <div className="inline-flex items-center gap-1 p-1 track-3d rounded-xl">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewScope('range');
-                            setIsRangePickerOpen(true);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
+                      <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-[#391042] dark:text-white leading-snug">
+                        <GsapWordTitle
+                          text={`SO DAILY ( ${
                             viewScope === 'range'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          <CalendarRange className="w-3.5 h-3.5 shrink-0" />
-                          <span>Rentang Tanggal</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewScope('day');
-                            setIsRangePickerOpen(false);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
-                            viewScope === 'day'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-                          <span>Cek 1 Hari</span>
-                        </button>
-                      </div>
-
-                      {viewScope === 'day' && (
-                        <select
-                          aria-label="Pilih tanggal di Harian"
-                          value={activeDay}
-                          onChange={(e) => setSelectedDay(e.target.value)}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[36px]"
-                        >
-                          {activeMonthDates
-                            .slice()
-                            .reverse()
-                            .map((d) => (
-                              <option key={d} value={d}>
-                                {formatDateId(d)}
-                              </option>
-                            ))}
-                        </select>
-                      )}
+                              ? formatDateRangeFullLabel(
+                                  summary.rangeStart,
+                                  summary.rangeEnd
+                                )
+                              : viewScope === 'day'
+                              ? formatDateFullId(activeDay)
+                              : formatMonthId(activeMonth)
+                          } )`}
+                        />
+                      </h1>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveInfoKey('harian')}
+                      aria-label="Info penjelasan SO Daily"
+                      title="Penjelasan singkat bagian ini"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-[#6E1269] dark:border-[#FF55C8] text-[#6E1269] dark:text-[#FF55C8] hover:bg-[#FDE4F7]/60 dark:hover:bg-[#FF55C8]/15 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    >
+                      <span className="font-serif font-black text-base sm:text-lg leading-none">
+                        i
+                      </span>
+                    </button>
                   </div>
 
-                  <div className="flex flex-col md:flex-row md:items-center gap-3">
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="search"
-                        value={dailySearch}
-                        onChange={(e) => setDailySearch(e.target.value)}
-                        placeholder="Cari nama barang, kode (Dry 123), atau No. SP (SP2026...)..."
-                        autoComplete="off"
-                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px]"
-                      />
+                  {/* Second Row: Right-aligned Pill Toggle (Rentang Tanggal / Cek 1 Hari) */}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="inline-flex items-center rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] p-0.5 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewScope('range');
+                          setIsRangePickerOpen(true);
+                        }}
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold rounded-full transition-all min-h-[40px] whitespace-nowrap cursor-pointer ${
+                          viewScope === 'range'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
+                        }`}
+                      >
+                        <CalendarRange className="w-4 h-4 shrink-0" />
+                        <span>Rentang Tanggal</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewScope('day');
+                          setIsRangePickerOpen(false);
+                        }}
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold rounded-full transition-all min-h-[40px] whitespace-nowrap cursor-pointer ${
+                          viewScope === 'day'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
+                        }`}
+                      >
+                        <CalendarDays
+                          className={`w-4 h-4 shrink-0 ${
+                            viewScope === 'day'
+                              ? 'text-white'
+                              : 'text-[#6E1269] dark:text-[#FF55C8]'
+                          }`}
+                        />
+                        <span>Cek 1 Hari</span>
+                      </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-[#0A162B] dark:border dark:border-[#182C4C] rounded-xl">
-                        {(
-                          [
-                            { id: 'all', label: 'Semua' },
-                            { id: 'diff', label: 'Selisih' },
-                            { id: 'neg', label: 'Minus' },
-                            { id: 'pos', label: 'Lebih' },
-                            { id: 'pas', label: 'Pas' },
-                          ] as const
-                        ).map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setDailyFilter(tab.id)}
-                            className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[36px] cursor-pointer ${
-                              dailyFilter === tab.id
-                                ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
+                    {viewScope === 'day' && (
+                      <select
+                        aria-label="Pilih tanggal di Harian"
+                        value={activeDay}
+                        onChange={(e) => setSelectedDay(e.target.value)}
+                        className="px-4 py-2 text-xs sm:text-sm font-bold rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 min-h-[38px] cursor-pointer"
+                      >
+                        {activeMonthDates
+                          .slice()
+                          .reverse()
+                          .map((d) => (
+                            <option key={d} value={d}>
+                              {formatDateFullId(d)}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Third Row: Full-width Rounded Pill Search Input with Clear (X) Button */}
+                  <div className="relative">
+                    <Search className="w-5 h-5 text-[#5D1359] dark:text-[#FF7AD2] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                    <input
+                      type="text"
+                      value={dailySearch}
+                      onChange={(e) => setDailySearch(e.target.value)}
+                      placeholder="Cari nama barang, kode (Dry 123), atau bagian..."
+                      autoComplete="off"
+                      className="w-full pl-12 pr-12 py-3 text-sm sm:text-base rounded-full border border-[#E5CEEC] dark:border-[#233F6D] bg-[#FAF5FC] dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 placeholder:text-[#9A77A3] dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E0139C] min-h-[48px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setDailySearch('')}
+                      aria-label="Bersihkan pencarian"
+                      className={`w-7 h-7 rounded-full bg-[#EAD4F0] hover:bg-[#DFBEE8] dark:bg-[#1C3259] dark:hover:bg-[#274477] text-[#4C1048] dark:text-slate-200 flex items-center justify-center absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity cursor-pointer ${
+                        dailySearch ? 'opacity-100' : 'opacity-75 hover:opacity-100'
+                      }`}
+                    >
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </button>
+                  </div>
+
+                  {/* Fourth Row: 5-Column Segmented Pill Filter Bar (Semua, Selisih, Minus, Lebih, Pas) */}
+                  <div className="grid grid-cols-5 items-center rounded-full border border-[#E5CEEC] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] p-0.5 overflow-hidden shadow-xs">
+                    {(
+                      [
+                        { id: 'all', label: 'Semua' },
+                        { id: 'diff', label: 'Selisih' },
+                        { id: 'neg', label: 'Minus' },
+                        { id: 'pos', label: 'Lebih' },
+                        { id: 'pas', label: 'Pas' },
+                      ] as const
+                    ).map((tab, idx) => {
+                      const isActive = dailyFilter === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDailyFilter(tab.id)}
+                          className={`relative flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-1.5 sm:px-3 text-xs sm:text-base font-bold transition-all min-h-[44px] sm:min-h-[48px] whitespace-nowrap cursor-pointer ${
+                            isActive
+                              ? 'wizzmie-pink-pill rounded-full text-white z-10'
+                              : `text-[#391042] dark:text-slate-200 hover:text-[#C61196] dark:hover:text-white ${
+                                  idx > 0
+                                    ? 'border-l border-[#EFE0F3] dark:border-[#1B3258]'
+                                    : ''
+                                }`
+                          }`}
+                        >
+                          {isActive && (
+                            <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white text-[#C61196] flex items-center justify-center shrink-0 shadow-xs">
+                              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+                            </span>
+                          )}
+                          <span>{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Fifth Row: 2-Column Equal-Width Rounded Pill Dropdowns (Semua Bagian & Semua Keperluan) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="relative">
+                      <LayoutGrid className="w-5 h-5 text-[#6E1269] dark:text-[#FF55C8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select
+                        aria-label="Filter bagian"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="w-full appearance-none pl-12 pr-10 py-3 text-sm sm:text-base font-bold rounded-full border border-[#EBC7E9] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#E0139C] min-h-[48px] cursor-pointer"
+                      >
+                        <option value="ALL">Semua Bagian</option>
+                        {summary.categoryStats.map((cat) => (
+                          <option key={cat.category} value={cat.category}>
+                            {cat.category}
+                          </option>
                         ))}
-                      </div>
+                      </select>
+                      <ChevronDown className="w-5 h-5 text-[#391042] dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                    </div>
 
-                      {summary.categoryStats.length > 0 && (
-                        <select
-                          aria-label="Filter bagian"
-                          value={categoryFilter}
-                          onChange={(e) => setCategoryFilter(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[42px]"
-                        >
-                          <option value="ALL">Semua Bagian</option>
-                          {summary.categoryStats.map((cat) => (
-                            <option key={cat.category} value={cat.category}>
-                              {cat.category}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {summary.allPurposes.length > 0 && (
-                        <select
-                          aria-label="Filter keperluan"
-                          value={purposeFilter}
-                          onChange={(e) => setPurposeFilter(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2124] text-slate-900 dark:text-slate-100 min-h-[42px]"
-                        >
-                          <option value="ALL">Semua Keperluan</option>
-                          {summary.allPurposes.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                    <div className="relative">
+                      <Layers className="w-5 h-5 text-[#6E1269] dark:text-[#FF55C8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select
+                        aria-label="Filter keperluan"
+                        value={purposeFilter}
+                        onChange={(e) => setPurposeFilter(e.target.value)}
+                        className="w-full appearance-none pl-12 pr-10 py-3 text-sm sm:text-base font-bold rounded-full border border-[#EBC7E9] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#E0139C] min-h-[48px] cursor-pointer"
+                      >
+                        <option value="ALL">Semua Keperluan</option>
+                        {summary.allPurposes.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-5 h-5 text-[#391042] dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
                     </div>
                   </div>
 
@@ -1937,7 +1983,7 @@ export default function App() {
                           {/* DateSummaryCard */}
                           <MotionCard
                             hoverLift={!isOpen}
-                            className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl shadow-md overflow-hidden"
+                            className="bg-white dark:bg-[#102344] border border-[#EBC7E9] dark:border-[#203F70] rounded-2xl shadow-md overflow-hidden"
                           >
                             <button
                               type="button"
@@ -1947,61 +1993,25 @@ export default function App() {
                                   [day.date]: !(prev[day.date] ?? dayIndex === 0),
                                 }))
                               }
-                              className="w-full p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left hover:bg-slate-50/80 dark:hover:bg-[#17315B]/40 transition-colors cursor-pointer"
+                              className="w-full p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left hover:bg-[#FDF5FC] dark:hover:bg-[#17315B]/40 transition-colors cursor-pointer"
                             >
                               {/* Left: Calendar & Date Overview */}
                               <div className="flex items-start space-x-2.5">
-                                <div className="w-9 h-9 rounded-lg bg-amber-400/10 dark:bg-[#FFC400]/10 flex items-center justify-center shrink-0 border border-amber-400/30 dark:border-[#FFC400]/30 mt-0.5">
-                                  <svg
-                                    className="w-5 h-5 text-amber-500 dark:text-[#FFC400]"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <rect
-                                      height="18"
-                                      rx="2"
-                                      ry="2"
-                                      strokeWidth="2"
-                                      width="18"
-                                      x="3"
-                                      y="4"
-                                    />
-                                    <line
-                                      strokeWidth="2"
-                                      x1="16"
-                                      x2="16"
-                                      y1="2"
-                                      y2="6"
-                                    />
-                                    <line
-                                      strokeWidth="2"
-                                      x1="8"
-                                      x2="8"
-                                      y1="2"
-                                      y2="6"
-                                    />
-                                    <line
-                                      strokeWidth="2"
-                                      x1="3"
-                                      x2="21"
-                                      y1="10"
-                                      y2="10"
-                                    />
-                                  </svg>
+                                <div className="w-9 h-9 rounded-full bg-[#FDE4F7] dark:bg-[#FFC400]/10 flex items-center justify-center shrink-0 border border-[#F5C5EC] dark:border-[#FFC400]/30 mt-0.5">
+                                  <CalendarDays className="w-4 h-4 text-[#6E1269] dark:text-[#FFC400]" />
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-1.5">
-                                    <h2 className="text-[15px] sm:text-base font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug">
+                                    <h2 className="text-[15px] sm:text-base font-bold text-[#391042] dark:text-[#F4F7FF] leading-snug">
                                       {formatDateId(day.date)}
                                     </h2>
                                     <ChevronDown
-                                      className={`w-4 h-4 text-slate-400 dark:text-[#A8B9D3] transition-transform duration-200 ${
+                                      className={`w-4 h-4 text-[#7D4E85] dark:text-[#A8B9D3] transition-transform duration-200 ${
                                         isOpen ? 'rotate-180' : ''
                                       }`}
                                     />
                                   </div>
-                                  <p className="text-[11px] text-slate-500 dark:text-[#A8B9D3] tracking-tight mt-0.5 tabular-nums">
+                                  <p className="text-[11px] text-[#7D4E85] dark:text-[#A8B9D3] tracking-tight mt-0.5 tabular-nums">
                                     {day.totalCount} baris ({day.diffCount} selisih ·{' '}
                                     {day.pasCount} pas)
                                   </p>
@@ -2009,25 +2019,25 @@ export default function App() {
                               </div>
 
                               {/* Right: Summary Metrics */}
-                              <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-[#203F70]/60 tabular-nums">
-                                <div className="sm:border-l sm:border-slate-200 dark:sm:border-[#203F70] sm:pl-3">
-                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                              <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F3DFEE] dark:border-[#203F70]/60 tabular-nums">
+                                <div className="sm:border-l sm:border-[#F0D5EC] dark:sm:border-[#203F70] sm:pl-3">
+                                  <span className="block text-[10px] text-[#7D4E85] dark:text-[#A8B9D3]">
                                     Minus
                                   </span>
                                   <span className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-[#FF5B62]">
                                     - {formatCompactRupiah(day.negVal)}
                                   </span>
                                 </div>
-                                <div className="border-l border-slate-200 dark:border-[#203F70] pl-2.5 sm:pl-3">
-                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                                <div className="border-l border-[#F0D5EC] dark:border-[#203F70] pl-2.5 sm:pl-3">
+                                  <span className="block text-[10px] text-[#7D4E85] dark:text-[#A8B9D3]">
                                     Lebih
                                   </span>
                                   <span className="text-xs sm:text-[13px] font-bold text-emerald-600 dark:text-[#16D6A0]">
                                     + {formatCompactRupiah(day.posVal)}
                                   </span>
                                 </div>
-                                <div className="border-l border-slate-200 dark:border-[#203F70] pl-2.5 sm:pl-3">
-                                  <span className="block text-[10px] text-slate-500 dark:text-[#A8B9D3]">
+                                <div className="border-l border-[#F0D5EC] dark:border-[#203F70] pl-2.5 sm:pl-3">
+                                  <span className="block text-[10px] text-[#7D4E85] dark:text-[#A8B9D3]">
                                     Hasil Hari Itu
                                   </span>
                                   <span
@@ -2036,7 +2046,7 @@ export default function App() {
                                         ? 'text-rose-600 dark:text-[#FF5B62]'
                                         : dayNet > 0.5
                                         ? 'text-emerald-600 dark:text-[#16D6A0]'
-                                        : 'text-slate-600 dark:text-[#A8B9D3]'
+                                        : 'text-[#6E4877] dark:text-[#A8B9D3]'
                                     }`}
                                   >
                                     {dayNet < -0.5
@@ -2763,36 +2773,40 @@ export default function App() {
 
             <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-5">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-xl sm:text-2xl font-bold text-[#391042] dark:text-white">
                   <GsapWordTitle text="Pengaturan Tampilan" />
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Pilih tema tampilan Navy &amp; Gold (Wizzmie) atau tampilan cerah sesuai kenyamanan Anda.
+                  Pilih tema tampilan Wizzmie Pink &amp; Plum (Cerah) atau Navy &amp; Gold (Gelap) sesuai kenyamanan Anda.
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/90">
+              <div className="pt-2 border-t border-[#F0D5EC] dark:border-slate-800/90">
                 <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">
+                    <div className="font-semibold text-[#391042] dark:text-white">
                       Tema Tampilan
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Pilih tampilan Navy &amp; Gold (Wizzmie) atau tampilan cerah.
+                      {isDark
+                        ? 'Aktif: Tema Gelap (Navy & Gold)'
+                        : 'Aktif: Tema Wizzmie Pink & Plum (Cerah)'}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsDark((prev) => !prev)}
-                    className="btn-3d-soft px-4 py-2.5 text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 flex items-center gap-2 self-start sm:self-auto min-h-[44px] cursor-pointer"
+                    className="btn-3d-soft px-4 py-2.5 text-sm font-semibold rounded-xl text-[#391042] dark:text-slate-100 flex items-center gap-2 self-start sm:self-auto min-h-[44px] cursor-pointer"
                   >
                     {isDark ? (
                       <Sun className="w-4 h-4 text-amber-400" />
                     ) : (
-                      <Moon className="w-4 h-4 text-slate-600" />
+                      <Moon className="w-4 h-4 text-[#C61196]" />
                     )}
                     <span>
-                      {isDark ? 'Ganti ke Tema Cerah' : 'Pakai Tema Wizzmie (Navy & Gold)'}
+                      {isDark
+                        ? 'Pakai Tema Wizzmie Pink (Cerah)'
+                        : 'Ganti ke Tema Gelap (Navy & Gold)'}
                     </span>
                   </button>
                 </div>
@@ -2816,7 +2830,7 @@ export default function App() {
       {/* Mobile Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Menu utama"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#061329]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#203F70] shadow-[0_-8px_24px_-6px_rgba(2,6,23,0.45)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#061329]/95 backdrop-blur-md border-t border-[#EBC7E9] dark:border-[#203F70] shadow-[0_-8px_24px_-6px_rgba(110,17,104,0.18)]"
       >
         <div className="grid grid-cols-5 h-16">
           {navItems.map((item) => {
@@ -2829,8 +2843,8 @@ export default function App() {
                 onClick={() => setActiveTab(item.id)}
                 className={`relative flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
                   isActive
-                    ? 'text-amber-600 dark:text-[#FFC400] font-bold'
-                    : 'text-slate-500 dark:text-[#A8B9D3] font-medium hover:text-slate-900 dark:hover:text-[#F4F7FF]'
+                    ? 'text-[#C61196] dark:text-[#FFC400] font-bold'
+                    : 'text-[#6E4877] dark:text-[#A8B9D3] font-medium hover:text-[#391042] dark:hover:text-[#F4F7FF]'
                 }`}
               >
                 {item.icon}
@@ -2838,7 +2852,7 @@ export default function App() {
                   {item.mobileLabel}
                 </span>
                 {isActive && (
-                  <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-amber-500 dark:bg-[#FFC400]" />
+                  <span className="absolute bottom-0 left-3 right-3 h-[3px] rounded-t-full bg-[#E0139C] dark:bg-[#FFC400]" />
                 )}
               </button>
             );
@@ -3031,10 +3045,10 @@ function ReadableStockRow({
   return (
     <>
       <article
-        className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl overflow-hidden shadow-sm transition-all duration-200"
+        className="bg-white dark:bg-[#102344] border border-[#EBC7E9] dark:border-[#203F70] rounded-2xl overflow-hidden shadow-sm transition-all duration-200"
         data-purpose="inventory-item"
       >
-        <div className="p-3 sm:p-3.5">
+        <div className="p-3.5 sm:p-4">
           {/* Top Row: Product Name & Diff Status Tag */}
           <div className="flex justify-between items-start gap-2 mb-2.5">
             <div className="pr-2 min-w-0">
@@ -3042,16 +3056,16 @@ function ReadableStockRow({
                 <button
                   type="button"
                   onClick={onTitleClick}
-                  className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] hover:text-amber-600 dark:hover:text-[#FFC400] leading-snug text-left break-words cursor-pointer"
+                  className="text-sm sm:text-[15px] font-bold text-[#391042] dark:text-[#F4F7FF] hover:text-[#C61196] dark:hover:text-[#FFC400] leading-snug text-left break-words cursor-pointer"
                 >
                   {title}
                 </button>
               ) : (
-                <h2 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug break-words">
+                <h2 className="text-sm sm:text-[15px] font-bold text-[#391042] dark:text-[#F4F7FF] leading-snug break-words">
                   {title}
                 </h2>
               )}
-              <span className="block text-[10px] sm:text-[11px] text-slate-500 dark:text-[#A8B9D3] mt-0.5">
+              <span className="block text-[10px] sm:text-[11px] text-[#7D4E85] dark:text-[#A8B9D3] mt-0.5">
                 {subtitleText}
               </span>
             </div>
@@ -3060,7 +3074,7 @@ function ReadableStockRow({
               type="button"
               onClick={() => setIsFormulaOpen(true)}
               title="Ketuk untuk lihat rumus lengkap selisih"
-              className="text-right shrink-0 tabular-nums rounded-lg px-1.5 py-1 -mr-1.5 -mt-1 hover:bg-slate-100/80 dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
+              className="text-right shrink-0 tabular-nums rounded-lg px-1.5 py-1 -mr-1.5 -mt-1 hover:bg-[#FDF3FB] dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
             >
               <div className="flex items-center justify-end space-x-1.5">
                 <span
@@ -3069,7 +3083,7 @@ function ReadableStockRow({
                       ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
                       : state === 'pos'
                       ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
-                      : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
+                      : 'bg-[#F3E2F1] dark:bg-[#17315B] text-[#5B2163] dark:text-[#A8B9D3]'
                   }`}
                 >
                   {state === 'neg' ? 'MINUS' : state === 'pos' ? 'LEBIH' : 'PAS'}
@@ -3080,7 +3094,7 @@ function ReadableStockRow({
                       ? 'text-rose-600 dark:text-[#FF5B62]'
                       : state === 'pos'
                       ? 'text-emerald-600 dark:text-[#16D6A0]'
-                      : 'text-slate-500 dark:text-[#A8B9D3]'
+                      : 'text-[#6E4877] dark:text-[#A8B9D3]'
                   }`}
                 >
                   {formatQty(Math.abs(diffQty))} {unit}
@@ -3092,7 +3106,7 @@ function ReadableStockRow({
                     ? 'text-rose-600 dark:text-[#FF5B62]'
                     : state === 'pos'
                     ? 'text-emerald-600 dark:text-[#16D6A0]'
-                    : 'text-slate-500 dark:text-[#A8B9D3]'
+                    : 'text-[#6E4877] dark:text-[#A8B9D3]'
                 }`}
               >
                 {state === 'neg'
@@ -3105,10 +3119,10 @@ function ReadableStockRow({
           </div>
 
           {/* Middle Row: Compact Side-by-Side Comparison (Di Sistem ESB vs Hitungan Gudang) */}
-          <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#0c1b35] p-2.5 rounded-lg border border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+          <div className="grid grid-cols-2 gap-2 bg-[#FAF5FC] dark:bg-[#0c1b35] p-2.5 rounded-xl border border-[#EDD5EC] dark:border-[#203F70]/60 text-xs tabular-nums">
             <div className="flex items-center space-x-2">
               <svg
-                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -3121,18 +3135,18 @@ function ReadableStockRow({
                 />
               </svg>
               <div className="min-w-0">
-                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
                   Di Sistem ESB
                 </p>
-                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
                   {formatQty(sysQty)}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
+            <div className="flex items-center space-x-2 border-l border-[#EBCEE9] dark:border-[#203F70]/50 pl-2.5">
               <svg
-                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -3145,10 +3159,10 @@ function ReadableStockRow({
                 />
               </svg>
               <div className="min-w-0">
-                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
                   Hitungan Gudang
                 </p>
-                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
                   {formatQty(opQty)} {unit}
                 </p>
               </div>
@@ -3157,10 +3171,10 @@ function ReadableStockRow({
 
           {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in dus/pack/botol equivalent, or blank if none) */}
           {isExpanded && (
-            <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+            <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-[#EED7EC] dark:border-[#203F70]/60 text-xs tabular-nums">
               <div className="col-span-5 flex items-center space-x-1.5 min-w-0">
                 <svg
-                  className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFC400] shrink-0"
+                  className="w-3.5 h-3.5 text-[#C61196] dark:text-[#FFC400] shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -3173,10 +3187,10 @@ function ReadableStockRow({
                   />
                 </svg>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
                     Harga / Unit
                   </p>
-                  <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-[11px] sm:text-xs font-mono mt-0.5 whitespace-nowrap">
+                  <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-[11px] sm:text-xs font-mono mt-0.5 whitespace-nowrap">
                     {valUnit > 0 ? formatRupiah(valUnit, false) : '-'}
                   </p>
                 </div>
@@ -3186,10 +3200,10 @@ function ReadableStockRow({
                 type="button"
                 onClick={() => setIsFormulaOpen(true)}
                 title="Ketuk untuk lihat rincian rumus selisih"
-                className="col-span-7 flex items-center space-x-1.5 border-l border-slate-200 dark:border-[#203F70]/50 pl-2 min-w-0 text-left rounded-lg py-0.5 -my-0.5 hover:bg-slate-100/80 dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
+                className="col-span-7 flex items-center space-x-1.5 border-l border-[#EBCEE9] dark:border-[#203F70]/50 pl-2 min-w-0 text-left rounded-lg py-0.5 -my-0.5 hover:bg-[#FDF3FB] dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
               >
                 <svg
-                  className="w-3.5 h-3.5 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                  className="w-3.5 h-3.5 text-[#C61196] dark:text-[#83B9FF] shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -3202,7 +3216,7 @@ function ReadableStockRow({
                   />
                 </svg>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
                     Selisih
                   </p>
                   <p
@@ -3211,7 +3225,7 @@ function ReadableStockRow({
                         ? 'text-rose-600 dark:text-[#FF5B62]'
                         : state === 'pos'
                         ? 'text-emerald-600 dark:text-[#16D6A0]'
-                        : 'text-slate-500 dark:text-[#A8B9D3]'
+                        : 'text-[#6E4877] dark:text-[#A8B9D3]'
                     }`}
                   >
                     {selisihDetailText || 'Pas (0)'}
@@ -3225,26 +3239,26 @@ function ReadableStockRow({
         {/* Disclosed Metadata Section */}
         {isExpanded && (
           <div
-            className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-2 text-[11px]"
+            className="bg-[#FDF7FC] dark:bg-[#17315B]/50 border-t border-[#EED7EC] dark:border-[#203F70] px-3.5 py-2.5 space-y-2 text-[11px]"
             data-purpose="item-expanded-metadata"
           >
             <div>
-              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+              <span className="block text-[9px] text-[#7D4E85] dark:text-[#A8B9D3]/80">
                 Kemasan / Konversi:
               </span>
-              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+              <span className="text-[#391042] dark:text-[#F4F7FF] font-medium">
                 {packagingDisplay}
               </span>
             </div>
 
-            <div className="pt-2 border-t border-slate-200/80 dark:border-[#203F70]/60 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums font-mono">
+            <div className="pt-2 border-t border-[#EED7EC] dark:border-[#203F70]/60 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] tabular-nums font-mono">
                 {fileDateSummaryLine}
               </span>
               <button
                 type="button"
                 onClick={() => setIsFormulaOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 dark:bg-[#83B9FF]/15 dark:hover:bg-[#83B9FF]/25 border border-sky-500/25 dark:border-[#83B9FF]/30 text-[10px] font-semibold text-sky-700 dark:text-[#83B9FF] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FDE7F8] hover:bg-[#FAD2F1] dark:bg-[#83B9FF]/15 dark:hover:bg-[#83B9FF]/25 border border-[#F2BCE7] dark:border-[#83B9FF]/30 text-[10px] font-bold text-[#8E106E] dark:text-[#83B9FF] transition-colors cursor-pointer"
               >
                 <span>Klik untuk rincian rumus</span>
                 <ArrowRight className="w-3 h-3" />
@@ -3257,7 +3271,7 @@ function ReadableStockRow({
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="w-full py-1.5 px-3 bg-slate-100/90 hover:bg-slate-200/70 dark:bg-[#14284b] dark:hover:bg-[#17315B]/80 flex items-center justify-center space-x-1.5 text-[11px] text-slate-600 dark:text-[#A8B9D3] font-medium border-t border-slate-200 dark:border-[#203F70] transition-colors cursor-pointer"
+          className="w-full py-1.5 px-3 bg-[#FAF0F8] hover:bg-[#F5E2F2] dark:bg-[#14284b] dark:hover:bg-[#17315B]/80 flex items-center justify-center space-x-1.5 text-[11px] text-[#5E1A59] dark:text-[#A8B9D3] font-semibold border-t border-[#EED7EC] dark:border-[#203F70] transition-colors cursor-pointer"
           data-purpose="detail-toggle-button"
         >
           <span>{isExpanded ? 'Tutup Detail' : 'Lihat Detail'}</span>

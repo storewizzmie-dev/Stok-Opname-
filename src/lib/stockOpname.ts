@@ -975,6 +975,11 @@ export function formatDateId(isoDate: string): string {
   return `${Number(d)} ${MONTHS_SHORT[Number(m) - 1]} ${y}`;
 }
 
+export function formatDateFullId(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-');
+  return `${Number(d)} ${MONTHS_FULL[Number(m) - 1] ?? m} ${y}`;
+}
+
 export function formatMonthId(monthKey: string): string {
   const year = monthKey.slice(0, 4);
   const monthIdx = Number(monthKey.slice(5)) - 1;
@@ -990,6 +995,17 @@ export function formatDateRangeLabel(start: string, end: string): string {
     return `${Number(normStart.slice(8))} – ${formatDateId(normEnd)}`;
   }
   return `${formatDateId(normStart)} – ${formatDateId(normEnd)}`;
+}
+
+export function formatDateRangeFullLabel(start: string, end: string): string {
+  if (!start || !end) return '';
+  const normStart = start <= end ? start : end;
+  const normEnd = start <= end ? end : start;
+  if (normStart === normEnd) return formatDateFullId(normStart);
+  if (normStart.slice(0, 7) === normEnd.slice(0, 7)) {
+    return `${Number(normStart.slice(8))} - ${formatDateFullId(normEnd)}`;
+  }
+  return `${formatDateFullId(normStart)} - ${formatDateFullId(normEnd)}`;
 }
 
 export function formatShortRupiahTag(amount: number): string {
