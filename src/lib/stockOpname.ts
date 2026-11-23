@@ -1138,15 +1138,15 @@ export function formatPackEquivalent(
           targetUnit === 'slop' ||
           targetUnit === 'botol';
 
-        if (isContainer && converted < 0.2) continue;
+        if (isContainer && converted < 0.01) continue;
         if (!isContainer && converted < 0.5) continue;
 
-        const rounded = Math.round(converted * 10) / 10;
+        const rounded = Math.round(converted * 100) / 100;
         if (rounded <= 0) continue;
 
         parts.push(
           `${rounded.toLocaleString('id-ID', {
-            maximumFractionDigits: 1,
+            maximumFractionDigits: 2,
           })} ${CANONICAL_UNIT_LABELS[targetUnit]}`
         );
         if (parts.length >= 2) break;
@@ -1163,10 +1163,10 @@ export function formatPackEquivalent(
   if (unit.toLowerCase() !== rule.baseUnit.toLowerCase()) return '';
   if (rule.dosMultiplier <= 1) return '';
   const packs = absQty / rule.dosMultiplier;
-  if (packs < 0.25) return '';
-  const rounded = Math.round(packs * 10) / 10;
+  if (packs < 0.01) return '';
+  const rounded = Math.round(packs * 100) / 100;
   return `sekitar ${rounded.toLocaleString('id-ID', {
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 2,
   })} ${rule.packLabel}`;
 }
 
@@ -1299,20 +1299,13 @@ export function formatCompactContainerDiff(
         }
 
         const converted = baseAmount / targetRatio;
-        const isOuterBox =
-          targetUnit === 'dus' ||
-          targetUnit === 'ball' ||
-          targetUnit === 'jerigen' ||
-          targetUnit === 'galon';
-        const rounded = isOuterBox
-          ? Math.round(converted * 10) / 10 || Math.round(converted * 100) / 100
-          : Math.round(converted * 10) / 10 || Math.round(converted * 100) / 100;
+        const rounded = Math.round(converted * 100) / 100;
 
         if (rounded <= 0) continue;
 
         parts.push(
           `${rounded.toLocaleString('id-ID', {
-            maximumFractionDigits: rounded < 0.1 ? 2 : 1,
+            maximumFractionDigits: 2,
           })} ${CANONICAL_UNIT_LABELS[targetUnit]}`
         );
         if (parts.length >= 2) break;
@@ -1327,13 +1320,12 @@ export function formatCompactContainerDiff(
   const rule = CONVERSIONS[productName.toLowerCase()];
   if (rule && rule.dosMultiplier > 1) {
     const packs = absQty / rule.dosMultiplier;
-    const rounded =
-      Math.round(packs * 10) / 10 || Math.round(packs * 100) / 100;
+    const rounded = Math.round(packs * 100) / 100;
     if (rounded > 0) {
       const label =
         rule.packLabel.toLowerCase() === 'dos' ? 'Dus' : rule.packLabel;
       return `${signPrefix}${rounded.toLocaleString('id-ID', {
-        maximumFractionDigits: rounded < 0.1 ? 2 : 1,
+        maximumFractionDigits: 2,
       })} ${label}`;
     }
   }
@@ -1437,6 +1429,164 @@ export function formatQtyMap(
         : `${prefix}${absStr}`;
     })
     .join(', ');
+}
+
+export interface SelisihConversionStep {
+  targetUnitLabel: string;
+  formulaText: string;
+  resultText: string;
+  explanationText: string;
+}
+
+export interface SelisihFormulaBreakdown {
+  productName: string;
+  productCode: string;
+  category: string;
+  unit: string;
+  sysQty: number;
+  opQty: number;
+  diffQty: number;
+  valUnit: number;
+  diffVal: number;
+  state: 'neg' | 'pos' | 'eq';
+  specText: string;
+  wasConvertedFromFile: boolean;
+  originalUnit: string;
+  originalDiffQty: number;
+  originalFactor: number;
+  conversionSteps: SelisihConversionStep[];
+}
+
+export function buildSelisihFormulaBreakdown(
+  meta: ConvertedStockRow
+): SelisihFormulaBreakdown {
+  const { row, wasConverted, originalUnit, originalDiffQty } = meta;
+  const productName = row[0];
+  const unit = row[1] || 'Unit';
+  const sysQty = row[2];
+  const opQty = row[3];
+  const diffQty = row[4];
+  const valUnit = row[5];
+  const diffVal = row[6];
+  const category = row[8] || 'Lainnya';
+  const productCode = row[13] || '';
+
+  const state: 'neg' | 'pos' | 'eq' =
+    diffQty < -1e-9 || diffVal < -0.5
+      ? 'neg'
+      : diffQty > 1e-9 || diffVal > 0.5
+      ? 'pos'
+      : 'eq';
+
+  const spec = getItemPackagingSpec(productName);
+  const specText = spec?.specText || 'Sesuai satuan dasar';
+  const absQty = Math.abs(diffQty);
+  const signPrefix = state === 'neg' ? '-' : state === 'pos' ? '+' : '';
+
+  const rule = CONVERSIONS[productName.toLowerCase()];
+  const origUnitLower = (originalUnit || '').toLowerCase().trim();
+  const originalFactor = rule
+    ? origUnitLower === 'dos'
+      ? rule.dosMultiplier
+      : (rule.otherUnits?.[origUnitLower] ?? 1)
+    : 1;
+
+  const conversionSteps: SelisihConversionStep[] = [];
+  const srcUnit = resolveCanonicalUnit(unit);
+
+  if (absQty > 1e-9 && spec?.unitRatios && srcUnit) {
+    const ratios = spec.unitRatios;
+    let srcRatio = ratios[srcUnit];
+    if (srcRatio === undefined) {
+      if (srcUnit === 'kg' && ratios.gram !== undefined) {
+        srcRatio = ratios.gram * 1000;
+      } else if (srcUnit === 'gram' && ratios.kg !== undefined) {
+        srcRatio = ratios.kg / 1000;
+      } else if (srcUnit === 'liter' && ratios.ml !== undefined) {
+        srcRatio = ratios.ml * 1000;
+      } else if (srcUnit === 'ml' && ratios.liter !== undefined) {
+        srcRatio = ratios.liter / 1000;
+      }
+    }
+
+    if (srcRatio && srcRatio > 0) {
+      const baseAmount = absQty * srcRatio;
+      const containerPriority: CanonicalUnit[] = [
+        'dus',
+        'ball',
+        'jerigen',
+        'galon',
+        'pack',
+        'slop',
+        'botol',
+        'porsi',
+        'pcs',
+      ];
+      const order = spec.displayOrder
+        ? spec.displayOrder.filter((u) => containerPriority.includes(u))
+        : containerPriority.filter((u) => ratios[u] !== undefined);
+
+      for (const targetUnit of order) {
+        if (targetUnit === srcUnit) continue;
+        const targetRatio = ratios[targetUnit];
+        if (!targetRatio || targetRatio <= 0) continue;
+
+        const targetLabel = CANONICAL_UNIT_LABELS[targetUnit];
+        const converted = baseAmount / targetRatio;
+        const rounded = Math.round(converted * 100) / 100;
+        if (rounded <= 0) continue;
+
+        const ratioInSrcUnit = targetRatio / srcRatio;
+        const resultFormatted = `${signPrefix}${rounded.toLocaleString('id-ID', {
+          maximumFractionDigits: 2,
+        })} ${targetLabel}`;
+
+        let formulaText = '';
+        let explanationText = '';
+
+        if (ratioInSrcUnit >= 1) {
+          const factorStr = (
+            Math.round(ratioInSrcUnit * 100) / 100
+          ).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+          formulaText = `${signPrefix}${formatQty(absQty)} ${unit} ÷ ${factorStr} ${unit}`;
+          explanationText = `1 ${targetLabel} berisi ${factorStr} ${unit}, sehingga ${formatQty(absQty)} ${unit} dibagi ${factorStr} = ${resultFormatted}.`;
+        } else {
+          const multFactor = srcRatio / targetRatio;
+          const factorStr = (
+            Math.round(multFactor * 100) / 100
+          ).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+          formulaText = `${signPrefix}${formatQty(absQty)} ${unit} × ${factorStr} ${targetLabel}`;
+          explanationText = `1 ${unit} berisi ${factorStr} ${targetLabel}, sehingga ${formatQty(absQty)} ${unit} dikali ${factorStr} = ${resultFormatted}.`;
+        }
+
+        conversionSteps.push({
+          targetUnitLabel: targetLabel,
+          formulaText,
+          resultText: resultFormatted,
+          explanationText,
+        });
+      }
+    }
+  }
+
+  return {
+    productName,
+    productCode,
+    category,
+    unit,
+    sysQty,
+    opQty,
+    diffQty,
+    valUnit,
+    diffVal,
+    state,
+    specText,
+    wasConvertedFromFile: wasConverted,
+    originalUnit,
+    originalDiffQty,
+    originalFactor,
+    conversionSteps,
+  };
 }
 
 export interface ConvertedStockRow {

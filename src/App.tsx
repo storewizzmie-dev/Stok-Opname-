@@ -67,6 +67,7 @@ import {
   ConvertedStockRow,
   StockDataset,
   ViewScope,
+  buildSelisihFormulaBreakdown,
   computeSummary,
   convertRowWithMeta,
   formatCompactContainerDiff,
@@ -78,6 +79,7 @@ import {
   formatQty,
   formatQtyMap,
   formatRupiah,
+  formatSignedQty,
   getItemPackagingSpec,
   parseExcelBuffer,
   sanitizeDataset,
@@ -2978,6 +2980,7 @@ function ReadableStockRow({
   onTitleClick?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isFormulaOpen, setIsFormulaOpen] = useState(false);
   const { row } = meta;
   const sysQty = row[2];
   const opQty = row[3];
@@ -3026,173 +3029,53 @@ function ReadableStockRow({
     : `Di file ${outerFileDiff}`;
 
   return (
-    <article
-      className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl overflow-hidden shadow-sm transition-all duration-200"
-      data-purpose="inventory-item"
-    >
-      <div className="p-3 sm:p-3.5">
-        {/* Top Row: Product Name & Diff Status Tag */}
-        <div className="flex justify-between items-start gap-2 mb-2.5">
-          <div className="pr-2 min-w-0">
-            {onTitleClick ? (
-              <button
-                type="button"
-                onClick={onTitleClick}
-                className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] hover:text-amber-600 dark:hover:text-[#FFC400] leading-snug text-left break-words cursor-pointer"
-              >
-                {title}
-              </button>
-            ) : (
-              <h2 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug break-words">
-                {title}
-              </h2>
-            )}
-            <span className="block text-[10px] sm:text-[11px] text-slate-500 dark:text-[#A8B9D3] mt-0.5">
-              {subtitleText}
-            </span>
-          </div>
-
-          <div className="text-right shrink-0 tabular-nums">
-            <div className="flex items-center justify-end space-x-1.5">
-              <span
-                className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full leading-none tracking-wide ${
-                  state === 'neg'
-                    ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
-                    : state === 'pos'
-                    ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
-                    : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
-                }`}
-              >
-                {state === 'neg' ? 'MINUS' : state === 'pos' ? 'LEBIH' : 'PAS'}
-              </span>
-              <span
-                className={`text-xs sm:text-sm font-bold ${
-                  state === 'neg'
-                    ? 'text-rose-600 dark:text-[#FF5B62]'
-                    : state === 'pos'
-                    ? 'text-emerald-600 dark:text-[#16D6A0]'
-                    : 'text-slate-500 dark:text-[#A8B9D3]'
-                }`}
-              >
-                {formatQty(Math.abs(diffQty))} {unit}
+    <>
+      <article
+        className="bg-white dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-xl overflow-hidden shadow-sm transition-all duration-200"
+        data-purpose="inventory-item"
+      >
+        <div className="p-3 sm:p-3.5">
+          {/* Top Row: Product Name & Diff Status Tag */}
+          <div className="flex justify-between items-start gap-2 mb-2.5">
+            <div className="pr-2 min-w-0">
+              {onTitleClick ? (
+                <button
+                  type="button"
+                  onClick={onTitleClick}
+                  className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] hover:text-amber-600 dark:hover:text-[#FFC400] leading-snug text-left break-words cursor-pointer"
+                >
+                  {title}
+                </button>
+              ) : (
+                <h2 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-[#F4F7FF] leading-snug break-words">
+                  {title}
+                </h2>
+              )}
+              <span className="block text-[10px] sm:text-[11px] text-slate-500 dark:text-[#A8B9D3] mt-0.5">
+                {subtitleText}
               </span>
             </div>
-            <div
-              className={`text-[11px] sm:text-xs font-semibold mt-0.5 tracking-tight font-mono ${
-                state === 'neg'
-                  ? 'text-rose-600 dark:text-[#FF5B62]'
-                  : state === 'pos'
-                  ? 'text-emerald-600 dark:text-[#16D6A0]'
-                  : 'text-slate-500 dark:text-[#A8B9D3]'
-              }`}
+
+            <button
+              type="button"
+              onClick={() => setIsFormulaOpen(true)}
+              title="Ketuk untuk lihat rumus lengkap selisih"
+              className="text-right shrink-0 tabular-nums rounded-lg px-1.5 py-1 -mr-1.5 -mt-1 hover:bg-slate-100/80 dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
             >
-              {state === 'neg'
-                ? `- ${formatRupiah(diffVal)}`
-                : state === 'pos'
-                ? `+ ${formatRupiah(diffVal)}`
-                : 'Rp 0'}
-            </div>
-          </div>
-        </div>
-
-        {/* Middle Row: Compact Side-by-Side Comparison (Di Sistem ESB vs Hitungan Gudang) */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#0c1b35] p-2.5 rounded-lg border border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
-          <div className="flex items-center space-x-2">
-            <svg
-              className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
-                Di Sistem ESB
-              </p>
-              <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
-                {formatQty(sysQty)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
-            <svg
-              className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
-                Hitungan Gudang
-              </p>
-              <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
-                {formatQty(opQty)} {unit}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in dus/pack/botol equivalent, or blank if none) */}
-        {isExpanded && (
-          <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
-            <div className="col-span-5 flex items-center space-x-1.5 min-w-0">
-              <svg
-                className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFC400] shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
-                  Harga / Unit
-                </p>
-                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-[11px] sm:text-xs font-mono mt-0.5 whitespace-nowrap">
-                  {valUnit > 0 ? formatRupiah(valUnit, false) : '-'}
-                </p>
-              </div>
-            </div>
-
-            <div className="col-span-7 flex items-center space-x-1.5 border-l border-slate-200 dark:border-[#203F70]/50 pl-2 min-w-0">
-              <svg
-                className="w-3.5 h-3.5 text-sky-600 dark:text-[#83B9FF] shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
-                  Selisih
-                </p>
-                <p
-                  className={`font-bold text-[11px] sm:text-xs font-mono mt-0.5 min-h-[16px] whitespace-nowrap ${
+              <div className="flex items-center justify-end space-x-1.5">
+                <span
+                  className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full leading-none tracking-wide ${
+                    state === 'neg'
+                      ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
+                      : state === 'pos'
+                      ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
+                      : 'bg-slate-200 dark:bg-[#17315B] text-slate-700 dark:text-[#A8B9D3]'
+                  }`}
+                >
+                  {state === 'neg' ? 'MINUS' : state === 'pos' ? 'LEBIH' : 'PAS'}
+                </span>
+                <span
+                  className={`text-xs sm:text-sm font-bold group-hover:underline ${
                     state === 'neg'
                       ? 'text-rose-600 dark:text-[#FF5B62]'
                       : state === 'pos'
@@ -3200,60 +3083,625 @@ function ReadableStockRow({
                       : 'text-slate-500 dark:text-[#A8B9D3]'
                   }`}
                 >
-                  {selisihDetailText}
+                  {formatQty(Math.abs(diffQty))} {unit}
+                </span>
+              </div>
+              <div
+                className={`text-[11px] sm:text-xs font-semibold mt-0.5 tracking-tight font-mono ${
+                  state === 'neg'
+                    ? 'text-rose-600 dark:text-[#FF5B62]'
+                    : state === 'pos'
+                    ? 'text-emerald-600 dark:text-[#16D6A0]'
+                    : 'text-slate-500 dark:text-[#A8B9D3]'
+                }`}
+              >
+                {state === 'neg'
+                  ? `- ${formatRupiah(diffVal)}`
+                  : state === 'pos'
+                  ? `+ ${formatRupiah(diffVal)}`
+                  : 'Rp 0'}
+              </div>
+            </button>
+          </div>
+
+          {/* Middle Row: Compact Side-by-Side Comparison (Di Sistem ESB vs Hitungan Gudang) */}
+          <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#0c1b35] p-2.5 rounded-lg border border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+            <div className="flex items-center space-x-2">
+              <svg
+                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  Di Sistem ESB
+                </p>
+                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                  {formatQty(sysQty)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
+              <svg
+                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                  Hitungan Gudang
+                </p>
+                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                  {formatQty(opQty)} {unit}
                 </p>
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Disclosed Metadata Section */}
-      {isExpanded && (
-        <div
-          className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-1.5 text-[11px]"
-          data-purpose="item-expanded-metadata"
+          {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in dus/pack/botol equivalent, or blank if none) */}
+          {isExpanded && (
+            <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+              <div className="col-span-5 flex items-center space-x-1.5 min-w-0">
+                <svg
+                  className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFC400] shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                  />
+                </svg>
+                <div className="min-w-0">
+                  <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                    Harga / Unit
+                  </p>
+                  <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-[11px] sm:text-xs font-mono mt-0.5 whitespace-nowrap">
+                    {valUnit > 0 ? formatRupiah(valUnit, false) : '-'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsFormulaOpen(true)}
+                title="Ketuk untuk lihat rincian rumus selisih"
+                className="col-span-7 flex items-center space-x-1.5 border-l border-slate-200 dark:border-[#203F70]/50 pl-2 min-w-0 text-left rounded-lg py-0.5 -my-0.5 hover:bg-slate-100/80 dark:hover:bg-[#17315B]/70 transition-colors cursor-pointer group"
+              >
+                <svg
+                  className="w-3.5 h-3.5 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                  />
+                </svg>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
+                    Selisih
+                  </p>
+                  <p
+                    className={`font-bold text-[11px] sm:text-xs font-mono mt-0.5 min-h-[16px] whitespace-nowrap group-hover:underline ${
+                      state === 'neg'
+                        ? 'text-rose-600 dark:text-[#FF5B62]'
+                        : state === 'pos'
+                        ? 'text-emerald-600 dark:text-[#16D6A0]'
+                        : 'text-slate-500 dark:text-[#A8B9D3]'
+                    }`}
+                  >
+                    {selisihDetailText || 'Pas (0)'}
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Disclosed Metadata Section */}
+        {isExpanded && (
+          <div
+            className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-2 text-[11px]"
+            data-purpose="item-expanded-metadata"
+          >
+            <div>
+              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+                Kemasan / Konversi:
+              </span>
+              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+                {packagingDisplay}
+              </span>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200/80 dark:border-[#203F70]/60 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums font-mono">
+                {fileDateSummaryLine}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsFormulaOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 dark:bg-[#83B9FF]/15 dark:hover:bg-[#83B9FF]/25 border border-sky-500/25 dark:border-[#83B9FF]/30 text-[10px] font-semibold text-sky-700 dark:text-[#83B9FF] transition-colors cursor-pointer"
+              >
+                <span>Klik untuk rincian rumus</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Toggle Button (Lihat Detail / Tutup Detail) */}
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="w-full py-1.5 px-3 bg-slate-100/90 hover:bg-slate-200/70 dark:bg-[#14284b] dark:hover:bg-[#17315B]/80 flex items-center justify-center space-x-1.5 text-[11px] text-slate-600 dark:text-[#A8B9D3] font-medium border-t border-slate-200 dark:border-[#203F70] transition-colors cursor-pointer"
+          data-purpose="detail-toggle-button"
         >
-          <div>
-            <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-              Kemasan / Konversi:
-            </span>
-            <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
-              {packagingDisplay}
-            </span>
+          <span>{isExpanded ? 'Tutup Detail' : 'Lihat Detail'}</span>
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M19 9l-7 7-7-7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+          </svg>
+        </button>
+      </article>
+
+      {isFormulaOpen && (
+        <SelisihFormulaModal
+          meta={meta}
+          dateLabel={dateLabel}
+          outerFileDiff={outerFileDiff}
+          selisihDetailText={selisihDetailText}
+          onClose={() => setIsFormulaOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function SelisihFormulaModal({
+  meta,
+  dateLabel,
+  outerFileDiff,
+  selisihDetailText,
+  onClose,
+}: {
+  meta: ConvertedStockRow;
+  dateLabel?: string;
+  outerFileDiff: string;
+  selisihDetailText: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  const b = useMemo(() => buildSelisihFormulaBreakdown(meta), [meta]);
+  const signSymbol = b.state === 'neg' ? '-' : b.state === 'pos' ? '+' : '';
+  const statusWord =
+    b.state === 'neg'
+      ? 'MINUS (Stok Kurang)'
+      : b.state === 'pos'
+      ? 'LEBIH (Stok Lebih)'
+      : 'PAS (Sesuai)';
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Rincian Rumus Selisih ${b.productName}`}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-xl bg-white dark:bg-[#08152C] border border-slate-200 dark:border-[#203F70] rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92vh] flex flex-col shadow-2xl"
+      >
+        {/* Premium Modal Header */}
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-200/80 dark:border-[#203F70] bg-slate-50/90 dark:bg-[#061124] flex items-start justify-between gap-4 shrink-0">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/35 text-amber-700 dark:text-[#FFC400]">
+                Rincian Rumus Perhitungan
+              </span>
+              {dateLabel && (
+                <span className="text-xs font-semibold text-slate-500 dark:text-[#A8B9D3]">
+                  {dateLabel}
+                </span>
+              )}
+            </div>
+            <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-[#F4F7FF] leading-snug pt-0.5">
+              {b.productName}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-[#A8B9D3]">
+              {b.productCode ? `Kode: ${b.productCode} · ` : ''}Bagian:{' '}
+              {b.category}
+            </p>
           </div>
 
-          <div className="pt-1.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums font-mono">
-            {fileDateSummaryLine}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup penjelasan rumus"
+            className="w-9 h-9 rounded-xl bg-slate-200/70 dark:bg-[#142B52] border border-slate-300/60 dark:border-[#254980] text-slate-600 dark:text-[#F4F7FF] hover:opacity-80 flex items-center justify-center cursor-pointer shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable Body with Generous Spacing */}
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs sm:text-sm">
+          {/* Hero Summary Card */}
+          <div
+            className={`p-4 sm:p-5 rounded-2xl border ${
+              b.state === 'neg'
+                ? 'bg-rose-50/90 dark:bg-[#19162B] border-rose-200 dark:border-[#FF5B62]/40'
+                : b.state === 'pos'
+                ? 'bg-emerald-50/90 dark:bg-[#0D272F] border-emerald-200 dark:border-[#16D6A0]/40'
+                : 'bg-slate-100 dark:bg-[#102344] border-slate-200 dark:border-[#203F70]'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#A8B9D3]">
+                Hasil Akhir Selisih
+              </span>
+              <span
+                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full tracking-wide ${
+                  b.state === 'neg'
+                    ? 'bg-rose-500 dark:bg-[#FF5B62] text-white'
+                    : b.state === 'pos'
+                    ? 'bg-emerald-500 dark:bg-[#16D6A0] text-white dark:text-[#061329]'
+                    : 'bg-slate-300 dark:bg-[#17315B] text-slate-800 dark:text-[#F4F7FF]'
+                }`}
+              >
+                {statusWord}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/70 dark:border-white/10 tabular-nums">
+              <div>
+                <span className="block text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                  Jumlah Selisih Fisik
+                </span>
+                <div
+                  className={`text-lg sm:text-xl font-black font-mono mt-0.5 ${
+                    b.state === 'neg'
+                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                      : b.state === 'pos'
+                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                      : 'text-slate-800 dark:text-[#F4F7FF]'
+                  }`}
+                >
+                  {signSymbol} {formatQty(Math.abs(b.diffQty))} {b.unit}
+                </div>
+                {selisihDetailText && (
+                  <div className="text-xs font-semibold text-slate-600 dark:text-[#A8B9D3] font-mono mt-0.5">
+                    Setara: {selisihDetailText}
+                  </div>
+                )}
+              </div>
+
+              <div className="sm:text-right sm:border-l sm:border-slate-200/70 dark:sm:border-white/10 sm:pl-4">
+                <span className="block text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                  Nilai Rupiah Selisih
+                </span>
+                <div
+                  className={`text-lg sm:text-xl font-black font-mono mt-0.5 ${
+                    b.state === 'neg'
+                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                      : b.state === 'pos'
+                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                      : 'text-slate-600 dark:text-[#A8B9D3]'
+                  }`}
+                >
+                  {b.state === 'eq'
+                    ? 'Rp 0'
+                    : `${signSymbol} ${formatRupiah(b.diffVal)}`}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-[#A8B9D3] font-mono mt-0.5">
+                  Di file Excel: {outerFileDiff}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 1: Rumus Dasar Selisih */}
+          <div className="bg-slate-50/90 dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl p-4 sm:p-5 space-y-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="w-6 h-6 rounded-lg bg-sky-500/15 dark:bg-[#83B9FF]/20 border border-sky-500/30 dark:border-[#83B9FF]/30 text-sky-700 dark:text-[#83B9FF] font-extrabold text-xs flex items-center justify-center shrink-0">
+                1
+              </span>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-[#F4F7FF] text-sm">
+                  Cara Hitung Selisih Jumlah ({b.unit})
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                  Rumus: Hitungan Gudang dikurangi Di Sistem ESB
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#061329] border border-slate-200/80 dark:border-[#203F70] rounded-xl p-3.5 font-mono text-xs sm:text-[13px] tabular-nums space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                  Hitungan Gudang (Fisik)
+                </span>
+                <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                  {formatQty(b.opQty)} {b.unit}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                  Di Sistem ESB
+                </span>
+                <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                  - {formatQty(b.sysQty)} {b.unit}
+                </span>
+              </div>
+              <div className="border-t border-slate-200 dark:border-[#203F70] pt-2.5 flex items-center justify-between gap-3">
+                <span className="font-sans font-bold text-slate-800 dark:text-[#F4F7FF]">
+                  Hasil Selisih
+                </span>
+                <span
+                  className={`text-sm font-extrabold ${
+                    b.state === 'neg'
+                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                      : b.state === 'pos'
+                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                      : 'text-slate-900 dark:text-[#F4F7FF]'
+                  }`}
+                >
+                  = {formatSignedQty(b.diffQty)} {b.unit}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-[#A8B9D3] leading-relaxed">
+              {b.state === 'neg'
+                ? `Penjelasan: Stok fisik di gudang lebih sedikit ${formatQty(
+                    Math.abs(b.diffQty)
+                  )} ${b.unit} dibandingkan catatan Sistem ESB.`
+                : b.state === 'pos'
+                ? `Penjelasan: Stok fisik di gudang lebih banyak ${formatQty(
+                    Math.abs(b.diffQty)
+                  )} ${b.unit} dibandingkan catatan Sistem ESB.`
+                : 'Penjelasan: Stok fisik di gudang sudah sama persis dengan catatan Sistem ESB.'}
+            </p>
+          </div>
+
+          {/* Step 2: Rumus Konversi Kemasan (Dus / Pack / Botol / Pcs) */}
+          <div className="bg-slate-50/90 dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl p-4 sm:p-5 space-y-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="w-6 h-6 rounded-lg bg-amber-500/15 dark:bg-[#FFC400]/20 border border-amber-500/30 dark:border-[#FFC400]/30 text-amber-700 dark:text-[#FFC400] font-extrabold text-xs flex items-center justify-center shrink-0">
+                2
+              </span>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-[#F4F7FF] text-sm">
+                  Cara Hitung Konversi Kemasan (Dus / Pack)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                  Mengubah {formatQty(Math.abs(b.diffQty))} {b.unit} ke satuan kemasan gudang
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 dark:bg-[#17315B]/80 border border-amber-500/25 dark:border-[#254980] rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <span className="text-xs text-slate-500 dark:text-[#A8B9D3]">
+                Standar Kemasan Barang:
+              </span>
+              <strong className="text-xs sm:text-sm text-slate-900 dark:text-[#FFC400]">
+                {b.specText}
+              </strong>
+            </div>
+
+            {b.conversionSteps.length > 0 ? (
+              <div className="space-y-2.5">
+                {b.conversionSteps.map((step, i) => (
+                  <div
+                    key={`${step.targetUnitLabel}-${i}`}
+                    className="bg-white dark:bg-[#061329] border border-slate-200/80 dark:border-[#203F70] rounded-xl p-3.5 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700 dark:text-[#F4F7FF]">
+                        Konversi ke {step.targetUnitLabel}
+                      </span>
+                      <span
+                        className={`text-xs sm:text-sm font-extrabold font-mono px-2.5 py-0.5 rounded-md ${
+                          b.state === 'neg'
+                            ? 'bg-rose-500/10 text-rose-600 dark:bg-[#FF5B62]/15 dark:text-[#FF5B62]'
+                            : 'bg-emerald-500/10 text-emerald-600 dark:bg-[#16D6A0]/15 dark:text-[#16D6A0]'
+                        }`}
+                      >
+                        {step.resultText}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-[#0c1b35] border border-slate-200/60 dark:border-[#203F70]/60 rounded-lg px-3 py-2 font-mono text-xs tabular-nums flex items-center justify-between gap-2">
+                      <span className="text-slate-600 dark:text-[#A8B9D3]">
+                        {step.formulaText}
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                        = {step.resultText}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-500 dark:text-[#A8B9D3] leading-relaxed">
+                      {step.explanationText}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-[#A8B9D3]">
+                Barang ini menggunakan satuan dasar ({b.unit}) tanpa konversi dus/pack tambahan.
+              </p>
+            )}
+
+            <div className="bg-white dark:bg-[#061329] border border-slate-200/80 dark:border-[#203F70] rounded-xl p-3.5 space-y-1.5">
+              <div className="text-xs font-bold text-slate-800 dark:text-[#F4F7FF]">
+                Asal Angka &ldquo;Di file {outerFileDiff}&rdquo;
+              </div>
+              {b.wasConvertedFromFile ? (
+                <p className="text-xs text-slate-600 dark:text-[#A8B9D3] leading-relaxed">
+                  Di file Excel asli, barang ini tercatat dalam satuan{' '}
+                  <strong>{b.originalUnit}</strong> sebesar{' '}
+                  <strong className="font-mono text-slate-900 dark:text-[#F4F7FF]">
+                    {formatSignedQty(b.originalDiffQty)} {b.originalUnit}
+                  </strong>
+                  . Aplikasi mengalikan{' '}
+                  <strong className="font-mono text-slate-900 dark:text-[#F4F7FF]">
+                    {formatSignedQty(b.originalDiffQty)} × {b.originalFactor}
+                  </strong>{' '}
+                  agar tampil dalam satuan{' '}
+                  <strong className="font-mono text-slate-900 dark:text-[#F4F7FF]">
+                    {formatSignedQty(b.diffQty)} {b.unit}
+                  </strong>
+                  .
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600 dark:text-[#A8B9D3] leading-relaxed">
+                  Angka{' '}
+                  <strong className="font-mono text-slate-900 dark:text-[#F4F7FF]">
+                    {outerFileDiff}
+                  </strong>{' '}
+                  adalah hasil konversi selisih{' '}
+                  <strong className="font-mono text-slate-900 dark:text-[#F4F7FF]">
+                    {formatSignedQty(b.diffQty)} {b.unit}
+                  </strong>{' '}
+                  ke satuan kemasan utama (2 angka di belakang koma sesuai standar laporan Excel).
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Step 3: Rumus Nilai Rupiah */}
+          <div className="bg-slate-50/90 dark:bg-[#102344] border border-slate-200 dark:border-[#203F70] rounded-2xl p-4 sm:p-5 space-y-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="w-6 h-6 rounded-lg bg-emerald-500/15 dark:bg-[#16D6A0]/20 border border-emerald-500/30 dark:border-[#16D6A0]/30 text-emerald-700 dark:text-[#16D6A0] font-extrabold text-xs flex items-center justify-center shrink-0">
+                3
+              </span>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-[#F4F7FF] text-sm">
+                  Cara Hitung Nilai Rupiah
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#A8B9D3]">
+                  Rumus: Jumlah Selisih dikali Harga Satuan
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#061329] border border-slate-200/80 dark:border-[#203F70] rounded-xl p-3.5 font-mono text-xs sm:text-[13px] tabular-nums space-y-2.5">
+              {b.wasConvertedFromFile && b.originalFactor > 1 ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                      Selisih di File ({b.originalUnit})
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                      {formatSignedQty(b.originalDiffQty)} {b.originalUnit}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                      Harga per {b.originalUnit}
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                      × {formatRupiah(b.valUnit, false)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                      Jumlah Selisih ({b.unit})
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                      {formatSignedQty(b.diffQty)} {b.unit}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-sans text-slate-500 dark:text-[#A8B9D3]">
+                      Harga / Unit ({b.unit})
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-[#F4F7FF]">
+                      × {formatRupiah(b.valUnit, false)}
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="border-t border-slate-200 dark:border-[#203F70] pt-2.5 flex items-center justify-between gap-3">
+                <span className="font-sans font-bold text-slate-800 dark:text-[#F4F7FF]">
+                  Total Nilai Selisih
+                </span>
+                <span
+                  className={`text-sm font-extrabold ${
+                    b.state === 'neg'
+                      ? 'text-rose-600 dark:text-[#FF5B62]'
+                      : b.state === 'pos'
+                      ? 'text-emerald-600 dark:text-[#16D6A0]'
+                      : 'text-slate-900 dark:text-[#F4F7FF]'
+                  }`}
+                >
+                  ={' '}
+                  {b.state === 'eq'
+                    ? 'Rp 0'
+                    : `${signSymbol} ${formatRupiah(b.diffVal)}`}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Toggle Button (Lihat Detail / Tutup Detail) */}
-      <button
-        type="button"
-        onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full py-1.5 px-3 bg-slate-100/90 hover:bg-slate-200/70 dark:bg-[#14284b] dark:hover:bg-[#17315B]/80 flex items-center justify-center space-x-1.5 text-[11px] text-slate-600 dark:text-[#A8B9D3] font-medium border-t border-slate-200 dark:border-[#203F70] transition-colors cursor-pointer"
-        data-purpose="detail-toggle-button"
-      >
-        <span>{isExpanded ? 'Tutup Detail' : 'Lihat Detail'}</span>
-        <svg
-          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            d="M19 9l-7 7-7-7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-        </svg>
-      </button>
-    </article>
+        {/* Footer Button */}
+        <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 dark:border-[#203F70] bg-slate-50 dark:bg-[#061124] shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm transition-colors shadow-sm cursor-pointer"
+          >
+            Tutup Rincian Rumus
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
