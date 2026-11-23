@@ -1241,6 +1241,177 @@ export function formatInnerPackDiff(
   return `${prefix}${formattedNum} ${CANONICAL_UNIT_LABELS[chosenUnit]}`;
 }
 
+export function formatCompactContainerDiff(
+  diffQty: number,
+  unit: string,
+  productName: string
+): string {
+  const absQty = Math.abs(diffQty);
+  if (!absQty || absQty <= 1e-9) return '';
+
+  const signPrefix = diffQty < -1e-9 ? '- ' : diffQty > 1e-9 ? '+ ' : '';
+  const spec = getItemPackagingSpec(productName);
+  const srcUnit = resolveCanonicalUnit(unit);
+
+  if (spec?.unitRatios && srcUnit) {
+    const ratios = spec.unitRatios;
+    let srcRatio = ratios[srcUnit];
+    if (srcRatio === undefined) {
+      if (srcUnit === 'kg' && ratios.gram !== undefined) {
+        srcRatio = ratios.gram * 1000;
+      } else if (srcUnit === 'gram' && ratios.kg !== undefined) {
+        srcRatio = ratios.kg / 1000;
+      } else if (srcUnit === 'liter' && ratios.ml !== undefined) {
+        srcRatio = ratios.ml * 1000;
+      } else if (srcUnit === 'ml' && ratios.liter !== undefined) {
+        srcRatio = ratios.liter / 1000;
+      }
+    }
+
+    if (srcRatio && srcRatio > 0) {
+      const baseAmount = absQty * srcRatio;
+      const containerPriority: CanonicalUnit[] = [
+        'dus',
+        'ball',
+        'jerigen',
+        'galon',
+        'pack',
+        'slop',
+        'botol',
+        'porsi',
+        'pcs',
+      ];
+      const order = spec.displayOrder
+        ? spec.displayOrder.filter((u) => containerPriority.includes(u))
+        : containerPriority.filter((u) => ratios[u] !== undefined);
+
+      const parts: string[] = [];
+      for (const targetUnit of order) {
+        const targetRatio = ratios[targetUnit];
+        if (!targetRatio || targetRatio <= 0) continue;
+
+        // Skip porsi/pcs if the source unit is already porsi/pcs and we already have or don't have container units
+        if (
+          (targetUnit === 'porsi' || targetUnit === 'pcs') &&
+          targetUnit === srcUnit
+        ) {
+          continue;
+        }
+
+        const converted = baseAmount / targetRatio;
+        const isOuterBox =
+          targetUnit === 'dus' ||
+          targetUnit === 'ball' ||
+          targetUnit === 'jerigen' ||
+          targetUnit === 'galon';
+        const rounded = isOuterBox
+          ? Math.round(converted * 10) / 10 || Math.round(converted * 100) / 100
+          : Math.round(converted * 10) / 10 || Math.round(converted * 100) / 100;
+
+        if (rounded <= 0) continue;
+
+        parts.push(
+          `${rounded.toLocaleString('id-ID', {
+            maximumFractionDigits: rounded < 0.1 ? 2 : 1,
+          })} ${CANONICAL_UNIT_LABELS[targetUnit]}`
+        );
+        if (parts.length >= 2) break;
+      }
+
+      if (parts.length > 0) {
+        return `${signPrefix}${parts.join(' / ')}`;
+      }
+    }
+  }
+
+  const rule = CONVERSIONS[productName.toLowerCase()];
+  if (rule && rule.dosMultiplier > 1) {
+    const packs = absQty / rule.dosMultiplier;
+    const rounded =
+      Math.round(packs * 10) / 10 || Math.round(packs * 100) / 100;
+    if (rounded > 0) {
+      const label =
+        rule.packLabel.toLowerCase() === 'dos' ? 'Dus' : rule.packLabel;
+      return `${signPrefix}${rounded.toLocaleString('id-ID', {
+        maximumFractionDigits: rounded < 0.1 ? 2 : 1,
+      })} ${label}`;
+    }
+  }
+
+  return '';
+}
+
+export function formatOuterContainerDiff(
+  diffQty: number,
+  unit: string,
+  productName: string,
+  meta?: ConvertedStockRow
+): string {
+  const absQty = Math.abs(diffQty);
+  if (!absQty || absQty <= 1e-9) return '';
+
+  const sign = diffQty < -1e-9 ? '-' : diffQty > 1e-9 ? '+' : '';
+
+  if (meta?.wasConverted && Math.abs(meta.originalDiffQty) > 1e-9) {
+    const rawUnit = meta.originalUnit.trim();
+    const prettyUnit =
+      rawUnit.toLowerCase() === 'dos' || rawUnit.toLowerCase() === 'dus'
+        ? 'Dus'
+        : rawUnit.toLowerCase() === 'btl' || rawUnit.toLowerCase() === 'botol'
+        ? 'Botol'
+        : rawUnit.toLowerCase() === 'pack'
+        ? 'Pack'
+        : rawUnit.toLowerCase() === 'jrg' || rawUnit.toLowerCase() === 'jerigen'
+        ? 'Jerigen'
+        : rawUnit;
+    return `${formatSignedQty(meta.originalDiffQty)} ${prettyUnit}`;
+  }
+
+  const spec = getItemPackagingSpec(productName);
+  const srcUnit = resolveCanonicalUnit(unit);
+  if (spec?.unitRatios && srcUnit) {
+    const ratios = spec.unitRatios;
+    let srcRatio = ratios[srcUnit];
+    if (srcRatio === undefined) {
+      if (srcUnit === 'kg' && ratios.gram !== undefined) {
+        srcRatio = ratios.gram * 1000;
+      } else if (srcUnit === 'gram' && ratios.kg !== undefined) {
+        srcRatio = ratios.kg / 1000;
+      } else if (srcUnit === 'liter' && ratios.ml !== undefined) {
+        srcRatio = ratios.ml * 1000;
+      } else if (srcUnit === 'ml' && ratios.liter !== undefined) {
+        srcRatio = ratios.liter / 1000;
+      }
+    }
+
+    if (srcRatio && srcRatio > 0) {
+      const baseAmount = absQty * srcRatio;
+      const outerCandidates: CanonicalUnit[] = [
+        'dus',
+        'ball',
+        'jerigen',
+        'galon',
+        'pack',
+        'slop',
+        'botol',
+      ];
+      for (const candidate of outerCandidates) {
+        const ratio = ratios[candidate];
+        if (!ratio || ratio <= 0) continue;
+        const converted = baseAmount / ratio;
+        const rounded =
+          Math.round(converted * 100) / 100;
+        if (rounded <= 0) continue;
+        return `${sign}${rounded.toLocaleString('id-ID', {
+          maximumFractionDigits: 2,
+        })} ${CANONICAL_UNIT_LABELS[candidate]}`;
+      }
+    }
+  }
+
+  return `${formatSignedQty(diffQty)} ${unit}`;
+}
+
 export function formatQtyMap(
   qtyByUnit: Record<string, number>,
   productName: string,
@@ -1254,13 +1425,16 @@ export function formatQtyMap(
   return entries
     .map(([unit, val]) => {
       const absStr = `${formatQty(val)} ${unit}`;
-      const equiv = formatPackEquivalent(Math.abs(val), unit, productName);
+      const compactEquiv = formatCompactContainerDiff(val, unit, productName)
+        .replace(/^[-+]\s*/, '');
       const prefix = includeSignPrefix
         ? val < -1e-9
-          ? 'Kurang '
+          ? 'Minus '
           : 'Lebih '
         : '';
-      return equiv ? `${prefix}${absStr} (${equiv})` : `${prefix}${absStr}`;
+      return compactEquiv
+        ? `${prefix}${absStr} (${compactEquiv})`
+        : `${prefix}${absStr}`;
     })
     .join(', ');
 }

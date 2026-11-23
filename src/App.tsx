@@ -69,16 +69,15 @@ import {
   ViewScope,
   computeSummary,
   convertRowWithMeta,
+  formatCompactContainerDiff,
   formatCompactRupiah,
   formatDateId,
   formatDateRangeLabel,
-  formatInnerPackDiff,
   formatMonthId,
-  formatPackEquivalent,
+  formatOuterContainerDiff,
   formatQty,
   formatQtyMap,
   formatRupiah,
-  formatSignedQty,
   getItemPackagingSpec,
   parseExcelBuffer,
   sanitizeDataset,
@@ -2427,7 +2426,7 @@ export default function App() {
                                     ? formatQtyMap(
                                         selectedProductStat.negQtyByUnit,
                                         selectedProductStat.name,
-                                        true
+                                        false
                                       )
                                     : '0'}
                                 </p>
@@ -2446,7 +2445,7 @@ export default function App() {
                                     ? formatQtyMap(
                                         selectedProductStat.posQtyByUnit,
                                         selectedProductStat.name,
-                                        true
+                                        false
                                       )
                                     : '0'}
                                 </p>
@@ -2478,7 +2477,7 @@ export default function App() {
                                   {formatQtyMap(
                                     selectedProductStat.qtyByUnit,
                                     selectedProductStat.name,
-                                    true
+                                    false
                                   )}
                                 </p>
                                 <p
@@ -2508,7 +2507,7 @@ export default function App() {
                               </span>
                               <span className="text-slate-900 dark:text-[#F4F7FF] font-medium font-mono">
                                 {selectedProductStat.lastUnitPrice > 0
-                                  ? formatRupiah(selectedProductStat.lastUnitPrice)
+                                  ? formatRupiah(selectedProductStat.lastUnitPrice, false)
                                   : '-'}
                               </span>
                             </div>
@@ -2518,28 +2517,7 @@ export default function App() {
                               </span>
                               <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
                                 {getItemPackagingSpec(selectedProductStat.name)
-                                  ?.specText || 'Sesuai satuan dasar'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                                Bagian / Sub-bagian:
-                              </span>
-                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
-                                {selectedProductStat.category}
-                                {selectedProductStat.subcategory &&
-                                selectedProductStat.subcategory !==
-                                  selectedProductStat.category
-                                  ? ` / ${selectedProductStat.subcategory}`
-                                  : ''}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                                Riwayat Tercatat:
-                              </span>
-                              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
-                                {selectedProductTimeline.length} hari opname
+                                  ?.specText || '-'}
                               </span>
                             </div>
                           </div>
@@ -2551,9 +2529,7 @@ export default function App() {
                             <ReadableStockRow
                               key={`${date}-${idx}`}
                               title={formatDateId(date)}
-                              subtitle={`${selectedProductStat.name}${
-                                meta.row[13] ? ` · Kode: ${meta.row[13]}` : ''
-                              }`}
+                              subtitle={selectedProductStat.name}
                               dateLabel={formatDateId(date)}
                               defaultExpanded={idx === 0}
                               meta={meta}
@@ -2952,20 +2928,16 @@ function ReadableStockRow({
   onTitleClick?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const { row, wasConverted, originalUnit, originalDiffQty } = meta;
+  const { row } = meta;
   const sysQty = row[2];
   const opQty = row[3];
   const diffQty = row[4];
   const valUnit = row[5];
   const diffVal = row[6];
   const unit = row[1];
-  const info = row[7];
   const category = row[8];
-  const opnameNumber = row[10];
-  const purpose = row[12];
   const productCode = row[13];
   const subcategory = row[14];
-  const rowStatus = row[15];
 
   const state =
     diffQty < -1e-9 || diffVal < -0.5
@@ -2973,9 +2945,10 @@ function ReadableStockRow({
       : diffQty > 1e-9 || diffVal > 0.5
       ? 'pos'
       : 'eq';
-  const packEquiv = formatPackEquivalent(Math.abs(diffQty), unit, row[0]);
-  const innerPackDiff = formatInnerPackDiff(diffQty, unit, row[0]);
   const itemSpec = getItemPackagingSpec(row[0]);
+
+  const selisihDetailText =
+    state === 'eq' ? '' : formatCompactContainerDiff(diffQty, unit, row[0]);
 
   const subtitleText =
     subtitle ??
@@ -2991,23 +2964,16 @@ function ReadableStockRow({
       .join(' · ') ||
       'Stok Opname Harian');
 
-  const packagingDisplay = itemSpec?.specText
-    ? packEquiv
-      ? `${itemSpec.specText} (${packEquiv})`
-      : itemSpec.specText
-    : packEquiv || 'Sesuai satuan dasar';
+  const packagingDisplay = itemSpec?.specText || '-';
 
-  const extraFooterNotes = [
-    dateLabel ? `Tanggal: ${dateLabel}` : '',
-    purpose ? `Keperluan: ${purpose}` : '',
-    rowStatus || '',
-    info || '',
-    wasConverted
-      ? `Di file: ${formatSignedQty(originalDiffQty)} ${originalUnit}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const outerFileDiff =
+    state === 'eq'
+      ? `0 ${unit}`
+      : formatOuterContainerDiff(diffQty, unit, row[0], meta);
+
+  const fileDateSummaryLine = dateLabel
+    ? `${dateLabel} : Di file ${outerFileDiff}`
+    : `Di file ${outerFileDiff}`;
 
   return (
     <article
@@ -3130,12 +3096,12 @@ function ReadableStockRow({
           </div>
         </div>
 
-        {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in inner packaging unit, or blank if none) */}
+        {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in dus/pack/botol equivalent, or blank if none) */}
         {isExpanded && (
-          <div className="grid grid-cols-2 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
-            <div className="flex items-center space-x-2">
+          <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-xs tabular-nums">
+            <div className="col-span-5 flex items-center space-x-1.5 min-w-0">
               <svg
-                className="w-4 h-4 text-amber-500 dark:text-[#FFC400] shrink-0"
+                className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFC400] shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -3151,15 +3117,15 @@ function ReadableStockRow({
                 <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
                   Harga / Unit
                 </p>
-                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
-                  {valUnit > 0 ? formatRupiah(valUnit) : '-'}
+                <p className="font-bold text-slate-900 dark:text-[#F4F7FF] text-[11px] sm:text-xs font-mono mt-0.5 whitespace-nowrap">
+                  {valUnit > 0 ? formatRupiah(valUnit, false) : '-'}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-[#203F70]/50 pl-2.5">
+            <div className="col-span-7 flex items-center space-x-1.5 border-l border-slate-200 dark:border-[#203F70]/50 pl-2 min-w-0">
               <svg
-                className="w-4 h-4 text-sky-600 dark:text-[#83B9FF] shrink-0"
+                className="w-3.5 h-3.5 text-sky-600 dark:text-[#83B9FF] shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -3171,12 +3137,12 @@ function ReadableStockRow({
                   strokeWidth="2"
                 />
               </svg>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-slate-500 dark:text-[#A8B9D3] leading-tight">
                   Selisih
                 </p>
                 <p
-                  className={`font-bold text-xs sm:text-[13px] font-mono mt-0.5 min-h-[18px] ${
+                  className={`font-bold text-[11px] sm:text-xs font-mono mt-0.5 min-h-[16px] whitespace-nowrap ${
                     state === 'neg'
                       ? 'text-rose-600 dark:text-[#FF5B62]'
                       : state === 'pos'
@@ -3184,7 +3150,7 @@ function ReadableStockRow({
                       : 'text-slate-500 dark:text-[#A8B9D3]'
                   }`}
                 >
-                  {innerPackDiff}
+                  {selisihDetailText}
                 </p>
               </div>
             </div>
@@ -3195,53 +3161,21 @@ function ReadableStockRow({
       {/* Disclosed Metadata Section */}
       {isExpanded && (
         <div
-          className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-2 text-[11px]"
+          className="bg-slate-50/90 dark:bg-[#17315B]/50 border-t border-slate-200 dark:border-[#203F70] px-3.5 py-2.5 space-y-1.5 text-[11px]"
           data-purpose="item-expanded-metadata"
         >
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-slate-500 dark:text-[#A8B9D3]">
-            <div>
-              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                Harga / Unit:
-              </span>
-              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium font-mono">
-                {valUnit > 0 ? `${formatRupiah(valUnit)} / ${unit}` : '-'}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                Kemasan / Konversi:
-              </span>
-              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
-                {packagingDisplay}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                No. SO:
-              </span>
-              <span className="text-slate-900 dark:text-[#F4F7FF] font-mono font-medium">
-                {opnameNumber || '-'}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
-                Bagian / Gudang:
-              </span>
-              <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
-                {category
-                  ? subcategory && subcategory !== category
-                    ? `${category} / ${subcategory}`
-                    : category
-                  : '-'}
-              </span>
-            </div>
+          <div>
+            <span className="block text-[9px] text-slate-500 dark:text-[#A8B9D3]/80">
+              Kemasan / Konversi:
+            </span>
+            <span className="text-slate-900 dark:text-[#F4F7FF] font-medium">
+              {packagingDisplay}
+            </span>
           </div>
 
-          {extraFooterNotes && (
-            <div className="pt-1.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums">
-              {extraFooterNotes}
-            </div>
-          )}
+          <div className="pt-1.5 border-t border-slate-200/80 dark:border-[#203F70]/60 text-[10px] text-slate-500 dark:text-[#A8B9D3] tabular-nums font-mono">
+            {fileDateSummaryLine}
+          </div>
         </div>
       )}
 
