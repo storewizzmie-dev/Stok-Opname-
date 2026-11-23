@@ -105,11 +105,39 @@ interface StatusMessage {
 interface UploadReport {
   addedDates: string[];
   updatedDates: string[];
+  unchangedDates: string[];
   monthsAffected: string[];
   totalRows: number;
   diffRows: number;
   pasRows: number;
   uniqueProducts: number;
+}
+
+function areStockDateRowsEqual(
+  existingRows: StockDataset[string] | undefined,
+  incomingRows: StockDataset[string] | undefined
+): boolean {
+  if (!existingRows || !incomingRows) return false;
+  if (existingRows.length !== incomingRows.length) return false;
+
+  const normalizeRowKey = (r: StockDataset[string][number]) =>
+    [
+      (r[0] ?? '').trim(),
+      (r[1] ?? '').trim(),
+      Math.round((Number(r[2]) || 0) * 1e4),
+      Math.round((Number(r[3]) || 0) * 1e4),
+      Math.round((Number(r[4]) || 0) * 1e4),
+      Math.round((Number(r[5]) || 0) * 100),
+      Math.round((Number(r[6]) || 0) * 100),
+      (r[13] ?? '').trim(),
+    ].join('|');
+
+  for (let i = 0; i < existingRows.length; i++) {
+    if (normalizeRowKey(existingRows[i]) !== normalizeRowKey(incomingRows[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export default function App() {
@@ -280,6 +308,7 @@ export default function App() {
     try {
       const addedDates: string[] = [];
       const updatedDates: string[] = [];
+      const unchangedDates: string[] = [];
       let totalRows = 0;
       let diffRows = 0;
       let pasRows = 0;
@@ -313,12 +342,24 @@ export default function App() {
 
         const parsed = parseExcelBuffer(buffer);
         for (const dateKey of Object.keys(parsed)) {
+          const rowsForDate = parsed[dateKey];
           if (nextData[dateKey]) {
-            if (!updatedDates.includes(dateKey)) updatedDates.push(dateKey);
+            if (areStockDateRowsEqual(nextData[dateKey], rowsForDate)) {
+              if (
+                !unchangedDates.includes(dateKey) &&
+                !updatedDates.includes(dateKey) &&
+                !addedDates.includes(dateKey)
+              ) {
+                unchangedDates.push(dateKey);
+              }
+            } else {
+              if (!updatedDates.includes(dateKey)) updatedDates.push(dateKey);
+              const unchangedIdx = unchangedDates.indexOf(dateKey);
+              if (unchangedIdx >= 0) unchangedDates.splice(unchangedIdx, 1);
+            }
           } else {
             if (!addedDates.includes(dateKey)) addedDates.push(dateKey);
           }
-          const rowsForDate = parsed[dateKey];
           nextData[dateKey] = rowsForDate;
           totalRows += rowsForDate.length;
           for (const r of rowsForDate) {
@@ -329,7 +370,11 @@ export default function App() {
         }
       }
 
-      const importedDates = [...addedDates, ...updatedDates].sort();
+      const importedDates = [
+        ...addedDates,
+        ...updatedDates,
+        ...unchangedDates,
+      ].sort();
       const importedPnlCount = pnlNewMonths.length + pnlUpdatedMonths.length;
 
       if (!importedDates.length && !importedPnlCount) {
@@ -358,6 +403,7 @@ export default function App() {
         setLastUpload({
           addedDates: addedDates.sort(),
           updatedDates: updatedDates.sort(),
+          unchangedDates: unchangedDates.sort(),
           monthsAffected,
           totalRows,
           diffRows,
@@ -397,8 +443,12 @@ export default function App() {
         });
         setActiveTab('pengaturan');
       } else {
+        const updateSummaryText =
+          updatedDates.length > 0
+            ? `${updatedDates.length} tanggal diperbarui`
+            : 'tidak ada yang diperbarui';
         setStatus({
-          text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updatedDates.length} tanggal diperbarui.`,
+          text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updateSummaryText}.`,
         });
         setActiveTab('pengaturan');
       }
@@ -2011,7 +2061,7 @@ export default function App() {
                                     key={`${day.date}-${meta.row[0]}-${idx}`}
                                     title={meta.row[0]}
                                     dateLabel={formatDateId(day.date)}
-                                    defaultExpanded={dayIndex === 0 && idx === 0}
+                                    defaultExpanded={false}
                                     meta={meta}
                                     onTitleClick={() =>
                                       handlePickProduct(meta.row[0])
@@ -2531,7 +2581,7 @@ export default function App() {
                               title={formatDateId(date)}
                               subtitle={selectedProductStat.name}
                               dateLabel={formatDateId(date)}
-                              defaultExpanded={idx === 0}
+                              defaultExpanded={false}
                               meta={meta}
                             />
                           ))}
@@ -2667,7 +2717,7 @@ export default function App() {
                     <p className="mt-1 text-slate-600 dark:text-slate-300">
                       {lastUpload.updatedDates.length > 0
                         ? lastUpload.updatedDates.map(formatDateId).join(', ')
-                        : 'Tidak ada tanggal yang ditimpa.'}
+                        : 'Tidak ada yang diperbarui.'}
                     </p>
                   </div>
                 </div>
