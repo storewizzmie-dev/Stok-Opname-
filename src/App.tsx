@@ -774,11 +774,11 @@ export default function App() {
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 relative z-10">
                     <div className="flex items-center gap-4 sm:gap-5 min-w-0 flex-1">
                       {/* 3D Style Clipboard & Box Badge */}
-                      <div className="relative shrink-0 w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 p-0.5 shadow-xl shadow-blue-900/40 flex items-center justify-center">
-                        <div className="w-full h-full rounded-2xl bg-slate-900 dark:bg-[#0F2244] flex flex-col items-center justify-center relative">
-                          <ClipboardCheck className="w-9 h-9 sm:w-10 sm:h-10 text-blue-400" />
-                          <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-amber-400 rounded-lg flex items-center justify-center shadow-md rotate-6">
-                            <Package className="w-3.5 h-3.5 text-slate-950" />
+                      <div className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#FF35B8] to-[#9D0B74] dark:from-blue-500 dark:to-indigo-700 p-0.5 shadow-xl shadow-[#D81399]/25 dark:shadow-blue-900/40 flex items-center justify-center">
+                        <div className="w-full h-full rounded-2xl bg-[#FDE8F8] dark:bg-[#0F2244] flex flex-col items-center justify-center relative">
+                          <ClipboardCheck className="w-8 h-8 sm:w-9 sm:h-9 text-[#8E106E] dark:text-blue-400" />
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-[#FF35B8] to-[#C61196] dark:from-amber-400 dark:to-amber-500 rounded-lg flex items-center justify-center shadow-md rotate-6">
+                            <Package className="w-3.5 h-3.5 text-white dark:text-slate-950" />
                           </div>
                         </div>
                       </div>
@@ -786,7 +786,7 @@ export default function App() {
                       {/* Hero Text */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-700 dark:text-amber-400 truncate">
+                          <div className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-[#B80D84] dark:text-amber-400 truncate">
                             {viewScope === 'month'
                               ? 'Rekap Stok Bulanan'
                               : viewScope === 'range'
@@ -803,14 +803,14 @@ export default function App() {
                         </div>
 
                         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 mt-0.5">
-                          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                          <h1 className="text-2xl sm:text-3xl font-black text-[#391042] dark:text-white leading-tight">
                             <GsapWordTitle
                               text={
                                 viewScope === 'day' ? 'Cek Stok' : 'Rekap Stok'
                               }
                             />
                           </h1>
-                          <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
+                          <span className="text-xl sm:text-2xl font-extrabold text-[#D81399] dark:text-amber-400 tracking-tight">
                             <GsapWordTitle
                               text={
                                 viewScope === 'month'
@@ -826,7 +826,7 @@ export default function App() {
                           </span>
                         </div>
 
-                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 mt-1 leading-relaxed tabular-nums">
+                        <p className="text-xs sm:text-sm text-[#6B4472] dark:text-slate-300/85 mt-1 leading-relaxed tabular-nums">
                           {viewScope === 'month' ? (
                             <>
                               Gabungan hitungan gudang dari {summary.allMonthDates.length} hari vs catatan sistem ESB ({Object.keys(summary.productMap).length} barang · {summary.totalRowsCount.toLocaleString('id-ID')} baris).
@@ -852,17 +852,17 @@ export default function App() {
 
                     {/* Pojok Kanan: Tombol Rentang Tanggal & Cek 1 Hari */}
                     <div className="flex flex-col items-end gap-2 self-end lg:self-start shrink-0">
-                      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-[#0A162B] border border-slate-200 dark:border-[#1C3259]">
+                      <div className="inline-flex items-center rounded-full border border-[#EBC7E9] dark:border-[#1C3259] bg-white dark:bg-[#0A162B] p-0.5 shadow-xs">
                         <button
                           type="button"
                           onClick={() => {
                             setViewScope('range');
                             setIsRangePickerOpen(true);
                           }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'range'
-                              ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                              ? 'wizzmie-pink-pill text-white'
+                              : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
                           }`}
                         >
                           <CalendarRange className="w-3.5 h-3.5 shrink-0" />
@@ -875,10 +875,10 @@ export default function App() {
                             setViewScope('day');
                             setIsRangePickerOpen(false);
                           }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
+                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
                             viewScope === 'day'
-                              ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                              ? 'wizzmie-pink-pill text-white'
+                              : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
                           }`}
                         >
                           <CalendarDays className="w-3.5 h-3.5 shrink-0" />
@@ -1514,14 +1514,14 @@ export default function App() {
                     </div>
 
                     {/* Segmented Buttons: Kurangnya Terbesar vs Lebihnya Terbesar */}
-                    <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#0A162B] border border-slate-200 dark:border-[#182C4C] grid grid-cols-2 gap-1">
+                    <div className="p-0.5 rounded-full bg-white dark:bg-[#0A162B] border border-[#EBC7E9] dark:border-[#182C4C] grid grid-cols-2 gap-1 shadow-xs">
                       <button
                         type="button"
                         onClick={() => setRankMode('neg')}
-                        className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        className={`py-2 px-2.5 text-xs font-bold rounded-full transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           rankMode === 'neg'
-                            ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-400 hover:text-[#B80D84] dark:hover:text-slate-200'
                         }`}
                       >
                         <TrendingDown className="w-3.5 h-3.5 shrink-0" />
@@ -1530,10 +1530,10 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setRankMode('pos')}
-                        className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        className={`py-2 px-2.5 text-xs font-bold rounded-full transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           rankMode === 'pos'
-                            ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-400 hover:text-[#B80D84] dark:hover:text-slate-200'
                         }`}
                       >
                         <TrendingUp className="w-3.5 h-3.5 shrink-0" />
@@ -1683,12 +1683,12 @@ export default function App() {
               <>
                 <MotionSection className="surface-3d rounded-[32px] p-5 sm:p-7 space-y-4">
                   {/* Top Row: Circular Pink Calendar Badge + SO DAILY ( 1 - 19 November 2026 ) + Info Button */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#FDE4F7] dark:bg-[#231438] border border-[#F5C5EC] dark:border-[#6A2363] flex items-center justify-center shrink-0">
-                        <CalendarDays className="w-6 h-6 sm:w-7 sm:h-7 text-[#6A1064] dark:text-[#FF55C8]" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#FDE4F7] dark:bg-[#231438] border border-[#F5C5EC] dark:border-[#6A2363] flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5 text-[#6A1064] dark:text-[#FF55C8]" />
                       </div>
-                      <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-[#391042] dark:text-white leading-snug">
+                      <h1 className="text-[15px] sm:text-xl font-extrabold tracking-tight text-[#391042] dark:text-white leading-snug">
                         <GsapWordTitle
                           text={`SO DAILY ( ${
                             viewScope === 'range'
@@ -1709,9 +1709,9 @@ export default function App() {
                       onClick={() => setActiveInfoKey('harian')}
                       aria-label="Info penjelasan SO Daily"
                       title="Penjelasan singkat bagian ini"
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-[#6E1269] dark:border-[#FF55C8] text-[#6E1269] dark:text-[#FF55C8] hover:bg-[#FDE4F7]/60 dark:hover:bg-[#FF55C8]/15 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                      className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-[1.5px] border-[#6E1269] dark:border-[#FF55C8] text-[#6E1269] dark:text-[#FF55C8] hover:bg-[#FDE4F7]/60 dark:hover:bg-[#FF55C8]/15 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                     >
-                      <span className="font-serif font-black text-base sm:text-lg leading-none">
+                      <span className="font-serif font-bold text-xs sm:text-sm leading-none">
                         i
                       </span>
                     </button>
@@ -1784,20 +1784,20 @@ export default function App() {
                       type="text"
                       value={dailySearch}
                       onChange={(e) => setDailySearch(e.target.value)}
-                      placeholder="Cari nama barang, kode (Dry 123), atau bagian..."
+                      placeholder="Cari nama barang atau kode"
                       autoComplete="off"
                       className="w-full pl-12 pr-12 py-3 text-sm sm:text-base rounded-full border border-[#E5CEEC] dark:border-[#233F6D] bg-[#FAF5FC] dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 placeholder:text-[#9A77A3] dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E0139C] min-h-[48px]"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setDailySearch('')}
-                      aria-label="Bersihkan pencarian"
-                      className={`w-7 h-7 rounded-full bg-[#EAD4F0] hover:bg-[#DFBEE8] dark:bg-[#1C3259] dark:hover:bg-[#274477] text-[#4C1048] dark:text-slate-200 flex items-center justify-center absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity cursor-pointer ${
-                        dailySearch ? 'opacity-100' : 'opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                    </button>
+                    {dailySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setDailySearch('')}
+                        aria-label="Bersihkan pencarian"
+                        className="w-7 h-7 rounded-full bg-[#EAD4F0] hover:bg-[#DFBEE8] dark:bg-[#1C3259] dark:hover:bg-[#274477] text-[#4C1048] dark:text-slate-200 flex items-center justify-center absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Fourth Row: 5-Column Segmented Pill Filter Bar (Semua, Selisih, Minus, Lebih, Pas) */}
@@ -2105,131 +2105,168 @@ export default function App() {
               />
             ) : (
               <>
-                <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                <MotionSection className="surface-3d rounded-[32px] p-5 sm:p-7 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#FDE4F7] dark:bg-[#231438] border border-[#F5C5EC] dark:border-[#6A2363] flex items-center justify-center shrink-0">
+                        <PackageSearch className="w-4 h-4 sm:w-5 sm:h-5 text-[#6A1064] dark:text-[#FF55C8]" />
+                      </div>
+                      <div>
+                        <h1 className="text-[15px] sm:text-xl font-extrabold tracking-tight text-[#391042] dark:text-white leading-snug">
                           <GsapWordTitle text="Cek Kondisi & Riwayat Barang" />
                         </h1>
-                        <InfoButton
-                          guideKey="cekBarang"
-                          onOpen={setActiveInfoKey}
-                        />
+                        <p className="text-[11px] sm:text-xs text-[#7D4E85] dark:text-slate-400">
+                          {viewScope === 'month'
+                            ? `Periode: ${formatMonthId(activeMonth)} (sebulan penuh)`
+                            : viewScope === 'range'
+                            ? `Periode: ${formatDateRangeLabel(
+                                summary.rangeStart,
+                                summary.rangeEnd
+                              )} (${summary.activeDates.length} hari)`
+                            : `Periode: ${formatDateId(activeDay)} (1 hari)`}
+                        </p>
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                        {viewScope === 'month'
-                          ? `Data yang sedang dilihat: ${formatMonthId(activeMonth)} (sebulan penuh)`
-                          : viewScope === 'range'
-                          ? `Data yang sedang dilihat: ${formatDateRangeLabel(
-                              summary.rangeStart,
-                              summary.rangeEnd
-                            )} (${summary.activeDates.length} hari)`
-                          : `Data yang sedang dilihat: ${formatDateId(activeDay)} (1 hari)`}
-                      </p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2 self-end sm:self-start shrink-0">
-                      <div className="inline-flex items-center gap-1 p-1 track-3d rounded-xl">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewScope('range');
-                            setIsRangePickerOpen(true);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
-                            viewScope === 'range'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          <CalendarRange className="w-3.5 h-3.5 shrink-0" />
-                          <span>Rentang Tanggal</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewScope('day');
-                            setIsRangePickerOpen(false);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px] whitespace-nowrap cursor-pointer ${
-                            viewScope === 'day'
-                              ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-                          <span>Cek 1 Hari</span>
-                        </button>
-                      </div>
-
-                      {viewScope === 'day' && (
-                        <select
-                          aria-label="Pilih tanggal di Cek Barang"
-                          value={activeDay}
-                          onChange={(e) => setSelectedDay(e.target.value)}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[36px]"
-                        >
-                          {activeMonthDates
-                            .slice()
-                            .reverse()
-                            .map((d) => (
-                              <option key={d} value={d}>
-                                {formatDateId(d)}
-                              </option>
-                            ))}
-                        </select>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveInfoKey('cekBarang')}
+                      aria-label="Info penjelasan Cek Barang"
+                      title="Penjelasan singkat bagian ini"
+                      className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-[1.5px] border-[#6E1269] dark:border-[#FF55C8] text-[#6E1269] dark:text-[#FF55C8] hover:bg-[#FDE4F7]/60 dark:hover:bg-[#FF55C8]/15 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    >
+                      <span className="font-serif font-bold text-xs sm:text-sm leading-none">
+                        i
+                      </span>
+                    </button>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value);
-                          setSelectedProduct('');
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="inline-flex items-center rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] p-0.5 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewScope('range');
+                          setIsRangePickerOpen(true);
                         }}
-                        placeholder="Ketik nama atau kode barang, misal: udang keju, Dry 123, beras..."
-                        autoComplete="off"
-                        className="w-full pl-10 pr-4 py-3 text-sm sm:text-base rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      />
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold rounded-full transition-all min-h-[40px] whitespace-nowrap cursor-pointer ${
+                          viewScope === 'range'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
+                        }`}
+                      >
+                        <CalendarRange className="w-4 h-4 shrink-0" />
+                        <span>Rentang Tanggal</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewScope('day');
+                          setIsRangePickerOpen(false);
+                        }}
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold rounded-full transition-all min-h-[40px] whitespace-nowrap cursor-pointer ${
+                          viewScope === 'day'
+                            ? 'wizzmie-pink-pill text-white'
+                            : 'text-[#391042] dark:text-slate-300 hover:text-[#B80D84] dark:hover:text-white'
+                        }`}
+                      >
+                        <CalendarDays className="w-4 h-4 shrink-0" />
+                        <span>Cek 1 Hari</span>
+                      </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-[#0A162B] dark:border dark:border-[#182C4C] rounded-xl">
-                        {(
-                          [
-                            { id: 'all', label: 'Semua' },
-                            { id: 'neg', label: 'Minus' },
-                            { id: 'pos', label: 'Lebih' },
-                            { id: 'pas', label: 'Pas' },
-                          ] as const
-                        ).map((tab) => (
+                    {viewScope === 'day' && (
+                      <select
+                        aria-label="Pilih tanggal di Cek Barang"
+                        value={activeDay}
+                        onChange={(e) => setSelectedDay(e.target.value)}
+                        className="px-4 py-2 text-xs sm:text-sm font-bold rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 min-h-[38px]"
+                      >
+                        {activeMonthDates
+                          .slice()
+                          .reverse()
+                          .map((d) => (
+                            <option key={d} value={d}>
+                              {formatDateFullId(d)}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-5 h-5 text-[#5D1359] dark:text-[#FF7AD2] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setSelectedProduct('');
+                      }}
+                      placeholder="Cari nama barang atau kode"
+                      autoComplete="off"
+                      className="w-full pl-12 pr-12 py-3 text-sm sm:text-base rounded-full border border-[#E5CEEC] dark:border-[#233F6D] bg-[#FAF5FC] dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 placeholder:text-[#9A77A3] dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E0139C] min-h-[48px]"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedProduct('');
+                        }}
+                        aria-label="Bersihkan pencarian barang"
+                        className="w-7 h-7 rounded-full bg-[#EAD4F0] hover:bg-[#DFBEE8] dark:bg-[#1C3259] dark:hover:bg-[#274477] text-[#4C1048] dark:text-slate-200 flex items-center justify-center absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <div className="sm:col-span-8 grid grid-cols-4 items-center rounded-full border border-[#E5CEEC] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] p-0.5 overflow-hidden shadow-xs">
+                      {(
+                        [
+                          { id: 'all', label: 'Semua' },
+                          { id: 'neg', label: 'Minus' },
+                          { id: 'pos', label: 'Lebih' },
+                          { id: 'pas', label: 'Pas' },
+                        ] as const
+                      ).map((tab, idx) => {
+                        const isActive = productFilter === tab.id;
+                        return (
                           <button
                             key={tab.id}
                             type="button"
                             onClick={() => setProductFilter(tab.id)}
-                            className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap min-h-[40px] cursor-pointer ${
-                              productFilter === tab.id
-                                ? 'bg-white dark:bg-amber-400 text-slate-900 dark:text-slate-950 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                            className={`relative flex items-center justify-center gap-1.5 py-2.5 px-2 text-xs sm:text-sm font-bold transition-all min-h-[42px] whitespace-nowrap cursor-pointer ${
+                              isActive
+                                ? 'wizzmie-pink-pill rounded-full text-white z-10'
+                                : `text-[#391042] dark:text-slate-200 hover:text-[#C61196] dark:hover:text-white ${
+                                    idx > 0
+                                      ? 'border-l border-[#EFE0F3] dark:border-[#1B3258]'
+                                      : ''
+                                  }`
                             }`}
                           >
-                            {tab.label}
+                            {isActive && (
+                              <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-[#C61196] flex items-center justify-center shrink-0 shadow-xs">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </span>
+                            )}
+                            <span>{tab.label}</span>
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
+                    </div>
 
-                      {summary.categoryStats.length > 0 && (
+                    {summary.categoryStats.length > 0 && (
+                      <div className="sm:col-span-4 relative">
+                        <LayoutGrid className="w-4 h-4 text-[#6E1269] dark:text-[#FF55C8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <select
                           aria-label="Filter bagian di Cek Barang"
                           value={productCategoryFilter}
                           onChange={(e) => setProductCategoryFilter(e.target.value)}
-                          className="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0A162B] text-slate-900 dark:text-slate-100 min-h-[42px]"
+                          className="w-full appearance-none pl-10 pr-9 py-2.5 text-xs sm:text-sm font-bold rounded-full border border-[#EBC7E9] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 min-h-[44px] cursor-pointer"
                         >
                           <option value="ALL">Semua Bagian</option>
                           {summary.categoryStats.map((cat) => (
@@ -2238,8 +2275,9 @@ export default function App() {
                             </option>
                           ))}
                         </select>
-                      )}
-                    </div>
+                        <ChevronDown className="w-4 h-4 text-[#391042] dark:text-slate-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                      </div>
+                    )}
                   </div>
                 </MotionSection>
 
