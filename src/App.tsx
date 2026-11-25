@@ -57,6 +57,10 @@ import {
   PendingPnlUploadItem,
   PnlPeriodPickerModal,
 } from './components/PnlPeriodPickerModal';
+import {
+  KeperluanDetailPage,
+  KeperluanGroupId,
+} from './components/KeperluanDetailPage';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
 import {
   PnlDataset,
@@ -282,9 +286,8 @@ export default function App() {
     useState<string>('ALL');
   const [rankMode, setRankMode] = useState<RankMode>('neg');
   const [purposeRankMode, setPurposeRankMode] = useState<RankMode>('neg');
-  const [expandedPurposeId, setExpandedPurposeId] = useState<string | null>(
-    null
-  );
+  const [activeKeperluanPageId, setActiveKeperluanPageId] =
+    useState<KeperluanGroupId | null>(null);
   const [selectedCombinedMonths, setSelectedCombinedMonths] = useState<
     string[]
   >([]);
@@ -840,8 +843,8 @@ export default function App() {
   };
 
   return (
-    <LenisGsapProvider
-      activeKey={`${activeTab}-${activeMonth}-${viewScope}-${selectedPnlMonth}`}
+      <LenisGsapProvider
+      activeKey={`${activeTab}-${activeMonth}-${viewScope}-${selectedPnlMonth}-${activeKeperluanPageId ?? 'main'}`}
     >
       <div className="min-h-screen app-canvas-bg text-slate-900 dark:text-slate-100 pb-20 md:pb-10 transition-colors">
       {/* Dedicated Hidden File Input 1: Stock Opname */}
@@ -874,7 +877,10 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 md:h-16 flex items-center justify-between gap-6">
           <button
             type="button"
-            onClick={() => setActiveTab('beranda')}
+            onClick={() => {
+              setActiveKeperluanPageId(null);
+              setActiveTab('beranda');
+            }}
             className="flex items-center gap-2.5 text-left whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF35B8] to-[#C61196] dark:from-amber-400 dark:to-amber-500 flex items-center justify-center font-black text-white dark:text-slate-950 text-base shadow-md shadow-[#E0139C]/25 dark:shadow-amber-500/20 shrink-0">
@@ -899,7 +905,10 @@ export default function App() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveKeperluanPageId(null);
+                    setActiveTab(item.id);
+                  }}
                   className={`relative h-full px-1 text-sm font-bold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     isActive
                       ? 'text-[#C61196] dark:text-amber-400'
@@ -1805,6 +1814,38 @@ export default function App() {
                       onOpenInfo={setActiveInfoKey}
                     />
                   </>
+                ) : activeKeperluanPageId ? (
+                  <KeperluanDetailPage
+                    activeKeperluanId={activeKeperluanPageId}
+                    onSelectKeperluanId={(id) => {
+                      setActiveKeperluanPageId(id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    onBackToBeranda={() => {
+                      setActiveKeperluanPageId(null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    onOpenProductInCekBarang={(name) => {
+                      setActiveKeperluanPageId(null);
+                      handlePickProduct(name);
+                    }}
+                    onOpenDayInHarian={(date) => {
+                      setActiveKeperluanPageId(null);
+                      handleOpenDayInHarian(date);
+                    }}
+                    onOpenRangePicker={() => setIsRangePickerOpen(true)}
+                    onChangeViewScope={(scope) => {
+                      setViewScope(scope);
+                      if (scope === 'day') setIsRangePickerOpen(false);
+                    }}
+                    onSelectDay={(date) => setSelectedDay(date)}
+                    summary={summary}
+                    data={data}
+                    activeMonth={activeMonth}
+                    activeDay={activeDay}
+                    activeMonthDates={activeMonthDates}
+                    viewScope={viewScope}
+                  />
                 ) : (
                   <>
                 {(() => {
@@ -2622,117 +2663,75 @@ export default function App() {
                                       )
                                     )
                                   : 0;
-                              const isExpanded =
-                                expandedPurposeId === bucket.id;
-
                               return (
-                                <div
+                                <button
                                   key={bucket.id}
-                                  className="rounded-xl border border-[#F0D5EE] dark:border-[#1E365F] bg-[#FDF9FC] dark:bg-[#0E1D38] p-3 space-y-2 transition-all"
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveKeperluanPageId(bucket.id);
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: 'smooth',
+                                    });
+                                  }}
+                                  className="group w-full text-left rounded-xl border border-[#F0D5EE] hover:border-[#E0139C] dark:border-[#1E365F] dark:hover:border-amber-400/70 bg-[#FDF9FC] hover:bg-[#FDF2FA] dark:bg-[#0E1D38] dark:hover:bg-[#132648] p-3 space-y-2 transition-all cursor-pointer shadow-2xs"
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedPurposeId(
-                                        isExpanded ? null : bucket.id
-                                      )
-                                    }
-                                    className="w-full text-left space-y-1.5 cursor-pointer"
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                          <span
-                                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                                            style={{
-                                              backgroundColor: bucket.barColor,
-                                            }}
-                                          />
-                                          <span className="text-xs sm:text-sm font-extrabold text-[#391042] dark:text-white truncate">
-                                            {bucket.title}
-                                          </span>
-                                        </div>
-                                        <div className="text-[11px] font-medium text-[#7D4E85] dark:text-[#A8B9D3] mt-0.5">
-                                          {purposeRankMode === 'neg'
-                                            ? bucket.indicationNeg
-                                            : bucket.indicationPos}
-                                        </div>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span
+                                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                                          style={{
+                                            backgroundColor: bucket.barColor,
+                                          }}
+                                        />
+                                        <span className="text-xs sm:text-sm font-extrabold text-[#391042] group-hover:text-[#C61196] dark:text-white dark:group-hover:text-amber-300 truncate">
+                                          {bucket.title}
+                                        </span>
+                                        <ChevronRight className="w-3.5 h-3.5 text-[#C61196] dark:text-amber-300 opacity-75 group-hover:translate-x-0.5 transition-transform shrink-0" />
                                       </div>
-
-                                      <div className="text-right shrink-0 font-mono tabular-nums">
-                                        <div
-                                          className={`text-xs sm:text-sm font-black ${
-                                            purposeRankMode === 'neg'
-                                              ? 'text-rose-600 dark:text-rose-400'
-                                              : 'text-emerald-600 dark:text-emerald-400'
-                                          }`}
-                                        >
-                                          {purposeRankMode === 'neg'
-                                            ? `-${formatRupiah(bucket.negVal)}`
-                                            : `+${formatRupiah(bucket.posVal)}`}
-                                        </div>
-                                        <div className="text-[10px] font-bold text-[#6E4877] dark:text-[#A8B9D3]">
-                                          {activeItems.length} barang (
-                                          {pct}%)
-                                        </div>
+                                      <div className="text-[11px] font-medium text-[#7D4E85] dark:text-[#A8B9D3] mt-0.5">
+                                        {purposeRankMode === 'neg'
+                                          ? bucket.indicationNeg
+                                          : bucket.indicationPos}
                                       </div>
                                     </div>
 
-                                    {/* Horizontal Progress Bar */}
-                                    <div className="w-full h-2.5 rounded-full bg-[#F3E2F1] dark:bg-[#192D52] overflow-hidden">
+                                    <div className="text-right shrink-0 font-mono tabular-nums">
                                       <div
-                                        className="h-full rounded-full transition-all duration-300"
-                                        style={{
-                                          width: `${pct}%`,
-                                          backgroundColor: bucket.barColor,
-                                        }}
-                                      />
+                                        className={`text-xs sm:text-sm font-black ${
+                                          purposeRankMode === 'neg'
+                                            ? 'text-rose-600 dark:text-rose-400'
+                                            : 'text-emerald-600 dark:text-emerald-400'
+                                        }`}
+                                      >
+                                        {purposeRankMode === 'neg'
+                                          ? `-${formatRupiah(bucket.negVal)}`
+                                          : `+${formatRupiah(bucket.posVal)}`}
+                                      </div>
+                                      <div className="text-[10px] font-bold text-[#6E4877] dark:text-[#A8B9D3]">
+                                        {activeItems.length} barang ({pct}%)
+                                      </div>
                                     </div>
-                                  </button>
+                                  </div>
 
-                                  {/* Expanded Top Items for this Keperluan */}
-                                  {isExpanded && (
-                                    <div className="pt-2 border-t border-[#EBC7E9] dark:border-[#243F6E] space-y-1.5">
-                                      {activeItems.length === 0 ? (
-                                        <div className="text-[11px] text-[#7D4E85] dark:text-[#A8B9D3] py-1">
-                                          Tidak ada barang selisih pada keperluan ini.
-                                        </div>
-                                      ) : (
-                                        activeItems.slice(0, 5).map((prod) => (
-                                          <button
-                                            key={prod.name}
-                                            type="button"
-                                            onClick={() =>
-                                              handlePickProduct(prod.name)
-                                            }
-                                            className="w-full flex items-center justify-between gap-2 text-xs py-1 px-2 rounded-lg hover:bg-white dark:hover:bg-[#152A4F] transition-colors cursor-pointer"
-                                          >
-                                            <span className="font-semibold text-[#391042] dark:text-slate-200 truncate text-left">
-                                              {prod.name}
-                                            </span>
-                                            <span
-                                              className={`font-mono font-bold shrink-0 tabular-nums ${
-                                                purposeRankMode === 'neg'
-                                                  ? 'text-rose-600 dark:text-rose-400'
-                                                  : 'text-emerald-600 dark:text-emerald-400'
-                                              }`}
-                                            >
-                                              {purposeRankMode === 'neg'
-                                                ? `-${formatCompactRupiah(prod.negVal)}`
-                                                : `+${formatCompactRupiah(prod.posVal)}`}
-                                            </span>
-                                          </button>
-                                        ))
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
+                                  {/* Horizontal Progress Bar */}
+                                  <div className="w-full h-2.5 rounded-full bg-[#F3E2F1] dark:bg-[#192D52] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-300"
+                                      style={{
+                                        width: `${pct}%`,
+                                        backgroundColor: bucket.barColor,
+                                      }}
+                                    />
+                                  </div>
+                                </button>
                               );
                             })}
                           </div>
 
                           <div className="pt-2 border-t border-[#F3E2F1] dark:border-[#1B3258] flex items-center justify-between text-[11px] text-[#7D4E85] dark:text-[#A8B9D3]">
-                            <span>Ketuk baris keperluan untuk lihat barangnya</span>
+                            <span>Ketuk keperluan untuk buka halaman rinciannya</span>
                             <span className="font-mono font-bold">
                               4 Kelompok Keperluan
                             </span>
@@ -4333,7 +4332,10 @@ export default function App() {
                 key={item.id}
                 type="button"
                 aria-label={item.label}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveKeperluanPageId(null);
+                  setActiveTab(item.id);
+                }}
                 className={`relative flex flex-col items-center justify-center gap-1 min-h-[44px] px-0.5 transition-colors cursor-pointer ${
                   isActive
                     ? 'text-[#C61196] dark:text-[#FFC400] font-bold'
