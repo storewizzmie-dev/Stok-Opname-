@@ -263,8 +263,10 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<MenuTab>(() =>
-    Object.keys(data).length > 0 || Object.keys(pnlData).length > 0
-      ? 'beranda'
+    Object.keys(data).length > 0
+      ? 'harian'
+      : Object.keys(pnlData).length > 0
+      ? 'labarugi'
       : 'pengaturan'
   );
   const [viewScope, setViewScope] = useState<ViewScope>('range');
@@ -605,7 +607,7 @@ export default function App() {
       setStatus({
         text: `Profit Loss Consolidation periode ${periodLabel} (Net Sales ${formatSignedRupiah(
           finalizedReport.netSales
-        )}) berhasil disimpan tanpa menimpa periode lain dan sudah terhubung ke Grafik Keuntungan di Beranda.`,
+        )}) berhasil disimpan tanpa menimpa periode lain dan sudah masuk ke Menu Laba Rugi.`,
       });
     }
   };
@@ -802,12 +804,6 @@ export default function App() {
     icon: React.ReactNode;
   }[] = [
     {
-      id: 'beranda',
-      label: 'Beranda',
-      mobileLabel: 'Beranda',
-      icon: <Home className="w-5 h-5 md:w-4 md:h-4" />,
-    },
-    {
       id: 'harian',
       label: 'Harian',
       mobileLabel: 'Harian',
@@ -879,7 +875,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setActiveKeperluanPageId(null);
-              setActiveTab('beranda');
+              setActiveTab('harian');
             }}
             className="flex items-center gap-2.5 text-left whitespace-nowrap shrink-0 cursor-pointer"
           >
@@ -948,7 +944,7 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 1: BERANDA (Executive Overview Layout — 100% Reference Structure) */}
+        {/* PAGE 1: BERANDA (Removed from navigation as requested by user) */}
         {activeTab === 'beranda' &&
           (() => {
             // Multi-Month & Multi-Period Combined Daily Profit (Net Sales) / Stock Chart Data
@@ -1817,6 +1813,8 @@ export default function App() {
                 ) : activeKeperluanPageId ? (
                   <KeperluanDetailPage
                     activeKeperluanId={activeKeperluanPageId}
+                    mode={purposeRankMode}
+                    onChangeMode={setPurposeRankMode}
                     onSelectKeperluanId={(id) => {
                       setActiveKeperluanPageId(id);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4073,7 +4071,7 @@ export default function App() {
                       Ketuk untuk pilih file Profit Loss Consolidation (.xlsx / .xls)
                     </p>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Pop-up tanggal &amp; bulan otomatis terbuka setelah file dipilih. Net Sales langsung tampil di Grafik Keuntungan Beranda sesuai tanggal yang ditentukan.
+                      Pop-up tanggal &amp; bulan otomatis terbuka setelah file dipilih.Setiap periode disimpan terpisah sesuai tanggal yang ditentukan.
                     </p>
                   </div>
                   <span className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5">
@@ -4101,10 +4099,10 @@ export default function App() {
 
                   <button
                     type="button"
-                    onClick={() => setActiveTab('beranda')}
+                    onClick={() => setActiveTab('harian')}
                     className="btn-3d-primary px-4 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 self-start sm:self-auto min-h-[44px] whitespace-nowrap cursor-pointer"
                   >
-                    <span>Lihat Hasil di Beranda</span>
+                    <span>Lihat Hasil di Harian</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -4143,15 +4141,15 @@ export default function App() {
                       <GsapWordTitle text="Periode Profit Loss Consolidation yang Tersimpan" />
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Setiap periode disimpan terpisah sesuai tanggal yang Anda pilih dan ditampilkan pada Grafik Keuntungan (Net Sales) di Beranda.
+                      Setiap periode disimpan terpisah sesuai tanggal yang Anda pilih dan dapat dipantau di menu Laba Rugi.
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('beranda')}
+                    onClick={() => setActiveTab('labarugi')}
                     className="btn-3d-primary px-3.5 py-2 text-xs font-bold rounded-xl self-start sm:self-auto cursor-pointer"
                   >
-                    Lihat Grafik Keuntungan di Beranda →
+                    Buka Menu Laba Rugi →
                   </button>
                 </div>
 
@@ -4237,7 +4235,7 @@ export default function App() {
                         type="button"
                         onClick={() => {
                           handleSelectMonth(m);
-                          setActiveTab('beranda');
+                          setActiveTab('harian');
                         }}
                         className="btn-3d-soft px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-800 dark:text-slate-100 min-h-[40px] cursor-pointer"
                       >
@@ -4324,7 +4322,7 @@ export default function App() {
         aria-label="Menu utama"
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#061329]/95 backdrop-blur-md border-t border-[#EBC7E9] dark:border-[#203F70] shadow-[0_-8px_24px_-6px_rgba(110,17,104,0.18)]"
       >
-        <div className="grid grid-cols-5 h-16">
+        <div className="grid grid-cols-4 h-16">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (

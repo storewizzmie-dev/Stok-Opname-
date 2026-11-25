@@ -1,19 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   CalendarDays,
   CalendarRange,
-  Check,
-  CheckCircle2,
-  ClipboardCheck,
   ExternalLink,
-  Layers,
   LayoutGrid,
-  Lightbulb,
-  Package,
-  Scale,
   Search,
   TrendingDown,
   TrendingUp,
@@ -26,6 +17,7 @@ import {
   ViewScope,
   computeSummary,
   convertRowWithMeta,
+  formatCompactRupiah,
   formatDateFullId,
   formatDateId,
   formatDateRangeLabel,
@@ -34,9 +26,7 @@ import {
   formatQty,
   formatQtyMap,
   formatRupiah,
-  formatSignedQty,
   getItemPackagingSpec,
-   formatCompactRupiah,
 } from '../lib/stockOpname';
 
 export type KeperluanGroupId = 'food' | 'packaging' | 'beverage' | 'operational';
@@ -48,9 +38,6 @@ export interface KeperluanGroupDefinition {
   description: string;
   indicationNeg: string;
   indicationPos: string;
-  whyMinusPoints: string[];
-  whyPlusPoints: string[];
-  actionSteps: string[];
   barColor: string;
   badgeClass: string;
 }
@@ -64,21 +51,6 @@ export const KEPERLUAN_GROUP_LIST: KeperluanGroupDefinition[] = [
       'Bahan baku utama makanan, mie, dimsum, daging/ayam, sayuran, bumbu masakan, saus, dan minyak.',
     indicationNeg: 'Potensi waste / takaran porsi berlebih',
     indicationPos: 'Potensi porsi kurang / belum terpotong di sistem',
-    whyMinusPoints: [
-      'Takaran porsi / gramasi saat penyajian melebihi standar resep (over-portioning).',
-      'Bahan rusak, basi, atau jatuh saat produksi belum dicatat pada form waste harian.',
-      'Salah konversi satuan saat input opname (misal hitungan pack/porsi tertulis gram atau sebaliknya).',
-    ],
-    whyPlusPoints: [
-      'Takaran porsi sajian kurang dari standar SOP gramasi resep.',
-      'Penjualan menu di kasir belum memotong stok bahan secara otomatis atau mutasi masuk belum tercatat.',
-      'Hitungan fisik gudang menggabungkan kemasan utuh dan sisa terbuka dengan satuan yang berbeda.',
-    ],
-    actionSteps: [
-      'Cek ulang takaran timbangan/gramasi porsi pada 3 barang minus terbesar di daftar bawah.',
-      'Pastikan setiap bahan makanan yang rusak atau terbuang wajib dicatat di laporan waste harian.',
-      'Hitung ulang fisik stok di chiller/freezer pada barang yang selisihnya berulang lebih dari 2 hari.',
-    ],
     barColor: '#E0139C',
     badgeClass:
       'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
@@ -91,21 +63,6 @@ export const KEPERLUAN_GROUP_LIST: KeperluanGroupDefinition[] = [
       'Paper bowl, lunch box, cup, tutup (lid), sedotan, sumpit, sendok, kantong plastik, dan stiker kemasan.',
     indicationNeg: 'Potensi salah input / tercecer / hilang',
     indicationPos: 'Potensi salah hitung pack/pcs atau take-away belum tercatat',
-    whyMinusPoints: [
-      'Kemasan rusak, penyok, atau kotor saat pengemasan dibuang tanpa dicatat sebagai waste.',
-      'Pemakaian kemasan rangkap/dobel untuk pesanan take-away atau delivery online.',
-      'Kasir menginput pesanan sebagai Dine-In padahal pelanggan meminta bungkus (Take-Away).',
-    ],
-    whyPlusPoints: [
-      'Kasir menginput pesanan Take-Away tetapi pelanggan makan di tempat (kemasan tidak terpakai).',
-      'Salah hitung jumlah isi per slop/pack saat stok opname di gudang.',
-      'Stok kemasan cadangan di area kasir/packing ikut terhitung ganda.',
-    ],
-    actionSteps: [
-      'Cocokkan jumlah transaksi Take-Away/Delivery di sistem ESB dengan pemakaian paper bowl & plastik.',
-      'Pastikan tim opname menghitung kemasan berdasarkan satuan ESB (per pcs atau per pack/slop).',
-      'Simpan kemasan yang penyok/rusak di wadah khusus agar bisa dihitung sebelum dibuang.',
-    ],
     barColor: '#F59E0B',
     badgeClass:
       'bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
@@ -118,21 +75,6 @@ export const KEPERLUAN_GROUP_LIST: KeperluanGroupDefinition[] = [
       'Susu, sirup, bubuk minuman (powder), teh, kopi, krimer, topping minuman, jelly, boba, dan gelato.',
     indicationNeg: 'Potensi takaran resep berlebih / tumpah di bar',
     indicationPos: 'Potensi takaran minuman kurang / selisih konversi botol-ml',
-    whyMinusPoints: [
-      'Takaran pump sirup, jigger susu, atau sendok powder melebihi resep standar bar.',
-      'Tumpah, menetes, atau sisa cairan tertinggal di botol/kemasan saat menuang di area bar.',
-      'Trial minuman atau minuman salah buat tidak dicatat pada form waste bar.',
-    ],
-    whyPlusPoints: [
-      'Takaran sirup, susu, atau powder kurang dari standar resep minuman.',
-      'Selisih taksiran sisa botol/kemasan terbuka saat dikonversi ke ml atau gram.',
-      'Barang bar yang baru dibuka belum dipotong atau salah kode varian rasa.',
-    ],
-    actionSteps: [
-      'Kalibrasi ulang alat takar di area bar (jigger, pump sirup, dan sendok takar powder).',
-      'Gunakan panduan konversi botol/pack ke ml atau gram secara konsisten saat opname.',
-      'Fokus cek barang minuman dengan frekuensi minus tertinggi pada daftar di bawah.',
-    ],
     barColor: '#3B82F6',
     badgeClass:
       'bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30',
@@ -145,20 +87,6 @@ export const KEPERLUAN_GROUP_LIST: KeperluanGroupDefinition[] = [
       'Tisu, sabun cuci, cairan pembersih (chemical), sanitizer, gas LPG, ATK, dan perlengkapan operasional toko.',
     indicationNeg: 'Pemakaian kebersihan toko / selisih pencatatan',
     indicationPos: 'Stok gudang operasional belum diinput pemakaian',
-    whyMinusPoints: [
-      'Pengambilan tisu, sabun, atau cairan pembersih dari gudang untuk operasional harian belum diinput pemakaian.',
-      'Pemakaian cairan pembersih/chemical melebihi takaran standar harian.',
-      'Tabung gas atau perlengkapan operasional berpindah area tanpa catatan.',
-    ],
-    whyPlusPoints: [
-      'Barang operasional sudah dipotong habis di sistem ESB saat dibuka, padahal fisik di gudang masih ada.',
-      'Pengiriman barang perlengkapan toko sudah masuk ke gudang tetapi belum diinput penerimaan.',
-    ],
-    actionSteps: [
-      'Catat setiap pengambilan barang operasional & kebersihan dari gudang pada buku/form pengeluaran.',
-      'Pastikan pemotongan stok perlengkapan di sistem ESB sesuai dengan fisik yang benar-benar habis.',
-      'Gunakan gelas/tutup takar untuk pemakaian sabun dan chemical kebersihan.',
-    ],
     barColor: '#8B5CF6',
     badgeClass:
       'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30',
@@ -206,6 +134,8 @@ interface EnrichedKeperluanProduct {
 
 export function KeperluanDetailPage({
   activeKeperluanId,
+  mode,
+  onChangeMode,
   onSelectKeperluanId,
   onBackToBeranda,
   onOpenProductInCekBarang,
@@ -221,6 +151,8 @@ export function KeperluanDetailPage({
   viewScope,
 }: {
   activeKeperluanId: KeperluanGroupId;
+  mode: 'neg' | 'pos';
+  onChangeMode: (next: 'neg' | 'pos') => void;
   onSelectKeperluanId: (id: KeperluanGroupId) => void;
   onBackToBeranda: () => void;
   onOpenProductInCekBarang: (productName: string) => void;
@@ -235,21 +167,24 @@ export function KeperluanDetailPage({
   activeMonthDates: string[];
   viewScope: ViewScope;
 }) {
-  const [itemFilter, setItemFilter] = useState<'all' | 'neg' | 'pos' | 'pas'>(
-    'neg'
-  );
   const [searchQuery, setSearchQuery] = useState('');
   const [bagianFilter, setBagianFilter] = useState('ALL');
-  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('ALL');
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>(
     {}
   );
+
+  // Reset search & filters when switching keperluan or mode
+  useEffect(() => {
+    setSearchQuery('');
+    setBagianFilter('ALL');
+    setExpandedItems({});
+  }, [activeKeperluanId, mode]);
 
   const activeGroupDef =
     KEPERLUAN_GROUP_LIST.find((g) => g.id === activeKeperluanId) ??
     KEPERLUAN_GROUP_LIST[0];
 
-  // Compute all 4 buckets summary so the top switcher pills show real numbers
+  // Compute exact counts & values for all 4 Keperluan buckets (matching Beranda 100%)
   const allBucketsSummary = useMemo(() => {
     const map: Record<
       KeperluanGroupId,
@@ -257,9 +192,8 @@ export function KeperluanDetailPage({
         negVal: number;
         posVal: number;
         netVal: number;
-        negCount: number;
-        posCount: number;
-        pasCount: number;
+        negItemCount: number;
+        posItemCount: number;
         totalCount: number;
       }
     > = {
@@ -267,36 +201,32 @@ export function KeperluanDetailPage({
         negVal: 0,
         posVal: 0,
         netVal: 0,
-        negCount: 0,
-        posCount: 0,
-        pasCount: 0,
+        negItemCount: 0,
+        posItemCount: 0,
         totalCount: 0,
       },
       packaging: {
         negVal: 0,
         posVal: 0,
         netVal: 0,
-        negCount: 0,
-        posCount: 0,
-        pasCount: 0,
+        negItemCount: 0,
+        posItemCount: 0,
         totalCount: 0,
       },
       beverage: {
         negVal: 0,
         posVal: 0,
         netVal: 0,
-        negCount: 0,
-        posCount: 0,
-        pasCount: 0,
+        negItemCount: 0,
+        posItemCount: 0,
         totalCount: 0,
       },
       operational: {
         negVal: 0,
         posVal: 0,
         netVal: 0,
-        negCount: 0,
-        posCount: 0,
-        pasCount: 0,
+        negItemCount: 0,
+        posItemCount: 0,
         totalCount: 0,
       },
     };
@@ -312,32 +242,17 @@ export function KeperluanDetailPage({
       b.negVal += prod.negVal;
       b.posVal += prod.posVal;
       b.netVal += prod.netVal;
-      if (prod.netVal < -0.5) b.negCount++;
-      else if (prod.netVal > 0.5) b.posCount++;
-      else b.pasCount++;
+      if (prod.negVal < -0.5) b.negItemCount++;
+      if (prod.posVal > 0.5) b.posItemCount++;
     }
     return map;
   }, [summary]);
 
-  // Enriched products and per-date stats for the currently selected Keperluan
-  const {
-    productsInGroup,
-    dailyBreakdown,
-    bagianBreakdown,
-    groupNegVal,
-    groupPosVal,
-    groupNetVal,
-    negItemsCount,
-    posItemsCount,
-    pasItemsCount,
-  } = useMemo(() => {
+  // Enrich all products belonging to the selected Keperluan
+  const { productsInGroup, groupNegVal, groupPosVal } = useMemo(() => {
     const enrichedMap: Record<string, EnrichedKeperluanProduct> = {};
     let gNeg = 0;
     let gPos = 0;
-    let gNet = 0;
-    let nCount = 0;
-    let pCount = 0;
-    let eqCount = 0;
 
     for (const [name, stat] of Object.entries(summary.productMap)) {
       const gid = classifyKeperluanGroup(
@@ -356,33 +271,9 @@ export function KeperluanDetailPage({
 
       gNeg += stat.negVal;
       gPos += stat.posVal;
-      gNet += stat.netVal;
-      if (stat.netVal < -0.5) nCount++;
-      else if (stat.netVal > 0.5) pCount++;
-      else eqCount++;
     }
 
-    const dailyMap: Record<
-      string,
-      {
-        date: string;
-        negVal: number;
-        posVal: number;
-        netVal: number;
-        diffCount: number;
-        pasCount: number;
-      }
-    > = {};
-
     for (const date of summary.activeDates) {
-      dailyMap[date] = {
-        date,
-        negVal: 0,
-        posVal: 0,
-        netVal: 0,
-        diffCount: 0,
-        pasCount: 0,
-      };
       const rows = data[date] ?? [];
       for (const rawRow of rows) {
         const meta = convertRowWithMeta(rawRow);
@@ -393,188 +284,66 @@ export function KeperluanDetailPage({
         item.sysByUnit[unit] = (item.sysByUnit[unit] ?? 0) + meta.row[2];
         item.opByUnit[unit] = (item.opByUnit[unit] ?? 0) + meta.row[3];
         item.entries.push({ date, meta });
-
-        const diffVal = meta.row[6];
-        const diffQty = meta.row[4];
-        const dStat = dailyMap[date];
-        if (diffVal < -0.5) dStat.negVal += diffVal;
-        else if (diffVal > 0.5) dStat.posVal += diffVal;
-        dStat.netVal += diffVal;
-
-        if (Math.abs(diffQty) > 1e-9 || Math.abs(diffVal) > 0.5) {
-          dStat.diffCount++;
-        } else {
-          dStat.pasCount++;
-        }
       }
-    }
-
-    const bagianMap: Record<
-      string,
-      {
-        bagian: string;
-        negVal: number;
-        posVal: number;
-        netVal: number;
-        totalItems: number;
-        negItems: number;
-        posItems: number;
-      }
-    > = {};
-
-    for (const item of Object.values(enrichedMap)) {
-      const cat = item.stat.category || 'Lainnya';
-      if (!bagianMap[cat]) {
-        bagianMap[cat] = {
-          bagian: cat,
-          negVal: 0,
-          posVal: 0,
-          netVal: 0,
-          totalItems: 0,
-          negItems: 0,
-          posItems: 0,
-        };
-      }
-      const b = bagianMap[cat];
-      b.totalItems++;
-      b.negVal += item.stat.negVal;
-      b.posVal += item.stat.posVal;
-      b.netVal += item.stat.netVal;
-      if (item.stat.netVal < -0.5) b.negItems++;
-      else if (item.stat.netVal > 0.5) b.posItems++;
     }
 
     return {
       productsInGroup: Object.values(enrichedMap),
-      dailyBreakdown: Object.values(dailyMap).sort((a, b) =>
-        a.date.localeCompare(b.date)
-      ),
-      bagianBreakdown: Object.values(bagianMap).sort(
-        (a, b) => Math.abs(b.negVal) - Math.abs(a.negVal)
-      ),
       groupNegVal: gNeg,
       groupPosVal: gPos,
-      groupNetVal: gNet,
-      negItemsCount: nCount,
-      posItemsCount: pCount,
-      pasItemsCount: eqCount,
     };
   }, [summary, data, activeKeperluanId]);
 
-  const totalProductsCount = productsInGroup.length;
-  const accuracyPct =
-    totalProductsCount > 0
-      ? Math.round((pasItemsCount / totalProductsCount) * 100)
-      : 100;
-
-  const shareOfStoreMinusPct =
-    Math.abs(summary.totalNeg) > 0.5
-      ? Math.min(
-          100,
-          Math.round((Math.abs(groupNegVal) / Math.abs(summary.totalNeg)) * 100)
-        )
-      : 0;
-
-  const shareOfStorePlusPct =
-    Math.abs(summary.totalPos) > 0.5
-      ? Math.min(
-          100,
-          Math.round((Math.abs(groupPosVal) / Math.abs(summary.totalPos)) * 100)
-        )
-      : 0;
-
-  // Top critical items (Top 3 Minus & Top 3 Lebih)
-  const topMinusProducts = useMemo(
+  // Exact Minus list (prod.negVal < -0.5) and Lebih list (prod.posVal > 0.5) matching Beranda counts (e.g. 47 barang Minus, 41 barang Lebih)
+  const minusProducts = useMemo(
     () =>
-      [...productsInGroup]
+      productsInGroup
         .filter((p) => p.stat.negVal < -0.5)
         .sort((a, b) => a.stat.negVal - b.stat.negVal),
     [productsInGroup]
   );
 
-  const topPlusProducts = useMemo(
+  const plusProducts = useMemo(
     () =>
-      [...productsInGroup]
+      productsInGroup
         .filter((p) => p.stat.posVal > 0.5)
         .sort((a, b) => b.stat.posVal - a.stat.posVal),
     [productsInGroup]
   );
 
-  const worstMinusDateObj = useMemo(() => {
-    if (!dailyBreakdown.length) return null;
-    const sorted = [...dailyBreakdown].sort((a, b) => a.negVal - b.negVal);
-    return sorted[0] && sorted[0].negVal < -0.5 ? sorted[0] : null;
-  }, [dailyBreakdown]);
+  // Active list based on whether the user is in Minus ('neg') or Lebih ('pos') mode
+  const activeModeList = mode === 'neg' ? minusProducts : plusProducts;
+  const activeModeTotalVal = mode === 'neg' ? groupNegVal : groupPosVal;
 
-  const maxDailyVal = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...dailyBreakdown.map((d) =>
-          Math.max(Math.abs(d.negVal), Math.abs(d.posVal))
-        )
-      ),
-    [dailyBreakdown]
-  );
+  // Bagian breakdown within the active mode list (e.g. within the 47 Minus items or 41 Lebih items)
+  const availableBagianList = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const item of activeModeList) {
+      const cat = item.stat.category || 'Lainnya';
+      map[cat] = (map[cat] ?? 0) + 1;
+    }
+    return Object.entries(map)
+      .map(([bagian, count]) => ({ bagian, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [activeModeList]);
 
-  // Filtered product list
+  // Filtered products by search & bagian
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return productsInGroup
-      .filter((item) => {
-        const s = item.stat;
-        if (bagianFilter !== 'ALL' && s.category !== bagianFilter) {
-          return false;
-        }
-        if (selectedDateFilter !== 'ALL') {
-          const hasEntryOnDate = item.entries.some(
-            (e) =>
-              e.date === selectedDateFilter &&
-              (itemFilter === 'all'
-                ? true
-                : itemFilter === 'neg'
-                ? e.meta.row[6] < -0.5
-                : itemFilter === 'pos'
-                ? e.meta.row[6] > 0.5
-                : Math.abs(e.meta.row[6]) <= 0.5)
-          );
-          if (!hasEntryOnDate) return false;
-        } else {
-          if (itemFilter === 'neg' && s.netVal >= -0.5 && s.negVal >= -0.5) {
-            return false;
-          }
-          if (itemFilter === 'pos' && s.netVal <= 0.5 && s.posVal <= 0.5) {
-            return false;
-          }
-          if (itemFilter === 'pas' && Math.abs(s.netVal) > 0.5) {
-            return false;
-          }
-        }
-
-        if (!q) return true;
-        return (
-          s.name.toLowerCase().includes(q) ||
-          s.code.toLowerCase().includes(q) ||
-          s.category.toLowerCase().includes(q) ||
-          s.subcategory.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => {
-        if (itemFilter === 'neg') {
-          return a.stat.negVal - b.stat.negVal;
-        }
-        if (itemFilter === 'pos') {
-          return b.stat.posVal - a.stat.posVal;
-        }
-        return Math.abs(b.stat.netVal) - Math.abs(a.stat.netVal);
-      });
-  }, [
-    productsInGroup,
-    itemFilter,
-    searchQuery,
-    bagianFilter,
-    selectedDateFilter,
-  ]);
+    return activeModeList.filter((item) => {
+      const s = item.stat;
+      if (bagianFilter !== 'ALL' && s.category !== bagianFilter) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.code.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        s.subcategory.toLowerCase().includes(q)
+      );
+    });
+  }, [activeModeList, searchQuery, bagianFilter]);
 
   const periodLabel =
     viewScope === 'month'
@@ -585,7 +354,7 @@ export function KeperluanDetailPage({
 
   return (
     <div className="space-y-4">
-      {/* TOP BAR: BACK BUTTON + KEPERLUAN SWITCHER PILLS */}
+      {/* TOP BAR: TOMBOL KEMBALI KE BERANDA + PILIHAN 4 KEPERLUAN */}
       <section className="rounded-3xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-3.5 sm:p-5 shadow-xs space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button
@@ -657,20 +426,19 @@ export function KeperluanDetailPage({
           </div>
         </div>
 
-        {/* 4 Keperluan Quick Switcher Tabs */}
+        {/* 4 Keperluan Quick Switcher Tabs (Shows exact item count for active Minus / Lebih mode) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-[#F3E2F1] dark:border-[#1B3258]">
           {KEPERLUAN_GROUP_LIST.map((g) => {
             const isSelected = g.id === activeKeperluanId;
             const bStat = allBucketsSummary[g.id];
+            const modeCount =
+              mode === 'neg' ? bStat.negItemCount : bStat.posItemCount;
+            const modeVal = mode === 'neg' ? bStat.negVal : bStat.posVal;
             return (
               <button
                 key={g.id}
                 type="button"
-                onClick={() => {
-                  onSelectKeperluanId(g.id);
-                  setBagianFilter('ALL');
-                  setSelectedDateFilter('ALL');
-                }}
+                onClick={() => onSelectKeperluanId(g.id)}
                 className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-gradient-to-br from-[#FDF2FA] to-[#F5E6FA] dark:from-[#172D56] dark:to-[#1E1B4B] border-[#E0139C] dark:border-amber-400 shadow-xs'
@@ -693,16 +461,21 @@ export function KeperluanDetailPage({
                       {g.title}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-[#7D4E85] dark:text-[#A8B9D3] shrink-0">
-                    {bStat.totalCount} brg
-                  </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[11px] font-mono font-bold tabular-nums">
-                  <span className="text-rose-600 dark:text-rose-400">
-                    -{formatCompactRupiah(bStat.negVal)}
+                  <span
+                    className={
+                      mode === 'neg'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }
+                  >
+                    {mode === 'neg'
+                      ? `-${formatCompactRupiah(modeVal)}`
+                      : `+${formatCompactRupiah(modeVal)}`}
                   </span>
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    +{formatCompactRupiah(bStat.posVal)}
+                  <span className="text-[#6E4877] dark:text-[#A8B9D3]">
+                    {modeCount} barang
                   </span>
                 </div>
               </button>
@@ -711,535 +484,84 @@ export function KeperluanDetailPage({
         </div>
       </section>
 
-      {/* HERO BANNER KEPERLUAN & 4 KARTU RINGKASAN UTAMA */}
+      {/* MAIN LIST SECTION: LANGSUNG MENAMPILKAN DAFTAR BARANG SESUAI TAB MINUS / LEBIH */}
       <section className="surface-3d rounded-3xl p-4 sm:p-6 border border-[#EBC7E9] dark:border-[#243F6E] space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#F0D8EE] dark:border-[#1E365F]">
+        {/* Header: Title, Exact Item Count (e.g. 47 Barang Minus / 41 Barang Lebih), Total Rupiah, & Minus/Lebih Switcher */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-3.5 border-b border-[#F0D8EE] dark:border-[#1E365F]">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className="w-3 h-3 rounded-full shrink-0"
                 style={{ backgroundColor: activeGroupDef.barColor }}
               />
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#C61196] dark:text-[#FFC400]">
-                HALAMAN RINCIAN PER KEPERLUAN
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#C61196] dark:text-[#FFC400]">
+                RINCIAN PER KEPERLUAN ·{' '}
+                {mode === 'neg' ? 'DAFTAR BARANG MINUS' : 'DAFTAR BARANG LEBIH'}
               </span>
             </div>
-            <h1 className="text-lg sm:text-2xl font-extrabold text-[#391042] dark:text-white">
-              {activeGroupDef.title}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#6E4877] dark:text-[#A8B9D3]">
-              {activeGroupDef.description}
+
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-lg sm:text-2xl font-extrabold text-[#391042] dark:text-white">
+                {activeGroupDef.title}
+              </h1>
+              <span
+                className={`px-3 py-0.5 rounded-full text-xs sm:text-sm font-extrabold font-mono tabular-nums ${
+                  mode === 'neg'
+                    ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/35'
+                    : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/35'
+                }`}
+              >
+                {activeModeList.length} Barang{' '}
+                {mode === 'neg' ? 'Minus' : 'Lebih'} (
+                {mode === 'neg'
+                  ? `-${formatRupiah(activeModeTotalVal)}`
+                  : `+${formatRupiah(activeModeTotalVal)}`}
+                )
+              </span>
+            </div>
+
+            <p className="text-xs text-[#7D4E85] dark:text-[#A8B9D3]">
+              Indikasi utama:{' '}
+              <strong className="text-[#391042] dark:text-slate-200">
+                {mode === 'neg'
+                  ? activeGroupDef.indicationNeg
+                  : activeGroupDef.indicationPos}
+              </strong>
+              . Klik <strong>Lihat Detail</strong> pada barang untuk memunculkan{' '}
+              <strong>Di Sistem ESB</strong> dan <strong>Hitungan Gudang</strong>.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="px-3.5 py-2 rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] text-xs">
-              <span className="text-[#7D4E85] dark:text-[#A8B9D3] block text-[10px] font-bold uppercase">
-                Porsi Minus dari Total Toko
-              </span>
-              <span className="font-mono font-black text-sm text-rose-600 dark:text-rose-400">
-                {shareOfStoreMinusPct}% dari total kekurangan toko
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 4 Kartu Ringkasan Keperluan Ini */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* Card 1: Kekurangan Stok Keperluan Ini */}
-          <button
-            type="button"
-            onClick={() => setItemFilter('neg')}
-            className={`text-left rounded-2xl p-4 bg-white dark:bg-[#0B172E] border transition-all cursor-pointer shadow-xs ${
-              itemFilter === 'neg'
-                ? 'border-rose-500 ring-2 ring-rose-500/20'
-                : 'border-[#EBC7E9] dark:border-[#243F6E] hover:border-rose-400'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                KEKURANGAN STOK
-              </span>
-              <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono tabular-nums text-rose-600 dark:text-rose-400 mt-1">
-              - {formatRupiah(groupNegVal)}
-            </div>
-            <div className="text-xs font-bold text-[#6E4877] dark:text-[#A8B9D3] mt-1">
-              {topMinusProducts.length} barang pernah minus ({negItemsCount} hasil akhir minus)
-            </div>
-          </button>
-
-          {/* Card 2: Kelebihan Stok Keperluan Ini */}
-          <button
-            type="button"
-            onClick={() => setItemFilter('pos')}
-            className={`text-left rounded-2xl p-4 bg-white dark:bg-[#0B172E] border transition-all cursor-pointer shadow-xs ${
-              itemFilter === 'pos'
-                ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                : 'border-[#EBC7E9] dark:border-[#243F6E] hover:border-emerald-400'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                KELEBIHAN STOK
-              </span>
-              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
-              + {formatRupiah(groupPosVal)}
-            </div>
-            <div className="text-xs font-bold text-[#6E4877] dark:text-[#A8B9D3] mt-1">
-              +{topPlusProducts.length} barang pernah lebih ({posItemsCount} hasil akhir lebih) · {shareOfStorePlusPct}% toko
-            </div>
-          </button>
-
-          {/* Card 3: Hasil Gabungan Keperluan Ini */}
-          <button
-            type="button"
-            onClick={() => setItemFilter('all')}
-            className={`text-left rounded-2xl p-4 bg-white dark:bg-[#0B172E] border transition-all cursor-pointer shadow-xs ${
-              itemFilter === 'all'
-                ? 'border-[#E0139C] ring-2 ring-[#E0139C]/20'
-                : 'border-[#EBC7E9] dark:border-[#243F6E] hover:border-[#E0139C]'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                HASIL GABUNGAN
-              </span>
-              <Scale className="w-4 h-4 text-[#C61196] dark:text-[#FFC400]" />
-            </div>
-            <div
-              className={`text-xl sm:text-2xl font-black font-mono tabular-nums mt-1 ${
-                groupNetVal < -0.5
-                  ? 'text-rose-600 dark:text-rose-400'
-                  : groupNetVal > 0.5
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-[#391042] dark:text-white'
+          {/* Toggle Minus vs Lebih (Shows exact count for each tab, e.g. Minus (47) | Lebih (41)) */}
+          <div className="inline-flex items-center rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] p-1 shrink-0 self-start lg:self-center shadow-2xs">
+            <button
+              type="button"
+              onClick={() => onChangeMode('neg')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
+                mode === 'neg'
+                  ? 'wizzmie-pink-pill text-white'
+                  : 'text-[#6E4877] dark:text-slate-300 hover:text-[#C61196]'
               }`}
             >
-              {groupNetVal < -0.5
-                ? `- ${formatRupiah(groupNetVal)}`
-                : groupNetVal > 0.5
-                ? `+ ${formatRupiah(groupNetVal)}`
-                : 'Pas Rp 0'}
-            </div>
-            <div className="text-xs font-bold text-[#6E4877] dark:text-[#A8B9D3] mt-1">
-              {groupNetVal < -0.5
-                ? 'Selisih Bersih Masih Kurang'
-                : groupNetVal > 0.5
-                ? 'Selisih Bersih Lebih'
-                : 'Seimbang'}
-            </div>
-          </button>
-
-          {/* Card 4: Akurasi Stok Pas Keperluan Ini */}
-          <button
-            type="button"
-            onClick={() => setItemFilter('pas')}
-            className={`text-left rounded-2xl p-4 bg-white dark:bg-[#0B172E] border transition-all cursor-pointer shadow-xs ${
-              itemFilter === 'pas'
-                ? 'border-[#7E22CE] ring-2 ring-[#7E22CE]/20'
-                : 'border-[#EBC7E9] dark:border-[#243F6E] hover:border-[#7E22CE]'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                AKURASI STOK PAS
-              </span>
-              <ClipboardCheck className="w-4 h-4 text-[#7E22CE] dark:text-amber-300" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono tabular-nums text-[#391042] dark:text-white mt-1">
-              {accuracyPct}%
-            </div>
-            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-              {pasItemsCount} dari {totalProductsCount} barang pas
-            </div>
-          </button>
-        </div>
-
-        {/* SECTION: YANG HARUS DIKETAHUI MANAJER (DIAGNOSA, BARANG PRIORITAS & TINDAK LANJUT) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-          {/* Left 7 Cols: Apa yang Harus Diketahui & Langkah Tindakan Manajer */}
-          <div className="lg:col-span-7 rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-4 sm:p-5 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-[#FDE4F7] dark:bg-amber-400/15 border border-[#F2BCE7] dark:border-amber-400/35 flex items-center justify-center text-[#C61196] dark:text-amber-300 shrink-0">
-                  <Lightbulb className="w-4 h-4 stroke-[2.2]" />
-                </span>
-                <div>
-                  <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                    YANG HARUS DIKETAHUI PADA {activeGroupDef.title.toUpperCase()}
-                  </h2>
-                  <p className="text-[11px] text-[#7D4E85] dark:text-[#A8B9D3]">
-                    Diagnosa penyebab utama selisih dan langkah pemeriksaan di lapangan.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Penyebab Minus */}
-              <div className="rounded-xl bg-rose-50/70 dark:bg-rose-950/25 border border-rose-200/80 dark:border-rose-500/30 p-3.5 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-rose-700 dark:text-rose-300">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Kenapa Bisa Minus (Kurang)?</span>
-                </div>
-                <ul className="space-y-1.5 text-xs text-[#391042] dark:text-slate-200 leading-relaxed">
-                  {activeGroupDef.whyMinusPoints.map((pt, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">
-                        {i + 1}.
-                      </span>
-                      <span>{pt}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Penyebab Lebih */}
-              <div className="rounded-xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/80 dark:border-emerald-500/30 p-3.5 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-                  <TrendingUp className="w-4 h-4 shrink-0" />
-                  <span>Kenapa Bisa Lebih (Surplus)?</span>
-                </div>
-                <ul className="space-y-1.5 text-xs text-[#391042] dark:text-slate-200 leading-relaxed">
-                  {activeGroupDef.whyPlusPoints.map((pt, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                        {i + 1}.
-                      </span>
-                      <span>{pt}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Langkah Tindakan Prioritas */}
-            <div className="rounded-xl bg-[#FDF6FC] dark:bg-[#10203D] border border-[#EBC7E9] dark:border-[#243F6E] p-3.5 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#7E22CE] dark:text-amber-300">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Langkah Tindakan yang Harus Dilakukan Manajer / PIC:</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                {activeGroupDef.actionSteps.map((step, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#1E365F] p-2.5 text-xs text-[#391042] dark:text-slate-200 leading-relaxed"
-                  >
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white font-mono text-[10px] font-extrabold mr-1.5">
-                      {idx + 1}
-                    </span>
-                    <span className="font-medium">{step}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right 5 Cols: Sorotan Kritis (Top 3 Barang Minus Terbesar & Hari Terparah & Bagian) */}
-          <div className="lg:col-span-5 rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-4 sm:p-5 flex flex-col justify-between gap-3.5 shadow-xs">
-            <div className="space-y-2.5">
-              <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                SOROTAN KRITIS &amp; PRIORITAS AUDIT
-              </h2>
-
-              {/* Hari Selisih Terparah pada Keperluan Ini */}
-              {worstMinusDateObj ? (
-                <div className="rounded-xl bg-rose-50/80 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                      Tanggal Minus Terbesar ({activeGroupDef.shortLabel})
-                    </div>
-                    <div className="text-xs sm:text-sm font-black font-mono text-rose-700 dark:text-rose-300 mt-0.5">
-                      {formatDateFullId(worstMinusDateObj.date)} · -
-                      {formatRupiah(worstMinusDateObj.negVal)}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onOpenDayInHarian(worstMinusDateObj.date)}
-                    className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#132548] border border-rose-200 dark:border-rose-500/40 text-[11px] font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors shrink-0 cursor-pointer"
-                  >
-                    Cek Tanggal →
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-xl bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 p-3 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                  Tidak ada tanggal dengan selisih minus pada keperluan ini.
-                </div>
-              )}
-
-              {/* Top 3 Barang Minus Terbesar di Keperluan Ini */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-[#6E4877] dark:text-[#A8B9D3]">
-                  <span>3 Barang Minus Terbesar Wajib Dicek</span>
-                  <span>Nilai Minus</span>
-                </div>
-
-                {topMinusProducts.length === 0 ? (
-                  <p className="text-xs text-[#7D4E85] dark:text-[#A8B9D3] py-2">
-                    Semua barang pada keperluan ini bebas dari minus.
-                  </p>
-                ) : (
-                  topMinusProducts.slice(0, 3).map((item, idx) => (
-                    <button
-                      key={item.stat.name}
-                      type="button"
-                      onClick={() => {
-                        setItemFilter('neg');
-                        setExpandedItems((prev) => ({
-                          ...prev,
-                          [item.stat.name]: true,
-                        }));
-                        const el = document.getElementById(
-                          `keperluan-item-${encodeURIComponent(item.stat.name)}`
-                        );
-                        if (el) {
-                          el.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center',
-                          });
-                        }
-                      }}
-                      className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#FDF7FC] hover:bg-[#FCEBF9] dark:bg-[#10203D] dark:hover:bg-[#162B52] border border-[#EBC7E9] dark:border-[#243F6E] text-left transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-5 h-5 rounded-md bg-rose-500 text-white font-mono text-[10px] font-extrabold flex items-center justify-center shrink-0">
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-[#391042] dark:text-white truncate">
-                            {item.stat.name}
-                          </div>
-                          <div className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3]">
-                            Minus di {item.stat.negDays} hari · Bagian:{' '}
-                            {item.stat.category}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 font-mono tabular-nums">
-                        <div className="text-xs font-black text-rose-600 dark:text-rose-400">
-                          -{formatRupiah(item.stat.negVal)}
-                        </div>
-                        <div className="text-[10px] text-[#6E4877] dark:text-[#A8B9D3]">
-                          {formatQtyMap(
-                            item.stat.negQtyByUnit,
-                            item.stat.name,
-                            false
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Filter Cepat Per Bagian di dalam Keperluan Ini */}
-            {bagianBreakdown.length > 0 && (
-              <div className="pt-2.5 border-t border-[#F3E2F1] dark:border-[#1B3258] space-y-1.5">
-                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#6E4877] dark:text-[#A8B9D3]">
-                  Bagian di Dalam {activeGroupDef.shortLabel} (Ketuk untuk Filter):
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setBagianFilter('ALL')}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                      bagianFilter === 'ALL'
-                        ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white'
-                        : 'bg-[#FAF5FC] dark:bg-[#10203D] border border-[#EBC7E9] dark:border-[#243F6E] text-[#391042] dark:text-slate-200'
-                    }`}
-                  >
-                    Semua ({totalProductsCount})
-                  </button>
-                  {bagianBreakdown.map((b) => (
-                    <button
-                      key={b.bagian}
-                      type="button"
-                      onClick={() =>
-                        setBagianFilter(
-                          bagianFilter === b.bagian ? 'ALL' : b.bagian
-                        )
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                        bagianFilter === b.bagian
-                          ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white'
-                          : 'bg-[#FAF5FC] dark:bg-[#10203D] border border-[#EBC7E9] dark:border-[#243F6E] text-[#391042] dark:text-slate-200'
-                      }`}
-                    >
-                      {b.bagian} ({b.totalItems})
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              <TrendingDown className="w-3.5 h-3.5" />
+              <span>Minus ({minusProducts.length} Barang)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeMode('pos')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
+                mode === 'pos'
+                  ? 'wizzmie-pink-pill text-white'
+                  : 'text-[#6E4877] dark:text-slate-300 hover:text-[#C61196]'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Lebih ({plusProducts.length} Barang)</span>
+            </button>
           </div>
         </div>
 
-        {/* SECTION: TREN HARIAN KHUSUS KEPERLUAN INI */}
-        {dailyBreakdown.length > 1 && (
-          <div className="rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-4 sm:p-5 space-y-3 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
-                  PERGERAKAN HARIAN: {activeGroupDef.title.toUpperCase()}
-                </h2>
-                <p className="text-[11px] text-[#7D4E85] dark:text-[#A8B9D3]">
-                  Ketuk salah satu tanggal untuk memfilter daftar barang pada tanggal tersebut.
-                </p>
-              </div>
-              {selectedDateFilter !== 'ALL' && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedDateFilter('ALL')}
-                  className="px-3 py-1 rounded-full bg-[#FDF2FA] dark:bg-[#162B52] border border-[#EBC7E9] dark:border-[#2A4A7F] text-xs font-bold text-[#C61196] dark:text-amber-300 cursor-pointer"
-                >
-                  Reset Filter Tanggal ({formatDateId(selectedDateFilter)}) ✕
-                </button>
-              )}
-            </div>
-
-            <div className="overflow-x-auto pb-1">
-              <div
-                className="grid gap-1.5 min-w-[480px]"
-                style={{
-                  gridTemplateColumns: `repeat(${dailyBreakdown.length}, minmax(34px, 1fr))`,
-                }}
-              >
-                {dailyBreakdown.map((d) => {
-                  const isPicked = selectedDateFilter === d.date;
-                  const negPct =
-                    d.negVal < -0.5
-                      ? Math.max(
-                          10,
-                          Math.round((Math.abs(d.negVal) / maxDailyVal) * 100)
-                        )
-                      : 0;
-                  const posPct =
-                    d.posVal > 0.5
-                      ? Math.max(
-                          10,
-                          Math.round((Math.abs(d.posVal) / maxDailyVal) * 100)
-                        )
-                      : 0;
-                  return (
-                    <button
-                      key={d.date}
-                      type="button"
-                      onClick={() =>
-                        setSelectedDateFilter(isPicked ? 'ALL' : d.date)
-                      }
-                      title={`${formatDateFullId(d.date)}\nMinus: -${formatRupiah(
-                        d.negVal
-                      )}\nLebih: +${formatRupiah(d.posVal)}`}
-                      className={`rounded-xl p-1.5 border flex flex-col items-center transition-all cursor-pointer ${
-                        isPicked
-                          ? 'bg-[#FDF2FA] dark:bg-[#19325E] border-[#E0139C] dark:border-amber-400 ring-2 ring-[#E0139C]/20'
-                          : 'bg-[#FAF5FC]/60 hover:bg-[#FDF2FA] dark:bg-[#0E1D38] border-[#EBC7E9] dark:border-[#1E365F]'
-                      }`}
-                    >
-                      {/* Top Half: Plus */}
-                      <div className="w-full h-10 flex items-end justify-center">
-                        {posPct > 0 ? (
-                          <div
-                            className="w-3 sm:w-4 rounded-t-md bg-emerald-500"
-                            style={{ height: `${posPct}%` }}
-                          />
-                        ) : (
-                          <div className="w-1.5 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
-                        )}
-                      </div>
-                      <div className="w-full h-[1px] bg-[#E5C6E3] dark:bg-[#243F6E] my-0.5" />
-                      {/* Bottom Half: Minus */}
-                      <div className="w-full h-10 flex items-start justify-center">
-                        {negPct > 0 ? (
-                          <div
-                            className="w-3 sm:w-4 rounded-b-md bg-rose-500"
-                            style={{ height: `${negPct}%` }}
-                          />
-                        ) : (
-                          <div className="w-1.5 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
-                        )}
-                      </div>
-                      <span
-                        className={`mt-1 text-[10px] font-mono font-extrabold px-1 py-0.5 rounded ${
-                          isPicked
-                            ? 'bg-[#E0139C] text-white'
-                            : 'text-[#391042] dark:text-slate-200'
-                        }`}
-                      >
-                        {Number(d.date.slice(8))}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* DAFTAR LENGKAP BARANG DALAM KEPERLUAN INI */}
-      <section className="surface-3d rounded-3xl p-4 sm:p-6 border border-[#EBC7E9] dark:border-[#243F6E] space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm sm:text-lg font-extrabold text-[#391042] dark:text-white">
-              Daftar Barang {activeGroupDef.title} ({filteredProducts.length}{' '}
-              barang)
-            </h2>
-            <p className="text-xs text-[#7D4E85] dark:text-[#A8B9D3]">
-              Klik <strong>Lihat Detail</strong> pada barang untuk memunculkan
-              data <strong>Di Sistem ESB</strong>, <strong>Hitungan Gudang</strong>,
-              harga satuan, konversi kemasan, dan rincian tanggalnya.
-            </p>
-          </div>
-
-          {/* Filter Status Pills */}
-          <div className="inline-flex items-center rounded-full border border-[#EBC7E9] dark:border-[#243F6E] bg-white dark:bg-[#0A162B] p-1 self-start sm:self-auto">
-            {(
-              [
-                {
-                  id: 'neg',
-                  label: `Minus (${topMinusProducts.length})`,
-                },
-                {
-                  id: 'pos',
-                  label: `Lebih (${topPlusProducts.length})`,
-                },
-                {
-                  id: 'pas',
-                  label: `Pas (${pasItemsCount})`,
-                },
-                {
-                  id: 'all',
-                  label: `Semua (${totalProductsCount})`,
-                },
-              ] as const
-            ).map((tab) => {
-              const isActive = itemFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setItemFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                    isActive
-                      ? 'wizzmie-pink-pill text-white'
-                      : 'text-[#391042] dark:text-slate-300 hover:text-[#C61196]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Search & Bagian Filter Input */}
+        {/* Search & Bagian Filter Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-8 relative">
             <Search className="w-4 h-4 text-[#7D4E85] dark:text-[#FF7AD2] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1247,7 +569,9 @@ export function KeperluanDetailPage({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Cari nama barang atau kode di ${activeGroupDef.shortLabel}...`}
+              placeholder={`Cari dari ${activeModeList.length} barang ${
+                mode === 'neg' ? 'minus' : 'lebih'
+              } di ${activeGroupDef.shortLabel}...`}
               className="w-full pl-11 pr-10 py-2.5 text-xs sm:text-sm rounded-full border border-[#EBC7E9] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E0139C]"
             />
             {searchQuery && (
@@ -1270,43 +594,53 @@ export function KeperluanDetailPage({
               className="w-full pl-10 pr-8 py-2.5 text-xs sm:text-sm font-bold rounded-full border border-[#EBC7E9] dark:border-[#233F6D] bg-white dark:bg-[#0A162B] text-[#391042] dark:text-slate-100 cursor-pointer"
             >
               <option value="ALL">
-                Semua Bagian ({totalProductsCount} barang)
+                Semua Bagian ({activeModeList.length} barang)
               </option>
-              {bagianBreakdown.map((b) => (
+              {availableBagianList.map((b) => (
                 <option key={b.bagian} value={b.bagian}>
-                  {b.bagian} ({b.totalItems} barang)
+                  {b.bagian} ({b.count} barang)
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* List of Items */}
+        {/* Sub-count info when searching or filtering by Bagian */}
+        {(searchQuery.trim() !== '' || bagianFilter !== 'ALL') && (
+          <div className="flex items-center justify-between text-xs text-[#7D4E85] dark:text-[#A8B9D3] px-1">
+            <span>
+              Menampilkan <strong>{filteredProducts.length}</strong> dari{' '}
+              <strong>{activeModeList.length}</strong> barang{' '}
+              {mode === 'neg' ? 'minus' : 'lebih'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setBagianFilter('ALL');
+              }}
+              className="font-bold text-[#C61196] dark:text-amber-300 hover:underline cursor-pointer"
+            >
+              Reset Filter
+            </button>
+          </div>
+        )}
+
+        {/* List of All Products in This Mode (e.g. 47 Minus items or 41 Lebih items) */}
         {filteredProducts.length === 0 ? (
           <div className="rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-8 text-center text-sm text-[#7D4E85] dark:text-[#A8B9D3]">
-            Tidak ada barang yang cocok dengan filter ini pada{' '}
-            <strong>{activeGroupDef.title}</strong>.
+            Tidak ada barang {mode === 'neg' ? 'minus' : 'lebih'} yang cocok
+            dengan filter ini pada <strong>{activeGroupDef.title}</strong>.
           </div>
         ) : (
           <div className="space-y-2.5">
             {filteredProducts.map((item, idx) => {
               const s = item.stat;
               const isExpanded = !!expandedItems[s.name];
-              const displayVal =
-                itemFilter === 'neg'
-                  ? s.negVal
-                  : itemFilter === 'pos'
-                  ? s.posVal
-                  : s.netVal;
+              const displayVal = mode === 'neg' ? s.negVal : s.posVal;
               const displayQtyMap =
-                itemFilter === 'neg'
-                  ? s.negQtyByUnit
-                  : itemFilter === 'pos'
-                  ? s.posQtyByUnit
-                  : s.qtyByUnit;
+                mode === 'neg' ? s.negQtyByUnit : s.posQtyByUnit;
 
-              const state =
-                displayVal < -0.5 ? 'neg' : displayVal > 0.5 ? 'pos' : 'pas';
               const cleanQtyLabel = formatQtyMap(displayQtyMap, s.name, false)
                 .replace(/^(Kurang|Lebih)\s+/i, '')
                 .replace(/^Pas\s*\((.*)\)$/i, '$1');
@@ -1320,18 +654,17 @@ export function KeperluanDetailPage({
               return (
                 <article
                   key={s.name}
-                  id={`keperluan-item-${encodeURIComponent(s.name)}`}
                   className="bg-white dark:bg-[#102344] border border-[#EBC7E9] dark:border-[#203F70] rounded-2xl overflow-hidden shadow-xs transition-all"
                 >
                   <div className="p-3.5 sm:p-4">
-                    {/* Top Row: Always Visible (Nama Barang, Kode, Bagian, Frekuensi, Status & Nilai Selisih) */}
+                    {/* Top Row: Always Visible (Nomor, Nama Barang, Kode, Bagian, Frekuensi, Status & Nilai Selisih) */}
                     <div
                       className={`flex justify-between items-start gap-2.5 ${
                         isExpanded ? 'mb-3' : ''
                       }`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <span className="w-6 h-6 rounded-lg bg-[#FDF2FA] dark:bg-[#17315B] border border-[#EBC7E9] dark:border-[#294B82] text-[#C61196] dark:text-amber-300 font-mono text-[11px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="w-6 h-6 rounded-lg bg-[#FDF2FA] dark:bg-[#17315B] border border-[#EBC7E9] dark:border-[#294B82] text-[#C61196] dark:text-amber-300 font-mono text-[11px] font-extrabold flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
@@ -1351,15 +684,16 @@ export function KeperluanDetailPage({
                                 : ''}
                             </span>
                             <span>
-                              · Frekuensi:{' '}
-                              <strong className="text-rose-600 dark:text-rose-400">
-                                {s.negDays}hr minus
-                              </strong>
-                              ,{' '}
-                              <strong className="text-emerald-600 dark:text-emerald-400">
-                                {s.posDays}hr lebih
-                              </strong>
-                              , {s.pasDays}hr pas
+                              ·{' '}
+                              {mode === 'neg' ? (
+                                <strong className="text-rose-600 dark:text-rose-400">
+                                  {s.negDays} hari minus
+                                </strong>
+                              ) : (
+                                <strong className="text-emerald-600 dark:text-emerald-400">
+                                  {s.posDays} hari lebih
+                                </strong>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -1369,26 +703,18 @@ export function KeperluanDetailPage({
                         <div className="flex items-center justify-end space-x-1.5">
                           <span
                             className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full leading-none tracking-wide ${
-                              state === 'neg'
+                              mode === 'neg'
                                 ? 'bg-rose-500 text-white'
-                                : state === 'pos'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-[#F3E2F1] dark:bg-[#17315B] text-[#5B2163] dark:text-[#A8B9D3]'
+                                : 'bg-emerald-500 text-white'
                             }`}
                           >
-                            {state === 'neg'
-                              ? 'MINUS'
-                              : state === 'pos'
-                              ? 'LEBIH'
-                              : 'PAS'}
+                            {mode === 'neg' ? 'MINUS' : 'LEBIH'}
                           </span>
                           <span
                             className={`text-xs sm:text-sm font-bold ${
-                              state === 'neg'
+                              mode === 'neg'
                                 ? 'text-rose-600 dark:text-[#FF5B62]'
-                                : state === 'pos'
-                                ? 'text-emerald-600 dark:text-[#16D6A0]'
-                                : 'text-[#6E4877] dark:text-[#A8B9D3]'
+                                : 'text-emerald-600 dark:text-[#16D6A0]'
                             }`}
                           >
                             {cleanQtyLabel}
@@ -1396,18 +722,14 @@ export function KeperluanDetailPage({
                         </div>
                         <div
                           className={`text-[11px] sm:text-xs font-semibold mt-0.5 tracking-tight font-mono ${
-                            state === 'neg'
+                            mode === 'neg'
                               ? 'text-rose-600 dark:text-[#FF5B62]'
-                              : state === 'pos'
-                              ? 'text-emerald-600 dark:text-[#16D6A0]'
-                              : 'text-[#6E4877] dark:text-[#A8B9D3]'
+                              : 'text-emerald-600 dark:text-[#16D6A0]'
                           }`}
                         >
-                          {state === 'neg'
+                          {mode === 'neg'
                             ? `- ${formatRupiah(displayVal)}`
-                            : state === 'pos'
-                            ? `+ ${formatRupiah(displayVal)}`
-                            : 'Rp 0'}
+                            : `+ ${formatRupiah(displayVal)}`}
                         </div>
                       </div>
                     </div>
@@ -1415,7 +737,7 @@ export function KeperluanDetailPage({
                     {/* EXPANDED DETAILS: Only appears when Lihat Detail is clicked */}
                     {isExpanded && (
                       <div className="space-y-3 pt-2.5 border-t border-[#EED7EC] dark:border-[#203F70]/60">
-                        {/* Di Sistem ESB vs Hitungan Gudang */}
+                        {/* Di Sistem ESB vs Hitungan Gudang (Hidden by default until Lihat Detail is clicked) */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#FAF5FC] dark:bg-[#0c1b35] p-2.5 rounded-xl border border-[#EDD5EC] dark:border-[#203F70]/60 text-xs tabular-nums">
                           <div>
                             <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3]">
