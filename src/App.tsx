@@ -870,7 +870,7 @@ export default function App() {
 
       {/* Top Navigation Bar (Clean 3-Zone Contract) */}
       <header className="md:sticky md:top-0 z-30 bg-white/95 dark:bg-[#081226]/95 backdrop-blur-md border-b border-[#EBC7E9] dark:border-[#1C3259] shadow-[0_4px_20px_-10px_rgba(110,17,104,0.14)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 md:h-16 flex items-center justify-between gap-6">
+        <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 h-14 md:h-16 flex items-center justify-between gap-6">
           <button
             type="button"
             onClick={() => {
@@ -886,11 +886,6 @@ export default function App() {
               <span className="font-display block text-sm sm:text-base font-bold tracking-tight text-[#391042] dark:text-white">
                 Pantau Stok Opname
               </span>
-              {summary?.locationName || summary?.branchName ? (
-                <span className="block text-[11px] font-medium text-[#7D4E85] dark:text-slate-400 truncate max-w-[155px] sm:max-w-[220px]">
-                  {summary.locationName || summary.branchName}
-                </span>
-              ) : null}
             </span>
           </button>
 
@@ -922,7 +917,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-5">
+      <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-7 space-y-5">
         {status && (
           <div
             role="status"
@@ -3937,7 +3932,7 @@ export default function App() {
 
         {/* PAGE 5: PENGATURAN (UPLOAD TERPISAH: 1. STOCK OPNAME & 2. PROFIT LOSS CONSOLIDATION) */}
         {activeTab === 'pengaturan' && (
-          <div className="space-y-5 max-w-5xl">
+          <div className="space-y-5 w-full">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
               {/* KOTAK 1: UPLOAD KHUSUS LAPORAN STOCK OPNAME */}
               <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-4">

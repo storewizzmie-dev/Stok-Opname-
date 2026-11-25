@@ -290,7 +290,6 @@ export function ProfitLossView({
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400 truncate">
                   Profit Loss Consolidation
-                  {report.branchName ? ` · ${report.branchName}` : ''}
                 </span>
                 <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
               </div>
