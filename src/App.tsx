@@ -4553,7 +4553,7 @@ function ReadableStockRow({
       >
         <div className="p-3.5 sm:p-4">
           {/* Top Row: Product Name & Diff Status Tag */}
-          <div className="flex justify-between items-start gap-2 mb-2.5">
+          <div className={`flex justify-between items-start gap-2 ${isExpanded ? 'mb-2.5' : ''}`}>
             <div className="pr-2 min-w-0">
               {onTitleClick ? (
                 <button
@@ -4621,60 +4621,60 @@ function ReadableStockRow({
             </button>
           </div>
 
-          {/* Middle Row: Compact Side-by-Side Comparison (Di Sistem ESB vs Hitungan Gudang) */}
-          <div className="grid grid-cols-2 gap-2 bg-[#FAF5FC] dark:bg-[#0c1b35] p-2.5 rounded-xl border border-[#EDD5EC] dark:border-[#203F70]/60 text-xs tabular-nums">
-            <div className="flex items-center space-x-2">
-              <svg
-                className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="min-w-0">
-                <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
-                  Di Sistem ESB
-                </p>
-                <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
-                  {formatQty(sysQty)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 border-l border-[#EBCEE9] dark:border-[#203F70]/50 pl-2.5">
-              <svg
-                className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="min-w-0">
-                <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
-                  Hitungan Gudang
-                </p>
-                <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
-                  {formatQty(opQty)} {unit}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Expanded Quick Metrics Row (Harga / Unit & Selisih in dus/pack/botol equivalent, or blank if none) */}
+          {/* Expanded Section: Di Sistem ESB vs Hitungan Gudang + Quick Metrics Row */}
           {isExpanded && (
-            <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-[#EED7EC] dark:border-[#203F70]/60 text-xs tabular-nums">
+            <>
+              <div className="grid grid-cols-2 gap-2 bg-[#FAF5FC] dark:bg-[#0c1b35] p-2.5 rounded-xl border border-[#EDD5EC] dark:border-[#203F70]/60 text-xs tabular-nums">
+                <div className="flex items-center space-x-2">
+                  <svg
+                    className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
+                      Di Sistem ESB
+                    </p>
+                    <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                      {formatQty(sysQty)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 border-l border-[#EBCEE9] dark:border-[#203F70]/50 pl-2.5">
+                  <svg
+                    className="w-4 h-4 text-[#C61196] dark:text-[#83B9FF] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-[#7D4E85] dark:text-[#A8B9D3] leading-tight">
+                      Hitungan Gudang
+                    </p>
+                    <p className="font-bold text-[#391042] dark:text-[#F4F7FF] text-xs sm:text-[13px] font-mono mt-0.5">
+                      {formatQty(opQty)} {unit}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-2 pt-2.5 mt-2.5 border-t border-[#EED7EC] dark:border-[#203F70]/60 text-xs tabular-nums">
               <div className="col-span-5 flex items-center space-x-1.5 min-w-0">
                 <svg
                   className="w-3.5 h-3.5 text-[#C61196] dark:text-[#FFC400] shrink-0"
@@ -4735,7 +4735,8 @@ function ReadableStockRow({
                   </p>
                 </div>
               </button>
-            </div>
+              </div>
+            </>
           )}
         </div>
 
