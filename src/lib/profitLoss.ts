@@ -14,11 +14,13 @@ export interface PnlRow {
 }
 
 export interface PnlMonthReport {
+  id: string;
   monthKey: string;
   periodStart: string;
   periodEnd: string;
   generatedAt: string;
   branchName: string;
+  fileName?: string;
   netSales: number;
   totalSales: number;
   totalDiscount: number;
@@ -86,10 +88,66 @@ export function getPnlPeriodDays(report: PnlMonthReport): number {
   return Math.max(1, diff);
 }
 
+export function getPnlPeriodDatesList(report: PnlMonthReport): string[] {
+  const s =
+    report.periodStart <= report.periodEnd
+      ? report.periodStart
+      : report.periodEnd;
+  const e =
+    report.periodStart <= report.periodEnd
+      ? report.periodEnd
+      : report.periodStart;
+  const start = new Date(`${s}T00:00:00Z`);
+  const end = new Date(`${e}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+  const dates: string[] = [];
+  const cursor = new Date(start.getTime());
+  let guard = 0;
+  while (cursor.getTime() <= end.getTime() && guard < 400) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    guard++;
+  }
+  return dates;
+}
+
+export function buildPnlReportId(
+  periodStart: string,
+  periodEnd: string
+): string {
+  const s = periodStart <= periodEnd ? periodStart : periodEnd;
+  const e = periodStart <= periodEnd ? periodEnd : periodStart;
+  return `${s}__${e}`;
+}
+
+export function applyPnlManualPeriod(
+  report: PnlMonthReport,
+  periodStart: string,
+  periodEnd: string,
+  fileName?: string
+): PnlMonthReport {
+  const s = periodStart <= periodEnd ? periodStart : periodEnd;
+  const e = periodStart <= periodEnd ? periodEnd : periodStart;
+  const monthKey = s.slice(0, 7);
+  return {
+    ...report,
+    id: buildPnlReportId(s, e),
+    monthKey,
+    periodStart: s,
+    periodEnd: e,
+    fileName: fileName ?? report.fileName,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function formatPnlPeriodRange(report: PnlMonthReport): string {
   if (!report.periodStart || !report.periodEnd) return report.monthKey;
   if (report.periodStart === report.periodEnd) {
     return formatDateId(report.periodStart);
+  }
+  if (report.periodStart.slice(0, 7) === report.periodEnd.slice(0, 7)) {
+    const startDay = Number(report.periodStart.slice(8, 10));
+    return `${startDay}–${formatDateId(report.periodEnd)}`;
   }
   return `${formatDateId(report.periodStart)} – ${formatDateId(report.periodEnd)}`;
 }
@@ -237,18 +295,24 @@ export function parseProfitLossRows(rows: unknown[][]): PnlMonthReport {
     branchName = cellText(headerRow[2]) || 'Outlet';
   }
 
+  // Note: Profit Loss Consolidation files may not contain a Period row or accurate date info;
+  // parse period if present as an initial hint, otherwise default to current month (user will confirm/pick in the pop-up)
   const pm = periodText.match(
     /(\d{1,2})-(\d{1,2})-(\d{4})\s*-\s*(\d{1,2})-(\d{1,2})-(\d{4})/
   );
-  if (!pm) {
-    throw new Error(
-      'Baris "Period" (format DD-MM-YYYY - DD-MM-YYYY) tidak ditemukan'
-    );
-  }
   const pad = (s: string) => s.padStart(2, '0');
-  const periodStart = `${pm[3]}-${pad(pm[2])}-${pad(pm[1])}`;
-  const periodEnd = `${pm[6]}-${pad(pm[5])}-${pad(pm[4])}`;
+  const now = new Date();
+  const fallbackYear = String(now.getFullYear());
+  const fallbackMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const fallbackDay = String(now.getDate()).padStart(2, '0');
+  const periodStart = pm
+    ? `${pm[3]}-${pad(pm[2])}-${pad(pm[1])}`
+    : `${fallbackYear}-${fallbackMonth}-01`;
+  const periodEnd = pm
+    ? `${pm[6]}-${pad(pm[5])}-${pad(pm[4])}`
+    : `${fallbackYear}-${fallbackMonth}-${fallbackDay}`;
   const monthKey = periodStart.slice(0, 7);
+  const id = buildPnlReportId(periodStart, periodEnd);
 
   const rawItems: {
     account: string;
@@ -325,6 +389,7 @@ export function parseProfitLossRows(rows: unknown[][]): PnlMonthReport {
   const netProfit = findVal('net profit', true) || operationalProfit;
 
   return {
+    id,
     monthKey,
     periodStart,
     periodEnd,
@@ -370,7 +435,7 @@ export function sanitizePnlDataset(raw: unknown): PnlDataset {
   const out: PnlDataset = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
-    if (!/^\d{4}-\d{2}$/.test(key) || !val || typeof val !== 'object') continue;
+    if (!val || typeof val !== 'object') continue;
     const rep = val as Record<string, unknown>;
     if (
       typeof rep.netSales !== 'number' ||
@@ -381,12 +446,35 @@ export function sanitizePnlDataset(raw: unknown): PnlDataset {
     }
     const rows = rep.rows.filter(isValidPnlRow);
     if (!rows.length) continue;
-    out[key] = {
-      monthKey: typeof rep.monthKey === 'string' ? rep.monthKey : key,
-      periodStart: typeof rep.periodStart === 'string' ? rep.periodStart : `${key}-01`,
-      periodEnd: typeof rep.periodEnd === 'string' ? rep.periodEnd : `${key}-28`,
+
+    const rawMonthKey =
+      typeof rep.monthKey === 'string' && /^\d{4}-\d{2}$/.test(rep.monthKey)
+        ? rep.monthKey
+        : /^\d{4}-\d{2}/.test(key)
+        ? key.slice(0, 7)
+        : '2026-11';
+    const periodStart =
+      typeof rep.periodStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rep.periodStart)
+        ? rep.periodStart
+        : `${rawMonthKey}-01`;
+    const periodEnd =
+      typeof rep.periodEnd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rep.periodEnd)
+        ? rep.periodEnd
+        : `${rawMonthKey}-28`;
+    const monthKey = periodStart.slice(0, 7);
+    const reportId =
+      typeof rep.id === 'string' && rep.id.trim() !== ''
+        ? rep.id
+        : buildPnlReportId(periodStart, periodEnd);
+
+    out[reportId] = {
+      id: reportId,
+      monthKey,
+      periodStart,
+      periodEnd,
       generatedAt: typeof rep.generatedAt === 'string' ? rep.generatedAt : '',
       branchName: typeof rep.branchName === 'string' ? rep.branchName : 'Outlet',
+      fileName: typeof rep.fileName === 'string' ? rep.fileName : undefined,
       netSales: rep.netSales,
       totalSales: typeof rep.totalSales === 'number' ? rep.totalSales : rep.netSales,
       totalDiscount: typeof rep.totalDiscount === 'number' ? rep.totalDiscount : 0,

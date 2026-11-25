@@ -115,33 +115,45 @@ function buildAllPnlContext(
   pnlData: PnlDataset,
   selectedPnlMonth: string
 ): string {
-  const months = Object.keys(pnlData).sort();
-  if (months.length === 0) {
+  const reportKeys = Object.keys(pnlData).sort((a, b) => {
+    const ra = pnlData[a];
+    const rb = pnlData[b];
+    if (!ra || !rb) return a.localeCompare(b);
+    if (ra.periodStart !== rb.periodStart) {
+      return ra.periodStart.localeCompare(rb.periodStart);
+    }
+    return ra.periodEnd.localeCompare(rb.periodEnd);
+  });
+  if (reportKeys.length === 0) {
     return '=== DATA MENU LABA RUGI ===\nBelum ada file Excel Profit Loss Consolidation (Laba Rugi) yang diupload.';
   }
 
-  const activeKey =
-    selectedPnlMonth && pnlData[selectedPnlMonth]
-      ? selectedPnlMonth
-      : months[months.length - 1];
+  const activeKey = (() => {
+    if (selectedPnlMonth && pnlData[selectedPnlMonth]) return selectedPnlMonth;
+    const byMonth = reportKeys.filter(
+      (k) => pnlData[k]?.monthKey === selectedPnlMonth
+    );
+    if (byMonth.length > 0) return byMonth[byMonth.length - 1];
+    return reportKeys[reportKeys.length - 1];
+  })();
   const activeReport: PnlMonthReport = pnlData[activeKey];
 
   const lines: string[] = [
     '=== DATA MENU LABA RUGI (PROFIT & LOSS CONSOLIDATION) ===',
-    `Jumlah Bulan Laba Rugi Tersimpan: ${months.length} bulan (${months
-      .map(formatMonthId)
+    `Jumlah Periode Laba Rugi Tersimpan: ${reportKeys.length} periode (${reportKeys
+      .map((k) => formatPnlPeriodRange(pnlData[k]))
       .join(', ')})`,
   ];
 
-  // Summary of all stored P&L months
-  if (months.length > 1) {
-    lines.push('\nRingkasan Semua Bulan Laba Rugi Tersimpan:');
-    for (const m of months) {
-      const rep = pnlData[m];
+  // Summary of all stored P&L periods
+  if (reportKeys.length > 1) {
+    lines.push('\nRingkasan Semua Periode Laba Rugi Tersimpan:');
+    for (const k of reportKeys) {
+      const rep = pnlData[k];
       const pct = (v: number) =>
         rep.netSales > 0 ? (v / rep.netSales) * 100 : 0;
       lines.push(
-        `- ${formatMonthId(m)} (${formatPnlPeriodRange(rep)} | ${
+        `- ${formatPnlPeriodRange(rep)} (${formatMonthId(rep.monthKey)} | ${
           rep.branchName || 'Outlet'
         }): Net Sales ${formatSignedRupiah(
           rep.netSales
@@ -164,7 +176,7 @@ function buildAllPnlContext(
     }
   }
 
-  // Detailed breakdown of the active P&L month
+  // Detailed breakdown of the active P&L period
   const netPct = (v: number) =>
     activeReport.netSales > 0 ? (v / activeReport.netSales) * 100 : 0;
   const periodDays = getPnlPeriodDays(activeReport);

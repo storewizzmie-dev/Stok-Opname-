@@ -53,17 +53,23 @@ import { DateRangePicker } from './components/DateRangePicker';
 import { GlobalAiChatWidget } from './components/GlobalAiChatWidget';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { ProfitLossView } from './components/ProfitLossView';
+import {
+  PendingPnlUploadItem,
+  PnlPeriodPickerModal,
+} from './components/PnlPeriodPickerModal';
 import heroInventory3d from './assets/images/hero_inventory_3d_1795152375997.jpg';
-import uploadExcel3d from './assets/images/upload_excel_3d_1795152375933.jpg';
 import {
   PnlDataset,
   PnlMonthReport,
+  applyPnlManualPeriod,
   clearPnlAiCache,
   clearPnlPermanentNotes,
   detectExcelReportType,
   formatPercentId,
   formatPnlPeriodRange,
   formatSignedRupiah,
+  getPnlPeriodDatesList,
+  getPnlPeriodDays,
   parseProfitLossBuffer,
   sanitizePnlDataset,
 } from './lib/profitLoss';
@@ -253,10 +259,8 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<MenuTab>(() =>
-    Object.keys(data).length > 0
+    Object.keys(data).length > 0 || Object.keys(pnlData).length > 0
       ? 'beranda'
-      : Object.keys(pnlData).length > 0
-      ? 'labarugi'
       : 'pengaturan'
   );
   const [viewScope, setViewScope] = useState<ViewScope>('range');
@@ -296,7 +300,11 @@ export default function App() {
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadReport | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadImgFailed, setUploadImgFailed] = useState(false);
+  const [isPnlDragging, setIsPnlDragging] = useState(false);
+  const [pendingPnlQueue, setPendingPnlQueue] = useState<
+    PendingPnlUploadItem[]
+  >([]);
+  const [pendingPnlBatchTotal, setPendingPnlBatchTotal] = useState<number>(0);
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
       return localStorage.getItem(THEME_KEY) === 'dark';
@@ -306,6 +314,7 @@ export default function App() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pnlFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -402,10 +411,11 @@ export default function App() {
     }
   };
 
-  const handleFiles = async (files: FileList | File[]) => {
+  // Dedicated Upload Handler 1: Stock Opname (.xlsx / .xls)
+  const handleStockFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (!list.length) return;
-    setStatus({ text: 'Sedang membaca file Excel...' });
+    setStatus({ text: 'Sedang membaca file Stock Opname...' });
 
     try {
       const addedDates: string[] = [];
@@ -416,30 +426,15 @@ export default function App() {
       let pasRows = 0;
       const productSet = new Set<string>();
       const nextData: StockDataset = { ...data };
-      const nextPnlData: PnlDataset = { ...pnlData };
-      const pnlNewMonths: string[] = [];
-      const pnlUpdatedMonths: string[] = [];
-      let lastPnlPeriod = '';
 
       for (const file of list) {
         const buffer = await file.arrayBuffer();
         const reportType = detectExcelReportType(buffer);
 
         if (reportType === 'pnl') {
-          const parsedPnl = parseProfitLossBuffer(buffer);
-          if (nextPnlData[parsedPnl.monthKey]) {
-            if (!pnlUpdatedMonths.includes(parsedPnl.monthKey)) {
-              pnlUpdatedMonths.push(parsedPnl.monthKey);
-            }
-          } else {
-            if (!pnlNewMonths.includes(parsedPnl.monthKey)) {
-              pnlNewMonths.push(parsedPnl.monthKey);
-            }
-          }
-          nextPnlData[parsedPnl.monthKey] = parsedPnl;
-          clearPnlAiCache(parsedPnl.monthKey);
-          lastPnlPeriod = formatPnlPeriodRange(parsedPnl);
-          continue;
+          throw new Error(
+            `File "${file.name}" adalah laporan Profit Loss Consolidation. Silakan unggah pada kotak "Upload Profit Loss Consolidation" di sebelahnya.`
+          );
         }
 
         const parsed = parseExcelBuffer(buffer);
@@ -477,91 +472,150 @@ export default function App() {
         ...updatedDates,
         ...unchangedDates,
       ].sort();
-      const importedPnlCount = pnlNewMonths.length + pnlUpdatedMonths.length;
 
-      if (!importedDates.length && !importedPnlCount) {
-        throw new Error('tidak ada baris data yang terbaca');
+      if (!importedDates.length) {
+        throw new Error('tidak ada baris data Stock Opname yang terbaca');
       }
 
-      if (importedDates.length > 0) {
-        const latestDate = importedDates[importedDates.length - 1];
-        const latestMonth = latestDate.slice(0, 7);
-        const monthsAffected = Array.from(
-          new Set(importedDates.map((d) => d.slice(0, 7)))
-        ).sort();
+      const latestDate = importedDates[importedDates.length - 1];
+      const latestMonth = latestDate.slice(0, 7);
+      const monthsAffected = Array.from(
+        new Set(importedDates.map((d) => d.slice(0, 7)))
+      ).sort();
 
-        setData(nextData);
-        persistData(nextData);
-        setSelectedMonth(latestMonth);
-        setSelectedDay(latestDate);
-        setDateRange(null);
-        setIsRangePickerOpen(false);
-        setSelectedProduct('');
-        setSearchQuery('');
-        setDailySearch('');
-        setPurposeFilter('ALL');
-        setProductCategoryFilter('ALL');
-        setActiveBarDate('');
-        setLastUpload({
-          addedDates: addedDates.sort(),
-          updatedDates: updatedDates.sort(),
-          unchangedDates: unchangedDates.sort(),
-          monthsAffected,
-          totalRows,
-          diffRows,
-          pasRows,
-          uniqueProducts: productSet.size,
-        });
-      }
+      setData(nextData);
+      persistData(nextData);
+      setSelectedMonth(latestMonth);
+      setSelectedDay(latestDate);
+      setDateRange(null);
+      setIsRangePickerOpen(false);
+      setSelectedProduct('');
+      setSearchQuery('');
+      setDailySearch('');
+      setPurposeFilter('ALL');
+      setProductCategoryFilter('ALL');
+      setActiveBarDate('');
+      setLastUpload({
+        addedDates: addedDates.sort(),
+        updatedDates: updatedDates.sort(),
+        unchangedDates: unchangedDates.sort(),
+        monthsAffected,
+        totalRows,
+        diffRows,
+        pasRows,
+        uniqueProducts: productSet.size,
+      });
 
-      if (importedPnlCount > 0) {
-        const allImportedPnl = [...pnlNewMonths, ...pnlUpdatedMonths].sort();
-        const latestPnlMonth = allImportedPnl[allImportedPnl.length - 1];
-        setPnlData(nextPnlData);
-        persistPnlData(nextPnlData);
-        setSelectedPnlMonth(latestPnlMonth);
-      }
-
-      if (importedPnlCount > 0 && importedDates.length === 0) {
-        const latestPnlMonth = [...pnlNewMonths, ...pnlUpdatedMonths]
-          .sort()
-          .pop()!;
-        const actionDesc =
-          pnlUpdatedMonths.includes(latestPnlMonth) &&
-          !pnlNewMonths.includes(latestPnlMonth)
-            ? `Data Laba Rugi ${formatMonthId(
-                latestPnlMonth
-              )} otomatis diperbarui dengan tanggal periode terbaru (${lastPnlPeriod}).`
-            : `Data Laba Rugi bulan baru ${formatMonthId(
-                latestPnlMonth
-              )} (${lastPnlPeriod}) berhasil ditambahkan.`;
-        setStatus({
-          text: `${actionDesc} Semua baris Description otomatis dibagi Net Sales (%).`,
-        });
-        setActiveTab('labarugi');
-      } else if (importedPnlCount > 0 && importedDates.length > 0) {
-        setStatus({
-          text: `Berhasil membaca Stok Opname (${totalRows} baris) dan Laba Rugi (${importedPnlCount} laporan).`,
-        });
-        setActiveTab('pengaturan');
-      } else {
-        const updateSummaryText =
-          updatedDates.length > 0
-            ? `${updatedDates.length} tanggal diperbarui`
-            : 'tidak ada yang diperbarui';
-        setStatus({
-          text: `Berhasil membaca semua ${totalRows} baris (${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updateSummaryText}.`,
-        });
-        setActiveTab('pengaturan');
-      }
+      const updateSummaryText =
+        updatedDates.length > 0
+          ? `${updatedDates.length} tanggal diperbarui`
+          : 'tidak ada yang diperbarui';
+      setStatus({
+        text: `Berhasil membaca Stock Opname (${totalRows} baris · ${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updateSummaryText}.`,
+      });
+      setActiveTab('pengaturan');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Format file tidak sesuai.';
       setStatus({
-        text: `Gagal membaca file: ${message}. Pastikan file adalah laporan Stock Opname atau Profit Loss Consolidation (.xlsx / .xls).`,
+        text: `Gagal membaca file Stock Opname: ${message}`,
         isError: true,
       });
     }
+  };
+
+  // Dedicated Upload Handler 2: Profit Loss Consolidation (.xlsx / .xls) -> Opens Pop-up Date & Month Picker
+  const handlePnlFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (!list.length) return;
+    setStatus({ text: 'Sedang membaca file Profit Loss Consolidation...' });
+
+    try {
+      const parsedItems: PendingPnlUploadItem[] = [];
+      for (const file of list) {
+        const buffer = await file.arrayBuffer();
+        const reportType = detectExcelReportType(buffer);
+        if (reportType === 'stock') {
+          throw new Error(
+            `File "${file.name}" adalah laporan Stock Opname. Silakan unggah pada kotak "Upload Laporan Stock Opname".`
+          );
+        }
+        const parsedPnl = parseProfitLossBuffer(buffer);
+        parsedItems.push({
+          report: parsedPnl,
+          fileName: file.name,
+        });
+      }
+
+      if (!parsedItems.length) {
+        throw new Error('Tidak ada file Profit Loss Consolidation yang terbaca');
+      }
+
+      setPendingPnlBatchTotal(parsedItems.length);
+      setPendingPnlQueue(parsedItems);
+      setStatus({
+        text: `File "${parsedItems[0].fileName}" berhasil dibaca. Silakan pilih tanggal dan bulan periode pada pop-up.`,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Format file tidak sesuai.';
+      setStatus({
+        text: `Gagal membaca file Profit Loss Consolidation: ${message}`,
+        isError: true,
+      });
+    }
+  };
+
+  const handleConfirmPnlPeriod = (periodStart: string, periodEnd: string) => {
+    const currentItem = pendingPnlQueue[0];
+    if (!currentItem) return;
+
+    const finalizedReport = applyPnlManualPeriod(
+      currentItem.report,
+      periodStart,
+      periodEnd,
+      currentItem.fileName
+    );
+    const nextPnlData: PnlDataset = {
+      ...pnlData,
+      [finalizedReport.id]: finalizedReport,
+    };
+    clearPnlAiCache(finalizedReport.monthKey);
+    setPnlData(nextPnlData);
+    persistPnlData(nextPnlData);
+    setSelectedPnlMonth(finalizedReport.id);
+
+    const remainingQueue = pendingPnlQueue.slice(1);
+    setPendingPnlQueue(remainingQueue);
+
+    const periodLabel = formatPnlPeriodRange(finalizedReport);
+    if (remainingQueue.length > 0) {
+      setStatus({
+        text: `Periode ${periodLabel} (${formatSignedRupiah(
+          finalizedReport.netSales
+        )}) tersimpan. Silakan tentukan periode untuk file berikutnya: "${
+          remainingQueue[0].fileName
+        }".`,
+      });
+    } else {
+      setPendingPnlBatchTotal(0);
+      setStatus({
+        text: `Profit Loss Consolidation periode ${periodLabel} (Net Sales ${formatSignedRupiah(
+          finalizedReport.netSales
+        )}) berhasil disimpan tanpa menimpa periode lain dan sudah terhubung ke Grafik Keuntungan di Beranda.`,
+      });
+    }
+  };
+
+  const handleCancelPnlPeriod = () => {
+    const remainingQueue = pendingPnlQueue.slice(1);
+    setPendingPnlQueue(remainingQueue);
+    if (remainingQueue.length === 0) {
+      setPendingPnlBatchTotal(0);
+    }
+    setStatus({
+      text: 'Pemilihan periode Profit Loss dibatalkan.',
+    });
   };
 
   const handlePickProduct = (productName: string) => {
@@ -592,18 +646,26 @@ export default function App() {
     });
   };
 
-  const handleDeletePnlMonth = (monthKey: string) => {
+  const handleDeletePnlMonth = (reportKey: string) => {
+    const targetReport = pnlData[reportKey];
     const next = { ...pnlData };
-    delete next[monthKey];
-    clearPnlAiCache(monthKey);
-    clearPnlPermanentNotes(monthKey);
+    delete next[reportKey];
+    if (targetReport) {
+      clearPnlAiCache(targetReport.monthKey);
+      clearPnlPermanentNotes(targetReport.id);
+      clearPnlPermanentNotes(targetReport.monthKey);
+    }
     setPnlData(next);
     persistPnlData(next);
-    if (selectedPnlMonth === monthKey) {
+    if (selectedPnlMonth === reportKey) {
       const remaining = Object.keys(next).sort();
       setSelectedPnlMonth(remaining[remaining.length - 1] ?? '');
     }
-    setStatus({ text: `Data Laba Rugi ${formatMonthId(monthKey)} dihapus.` });
+    setStatus({
+      text: `Data Profit Loss periode ${
+        targetReport ? formatPnlPeriodRange(targetReport) : reportKey
+      } dihapus.`,
+    });
   };
 
   const matchingProducts = useMemo(() => {
@@ -695,16 +757,40 @@ export default function App() {
     return worstDay && worstDay.negVal < 0 ? worstDay : null;
   }, [summary, viewScope, activeDay, activeBarDate, worstDay]);
 
-  const pnlMonths = useMemo(() => Object.keys(pnlData).sort(), [pnlData]);
+  const pnlReportList = useMemo(
+    () =>
+      Object.values(pnlData).sort((a, b) => {
+        if (a.periodStart !== b.periodStart) {
+          return a.periodStart.localeCompare(b.periodStart);
+        }
+        return a.periodEnd.localeCompare(b.periodEnd);
+      }),
+    [pnlData]
+  );
+
+  const pnlMonths = useMemo(
+    () =>
+      Array.from(
+        new Set(pnlReportList.map((r) => r.monthKey).filter(Boolean))
+      ).sort(),
+    [pnlReportList]
+  );
 
   const berandaPnlReport = useMemo<PnlMonthReport | null>(() => {
-    if (!pnlMonths.length) return null;
-    if (activeMonth && pnlData[activeMonth]) return pnlData[activeMonth];
+    if (!pnlReportList.length) return null;
     if (selectedPnlMonth && pnlData[selectedPnlMonth]) {
       return pnlData[selectedPnlMonth];
     }
-    return pnlData[pnlMonths[pnlMonths.length - 1]] ?? null;
-  }, [pnlMonths, pnlData, activeMonth, selectedPnlMonth]);
+    if (activeMonth) {
+      const inActiveMonth = pnlReportList.filter(
+        (r) => r.monthKey === activeMonth
+      );
+      if (inActiveMonth.length > 0) {
+        return inActiveMonth[inActiveMonth.length - 1];
+      }
+    }
+    return pnlReportList[pnlReportList.length - 1] ?? null;
+  }, [pnlReportList, pnlData, activeMonth, selectedPnlMonth]);
 
   const navItems: {
     id: MenuTab;
@@ -758,6 +844,7 @@ export default function App() {
       activeKey={`${activeTab}-${activeMonth}-${viewScope}-${selectedPnlMonth}`}
     >
       <div className="min-h-screen app-canvas-bg text-slate-900 dark:text-slate-100 pb-20 md:pb-10 transition-colors">
+      {/* Dedicated Hidden File Input 1: Stock Opname */}
       <input
         ref={fileInputRef}
         type="file"
@@ -765,7 +852,19 @@ export default function App() {
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) void handleFiles(e.target.files);
+          if (e.target.files) void handleStockFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      {/* Dedicated Hidden File Input 2: Profit Loss Consolidation */}
+      <input
+        ref={pnlFileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) void handlePnlFiles(e.target.files);
           e.target.value = '';
         }}
       />
@@ -841,33 +940,873 @@ export default function App() {
         )}
 
         {/* PAGE 1: BERANDA (Executive Overview Layout — 100% Reference Structure) */}
-        {activeTab === 'beranda' && (
-          <div className="space-y-4">
-            {!summary ? (
-              <>
-                <EmptyStateCard
-                  onUploadClick={() => {
-                    setActiveTab('pengaturan');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                />
-                <BerandaProfitLossCard
-                  report={berandaPnlReport}
-                  monthCount={pnlMonths.length}
-                  onOpenProfitLoss={(monthKey) => {
-                    if (monthKey) setSelectedPnlMonth(monthKey);
-                    setActiveTab('labarugi');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  onUploadClick={() => {
-                    setActiveTab('pengaturan');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  onOpenInfo={setActiveInfoKey}
-                />
-              </>
-            ) : (
-              <>
+        {activeTab === 'beranda' &&
+          (() => {
+            // Multi-Month & Multi-Period Combined Daily Profit (Net Sales) / Stock Chart Data
+            const availableCombinedMonths = Array.from(
+              new Set([...allMonths, ...pnlMonths])
+            ).sort();
+            const effectiveCombinedMonths = (() => {
+              const validSelected = selectedCombinedMonths.filter((m) =>
+                availableCombinedMonths.includes(m)
+              );
+              if (validSelected.length > 0) {
+                return [...validSelected].sort();
+              }
+              return availableCombinedMonths;
+            })();
+
+            // Build per-date map of Net Sales from all uploaded Profit Loss Consolidation periods
+            // Each period (e.g. 1–16 Nov 2026, 18 Nov 2026) distributes its Net Sales across its own selected dates
+            const pnlDailyByDate = new Map<
+              string,
+              {
+                dailyNetSales: number;
+                dailyNetProfit: number;
+                dailyOpex: number;
+                periodLabels: string[];
+              }
+            >();
+            for (const rep of pnlReportList) {
+              const repDates = getPnlPeriodDatesList(rep);
+              const daysCount = Math.max(1, repDates.length);
+              const perDaySales = rep.netSales / daysCount;
+              const perDayProfit = rep.netProfit / daysCount;
+              const perDayOpex = rep.totalOpex / daysCount;
+              const pLabel = formatPnlPeriodRange(rep);
+              for (const dIso of repDates) {
+                const prev = pnlDailyByDate.get(dIso);
+                if (prev) {
+                  prev.dailyNetSales += perDaySales;
+                  prev.dailyNetProfit += perDayProfit;
+                  prev.dailyOpex += perDayOpex;
+                  if (!prev.periodLabels.includes(pLabel)) {
+                    prev.periodLabels.push(pLabel);
+                  }
+                } else {
+                  pnlDailyByDate.set(dIso, {
+                    dailyNetSales: perDaySales,
+                    dailyNetProfit: perDayProfit,
+                    dailyOpex: perDayOpex,
+                    periodLabels: [pLabel],
+                  });
+                }
+              }
+            }
+
+            // Build per-month summary & combined daily timeline across effectiveCombinedMonths
+            const combinedTimelineDays: {
+              date: string;
+              monthKey: string;
+              isFirstOfMonth: boolean;
+              negVal: number;
+              posVal: number;
+              netStockVal: number;
+              dailyPnlProfit: number | null;
+              dailyPnlOpex: number | null;
+              pnlPeriodLabel: string | null;
+              combinedDailyProfit: number;
+              diffCount: number;
+            }[] = [];
+
+            const perMonthComparison: {
+              monthKey: string;
+              soDayCount: number;
+              totalNeg: number;
+              totalPos: number;
+              netStock: number;
+              avgDailyStockNet: number;
+              pnlNetProfit: number | null;
+              pnlNetSales: number | null;
+              pnlDaysCount: number;
+              avgDailyPnlProfit: number | null;
+              combinedDailyAvg: number;
+            }[] = [];
+
+            for (const mKey of effectiveCombinedMonths) {
+              const mDates = allDates.filter((d) => d.startsWith(mKey)).sort();
+              const monthPnlReports = pnlReportList.filter(
+                (r) => r.monthKey === mKey
+              );
+              const monthPnlDates = Array.from(pnlDailyByDate.keys())
+                .filter((d) => d.startsWith(mKey))
+                .sort();
+
+              const effectiveMonthDates = Array.from(
+                new Set([...mDates, ...monthPnlDates])
+              ).sort();
+
+              let mNeg = 0;
+              let mPos = 0;
+
+              effectiveMonthDates.forEach((date, idx) => {
+                let dNeg = 0;
+                let dPos = 0;
+                let dDiffCount = 0;
+                for (const r of data[date] ?? []) {
+                  if (r[6] < 0) dNeg += r[6];
+                  else if (r[6] > 0) dPos += r[6];
+                  if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) {
+                    dDiffCount++;
+                  }
+                }
+                mNeg += dNeg;
+                mPos += dPos;
+                const dNetStock = dNeg + dPos;
+                const pnlDayInfo = pnlDailyByDate.get(date) ?? null;
+                const dailyPnlSalesVal = pnlDayInfo
+                  ? pnlDayInfo.dailyNetSales
+                  : null;
+                const dailyPnlOpexVal = pnlDayInfo
+                  ? pnlDayInfo.dailyOpex
+                  : null;
+                const dCombinedProfit =
+                  dailyPnlSalesVal !== null ? dailyPnlSalesVal : dNetStock;
+
+                combinedTimelineDays.push({
+                  date,
+                  monthKey: mKey,
+                  isFirstOfMonth: idx === 0,
+                  negVal: dNeg,
+                  posVal: dPos,
+                  netStockVal: dNetStock,
+                  dailyPnlProfit: dailyPnlSalesVal,
+                  dailyPnlOpex: dailyPnlOpexVal,
+                  pnlPeriodLabel: pnlDayInfo
+                    ? pnlDayInfo.periodLabels.join(', ')
+                    : null,
+                  combinedDailyProfit: dCombinedProfit,
+                  diffCount: dDiffCount,
+                });
+              });
+
+              const mNetStock = mNeg + mPos;
+              const avgDailyStockNet =
+                mDates.length > 0 ? mNetStock / mDates.length : 0;
+              const monthTotalNetSales =
+                monthPnlReports.length > 0
+                  ? monthPnlReports.reduce((acc, r) => acc + r.netSales, 0)
+                  : null;
+              const monthTotalNetProfit =
+                monthPnlReports.length > 0
+                  ? monthPnlReports.reduce((acc, r) => acc + r.netProfit, 0)
+                  : null;
+              const pnlDaysDivisor =
+                monthPnlDates.length > 0
+                  ? monthPnlDates.length
+                  : effectiveMonthDates.length || 1;
+              const avgDailyPnlSales =
+                monthTotalNetSales !== null
+                  ? monthTotalNetSales / Math.max(1, pnlDaysDivisor)
+                  : null;
+              const combinedDailyAvg =
+                avgDailyPnlSales !== null ? avgDailyPnlSales : avgDailyStockNet;
+
+              perMonthComparison.push({
+                monthKey: mKey,
+                soDayCount: effectiveMonthDates.length,
+                totalNeg: mNeg,
+                totalPos: mPos,
+                netStock: mNetStock,
+                avgDailyStockNet,
+                pnlNetProfit: monthTotalNetProfit,
+                pnlNetSales: monthTotalNetSales,
+                pnlDaysCount: pnlDaysDivisor,
+                avgDailyPnlProfit: avgDailyPnlSales,
+                combinedDailyAvg,
+              });
+            }
+
+            const hasAnyPnlInCombined = perMonthComparison.some(
+              (m) => m.pnlNetSales !== null
+            );
+
+            const selectedCombinedDayObj =
+              combinedTimelineDays.find((d) => d.date === activeCombinedDate) ??
+              combinedTimelineDays[combinedTimelineDays.length - 1] ??
+              null;
+
+            const totalCombinedPosStock = perMonthComparison.reduce(
+              (acc, m) => acc + m.totalPos,
+              0
+            );
+            const totalCombinedPnlSales = perMonthComparison.reduce(
+              (acc, m) => acc + (m.pnlNetSales ?? 0),
+              0
+            );
+
+            const renderProfitChartSection = () => {
+              const formatShortVal = (val: number) => {
+                const abs = Math.abs(val);
+                if (abs >= 1_000_000_000) {
+                  return `${(abs / 1_000_000_000).toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}M`;
+                }
+                if (abs >= 1_000_000) {
+                  return `${(abs / 1_000_000).toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}jt`;
+                }
+                if (abs >= 1_000) {
+                  return `${Math.round(abs / 1_000)}rb`;
+                }
+                return `${Math.round(abs)}`;
+              };
+
+              const latestMonthKey =
+                availableCombinedMonths[availableCombinedMonths.length - 1] ||
+                activeMonth ||
+                '2026-11';
+              const activeYearStr = latestMonthKey.slice(0, 4);
+
+              const MONTH_NAMES_UPPER = [
+                'JANUARI',
+                'FEBRUARI',
+                'MARET',
+                'APRIL',
+                'MEI',
+                'JUNI',
+                'JULI',
+                'AGUSTUS',
+                'SEPTEMBER',
+                'OKTOBER',
+                'NOVEMBER',
+                'DESEMBER',
+              ];
+
+              const twelveMonthsData = MONTH_NAMES_UPPER.map((mName, mIdx) => {
+                const mKey = `${activeYearStr}-${String(mIdx + 1).padStart(
+                  2,
+                  '0'
+                )}`;
+                const mDates = allDates
+                  .filter((d) => d.startsWith(mKey))
+                  .sort();
+                const monthPnlReports = pnlReportList.filter(
+                  (r) => r.monthKey === mKey
+                );
+                const monthPnlDates = Array.from(pnlDailyByDate.keys())
+                  .filter((d) => d.startsWith(mKey))
+                  .sort();
+                const combinedMonthDaysCount = new Set([
+                  ...mDates,
+                  ...monthPnlDates,
+                ]).size;
+
+                let mPos = 0;
+                for (const d of mDates) {
+                  for (const r of data[d] ?? []) {
+                    if (r[6] > 0) mPos += r[6];
+                  }
+                }
+                const hasData =
+                  mDates.length > 0 || monthPnlReports.length > 0;
+                const isSelectedMonth =
+                  effectiveCombinedMonths.includes(mKey);
+                const monthNetSalesSum =
+                  monthPnlReports.length > 0
+                    ? monthPnlReports.reduce((acc, r) => acc + r.netSales, 0)
+                    : null;
+
+                const barVal =
+                  monthNetSalesSum !== null
+                    ? Math.max(0, Math.abs(monthNetSalesSum))
+                    : mPos;
+
+                return {
+                  monthKey: mKey,
+                  label: mName,
+                  shortLabel: mName.slice(0, 3),
+                  hasData,
+                  isSelected: isSelectedMonth,
+                  dayCount: combinedMonthDaysCount,
+                  periodCount: monthPnlReports.length,
+                  barVal,
+                  lineVal: barVal,
+                  pnlNetSales: monthNetSalesSum,
+                };
+              });
+
+              const chartColumns =
+                combinedChartTab === 'daily_timeline'
+                  ? combinedTimelineDays.map((d) => {
+                      const dayNum = Number(d.date.slice(8));
+                      const shortMo = formatDateId(d.date)
+                        .split(' ')[1]
+                        .toUpperCase();
+                      const barValue =
+                        d.dailyPnlProfit !== null
+                          ? Math.max(0, d.dailyPnlProfit)
+                          : Math.abs(d.posVal);
+                      const isHighlighted =
+                        selectedCombinedDayObj?.date === d.date ||
+                        combinedTimelineDays.length <= 24;
+
+                      return {
+                        id: d.date,
+                        dateKey: d.date,
+                        monthKey: d.monthKey,
+                        isFirstOfMonth: d.isFirstOfMonth,
+                        bottomLabel: `${dayNum} ${shortMo}`,
+                        barVal: barValue,
+                        lineVal: barValue,
+                        isActive: isHighlighted,
+                        isFocused: selectedCombinedDayObj?.date === d.date,
+                        hasRealData: true,
+                      };
+                    })
+                  : twelveMonthsData.map((m) => ({
+                      id: m.monthKey,
+                      dateKey: '',
+                      monthKey: m.monthKey,
+                      isFirstOfMonth: false,
+                      bottomLabel: m.label,
+                      barVal: m.barVal,
+                      lineVal: m.lineVal,
+                      isActive: m.isSelected && m.hasData,
+                      isFocused: m.isSelected && m.hasData,
+                      hasRealData: m.hasData,
+                    }));
+
+              const rawMaxChartVal = Math.max(
+                10_000,
+                ...chartColumns.map((c) => c.barVal)
+              );
+              const magnitude = Math.pow(
+                10,
+                Math.max(3, Math.floor(Math.log10(rawMaxChartVal)) - 1)
+              );
+              const niceMaxScale =
+                Math.ceil((rawMaxChartVal * 1.15) / magnitude) * magnitude;
+              const yGridSteps = [
+                1, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0,
+              ].map((ratio) => Math.round(niceMaxScale * ratio));
+
+              const headerNetSalesVal = hasAnyPnlInCombined
+                ? totalCombinedPnlSales
+                : totalCombinedPosStock;
+
+              const colCount = Math.max(1, chartColumns.length);
+              const colSlotW =
+                combinedChartTab === 'daily_timeline' ? 54 : 68;
+              const plotLeft = 58;
+              const plotRight = 20;
+              const plotTop = 30;
+              const plotBottom = 18;
+              const plotH = 215;
+              const plotW = colCount * colSlotW;
+              const svgW = plotLeft + plotW + plotRight;
+              const svgH = plotTop + plotH + plotBottom;
+              const baseY = plotTop + plotH;
+
+              const computedPts = chartColumns.map((col, idx) => {
+                const cx = plotLeft + idx * colSlotW + colSlotW / 2;
+                const barRatio = Math.min(
+                  1,
+                  Math.max(0, col.barVal / niceMaxScale)
+                );
+                const barH = col.hasRealData
+                  ? Math.max(18, Math.round(barRatio * plotH))
+                  : 12;
+                const barY = baseY - barH;
+                // Smooth curve sits gracefully inside the upper portion of each bar
+                const lineY = col.hasRealData
+                  ? Math.min(
+                      baseY - 14,
+                      Math.max(plotTop + 14, Math.round(barY + barH * 0.28))
+                    )
+                  : baseY - 18;
+
+                return {
+                  ...col,
+                  cx,
+                  barW: Math.min(26, Math.round(colSlotW * 0.44)),
+                  barY,
+                  barH,
+                  lineY,
+                };
+              });
+
+              const smoothCurvePath = (() => {
+                if (computedPts.length === 0) return '';
+                if (computedPts.length === 1) {
+                  const p = computedPts[0];
+                  return `M ${p.cx - 20} ${p.lineY} L ${p.cx + 20} ${p.lineY}`;
+                }
+                let d = `M ${computedPts[0].cx} ${computedPts[0].lineY}`;
+                for (let i = 0; i < computedPts.length - 1; i++) {
+                  const curr = computedPts[i];
+                  const next = computedPts[i + 1];
+                  const dx = (next.cx - curr.cx) * 0.44;
+                  const cp1x = Math.round(curr.cx + dx);
+                  const cp1y = curr.lineY;
+                  const cp2x = Math.round(next.cx - dx);
+                  const cp2y = next.lineY;
+                  d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.cx} ${next.lineY}`;
+                }
+                return d;
+              })();
+
+              return (
+                <MotionSection className="rounded-2xl bg-white dark:bg-[#0B172E] border border-[#EBC7E9] dark:border-[#243F6E] p-4 sm:p-5 space-y-4 shadow-xs">
+                  {/* Top Header: Only Keuntungan (Net Sales) + Compact Per Hari / Per Bulan Toggle */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#F3E2F1] dark:border-[#1B3258]">
+                    <div className="flex flex-wrap items-baseline gap-2.5">
+                      <span className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.12em] text-[#C61196] dark:text-[#FFC400]">
+                        {hasAnyPnlInCombined
+                          ? 'GRAFIK KEUNTUNGAN (NET SALES)'
+                          : 'GRAFIK KEUNTUNGAN'}
+                      </span>
+                      <span className="text-lg sm:text-xl font-black font-mono text-[#391042] dark:text-white tabular-nums tracking-tight">
+                        {headerNetSalesVal < 0 ? '-' : ''}
+                        {formatRupiah(headerNetSalesVal)}
+                      </span>
+                    </div>
+
+                    {/* Compact Mode Toggle & Gabung Semua */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="inline-flex items-center rounded-full bg-[#FAF5FC] dark:bg-[#0A162B] border border-[#EBC7E9] dark:border-[#243F6E] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCombinedChartTab('daily_timeline')}
+                          className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer leading-none ${
+                            combinedChartTab === 'daily_timeline'
+                              ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white shadow-xs'
+                              : 'text-[#6E4877] dark:text-slate-300 hover:text-[#C61196]'
+                          }`}
+                        >
+                          Per Hari ({combinedTimelineDays.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCombinedChartTab('month_compare')}
+                          className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer leading-none ${
+                            combinedChartTab === 'month_compare'
+                              ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white shadow-xs'
+                              : 'text-[#6E4877] dark:text-slate-300 hover:text-[#C61196]'
+                          }`}
+                        >
+                          Per Bulan
+                        </button>
+                      </div>
+
+                      {availableCombinedMonths.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedCombinedMonths(availableCombinedMonths)
+                          }
+                          className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-[#FDF2FA] hover:bg-[#FCE4F6] dark:bg-[#132548] border border-[#EBC7E9] dark:border-[#243F6E] text-[#7E22CE] dark:text-amber-300 transition-colors cursor-pointer leading-none"
+                        >
+                          Gabung ({availableCombinedMonths.length} Bln)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selected Day Quick Detail Bar (when in Per Hari mode) */}
+                  {combinedChartTab === 'daily_timeline' &&
+                    selectedCombinedDayObj && (
+                      <div className="rounded-xl bg-[#FDF7FC] dark:bg-[#10203D] border border-[#EBC7E9] dark:border-[#243F6E] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white font-extrabold text-[11px]">
+                            {formatDateFullId(selectedCombinedDayObj.date)}
+                          </span>
+                          {selectedCombinedDayObj.pnlPeriodLabel && (
+                            <span className="px-2 py-0.5 rounded-md bg-[#F7E8F6] dark:bg-purple-500/20 border border-[#EBC7E9] dark:border-purple-400/35 text-[#7E22CE] dark:text-purple-200 font-bold text-[11px]">
+                              Periode: {selectedCombinedDayObj.pnlPeriodLabel}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 font-mono tabular-nums">
+                          {selectedCombinedDayObj.dailyPnlProfit !== null && (
+                            <span className="text-[#6E4877] dark:text-slate-300">
+                              Net Sales/Hr:{' '}
+                              <strong className="text-[#C61196] dark:text-amber-300">
+                                {selectedCombinedDayObj.dailyPnlProfit >= 0
+                                  ? '+'
+                                  : '-'}
+                                {formatRupiah(
+                                  selectedCombinedDayObj.dailyPnlProfit
+                                )}
+                              </strong>
+                            </span>
+                          )}
+                          {allDates.includes(selectedCombinedDayObj.date) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenDayInHarian(
+                                  selectedCombinedDayObj.date
+                                )
+                              }
+                              className="px-2 py-0.5 rounded-md bg-white hover:bg-[#FCE8F8] dark:bg-[#172D54] border border-[#EBC7E9] dark:border-[#2B4C82] font-sans font-bold text-[11px] text-[#7E22CE] dark:text-white cursor-pointer"
+                            >
+                              Buka Tanggal →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Main Chart Canvas (Dominant White Surface with Pink & Purple Bars and Smooth Curve) */}
+                  <div className="overflow-x-auto pb-1">
+                    <div
+                      style={{
+                        minWidth: `${Math.max(660, svgW)}px`,
+                      }}
+                    >
+                      <svg
+                        viewBox={`0 0 ${svgW} ${svgH}`}
+                        className="w-full h-auto select-none overflow-visible"
+                      >
+                        <defs>
+                          {/* Pink-to-Purple Gradient for Active Bars */}
+                          <linearGradient
+                            id="refActiveBarGrad"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop offset="0%" stopColor="#F472B6" />
+                            <stop offset="50%" stopColor="#D91B98" />
+                            <stop offset="100%" stopColor="#7E22CE" />
+                          </linearGradient>
+
+                          {/* Soft Pink-Lavender Gradient for Inactive Bars on White */}
+                          <linearGradient
+                            id="refMutedBarGrad"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop offset="0%" stopColor="#F9EAF7" />
+                            <stop offset="100%" stopColor="#EDD6F3" />
+                          </linearGradient>
+
+                          {/* Soft Pink-Purple Glow Filter for the Smooth Curve */}
+                          <filter
+                            id="refMagentaGlow"
+                            x="-20%"
+                            y="-20%"
+                            width="140%"
+                            height="140%"
+                          >
+                            <feDropShadow
+                              dx="0"
+                              dy="2"
+                              stdDeviation="3"
+                              floodColor="#C61196"
+                              floodOpacity="0.32"
+                            />
+                          </filter>
+                        </defs>
+
+                        {/* 9 Horizontal Grid Lines + Left Y-Axis Scale Labels */}
+                        {yGridSteps.map((stepVal, sIdx) => {
+                          const yPos = Math.round(
+                            plotTop +
+                              (sIdx / (yGridSteps.length - 1)) * plotH
+                          );
+                          return (
+                            <g key={`grid-${sIdx}`}>
+                              <text
+                                x={plotLeft - 10}
+                                y={yPos + 4}
+                                textAnchor="end"
+                                fill="#7D4E85"
+                                fontSize="10"
+                                fontFamily="ui-monospace, monospace"
+                              >
+                                {stepVal === 0
+                                  ? '0'
+                                  : formatShortVal(stepVal)}
+                              </text>
+                              <line
+                                x1={plotLeft}
+                                y1={yPos}
+                                x2={svgW - plotRight}
+                                y2={yPos}
+                                stroke="#F2DFEE"
+                                strokeWidth="1"
+                              />
+                            </g>
+                          );
+                        })}
+
+                        {/* Vertical Rounded Pill Bars + Top Value Labels */}
+                        {computedPts.map((pt) => {
+                          const xLeft = Math.round(pt.cx - pt.barW / 2);
+                          return (
+                            <g
+                              key={`bar-${pt.id}`}
+                              className="cursor-pointer"
+                              onClick={() => {
+                                if (
+                                  combinedChartTab === 'daily_timeline' &&
+                                  pt.dateKey
+                                ) {
+                                  setActiveCombinedDate(pt.dateKey);
+                                } else if (pt.hasRealData) {
+                                  const current = effectiveCombinedMonths;
+                                  const isChecked = current.includes(
+                                    pt.monthKey
+                                  );
+                                  if (isChecked && current.length > 1) {
+                                    setSelectedCombinedMonths(
+                                      current.filter((m) => m !== pt.monthKey)
+                                    );
+                                  } else if (!isChecked) {
+                                    setSelectedCombinedMonths(
+                                      [...current, pt.monthKey].sort()
+                                    );
+                                  }
+                                }
+                              }}
+                            >
+                              {/* Month boundary dashed line in daily mode */}
+                              {combinedChartTab === 'daily_timeline' &&
+                                pt.isFirstOfMonth && (
+                                  <g>
+                                    <line
+                                      x1={pt.cx - Math.round(colSlotW / 2)}
+                                      y1={plotTop - 10}
+                                      x2={pt.cx - Math.round(colSlotW / 2)}
+                                      y2={baseY}
+                                      stroke="rgba(198, 17, 150, 0.35)"
+                                      strokeWidth="1.5"
+                                      strokeDasharray="4 4"
+                                    />
+                                    <text
+                                      x={pt.cx}
+                                      y={plotTop - 14}
+                                      textAnchor="middle"
+                                      fill="#C61196"
+                                      fontSize="9"
+                                      fontWeight="800"
+                                    >
+                                      {formatMonthId(pt.monthKey).toUpperCase()}
+                                    </text>
+                                  </g>
+                                )}
+
+                              {/* Rounded Pill Bar */}
+                              <rect
+                                x={xLeft}
+                                y={pt.barY}
+                                width={pt.barW}
+                                height={pt.barH}
+                                rx={8}
+                                ry={8}
+                                fill={
+                                  pt.isActive
+                                    ? 'url(#refActiveBarGrad)'
+                                    : 'url(#refMutedBarGrad)'
+                                }
+                                stroke={
+                                  pt.isFocused
+                                    ? '#7E22CE'
+                                    : pt.isActive
+                                    ? 'transparent'
+                                    : '#EBC7E9'
+                                }
+                                strokeWidth={pt.isFocused ? '2' : '1'}
+                              />
+
+                              {/* Top Value Label right above the bar */}
+                              {pt.isActive && pt.hasRealData && (
+                                <text
+                                  x={pt.cx}
+                                  y={Math.max(12, pt.barY - 6)}
+                                  textAnchor="middle"
+                                  fill="#581C87"
+                                  fontSize="10.5"
+                                  fontWeight="800"
+                                  fontFamily="ui-monospace, monospace"
+                                >
+                                  {formatShortVal(pt.barVal)}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
+
+                        {/* Smooth Cubic-Bezier Pink-Purple Curve Overlay */}
+                        {smoothCurvePath && (
+                          <path
+                            d={smoothCurvePath}
+                            fill="none"
+                            stroke="#C61196"
+                            strokeWidth="2.75"
+                            strokeLinecap="round"
+                            filter="url(#refMagentaGlow)"
+                          />
+                        )}
+
+                        {/* White-Centered Dots on the Curve */}
+                        {computedPts.map((pt) => {
+                          if (!pt.isActive || !pt.hasRealData) {
+                            return null;
+                          }
+                          return (
+                            <g
+                              key={`dot-${pt.id}`}
+                              className="cursor-pointer"
+                              onClick={() => {
+                                if (pt.dateKey) {
+                                  setActiveCombinedDate(pt.dateKey);
+                                }
+                              }}
+                            >
+                              <circle
+                                cx={pt.cx}
+                                cy={pt.lineY}
+                                r="6.5"
+                                fill="rgba(224, 19, 156, 0.2)"
+                              />
+                              <circle
+                                cx={pt.cx}
+                                cy={pt.lineY}
+                                r="4"
+                                fill="#FFFFFF"
+                                stroke="#7E22CE"
+                                strokeWidth="2.5"
+                              />
+                            </g>
+                          );
+                        })}
+                      </svg>
+
+                      {/* Bottom Column Labels Strip directly aligned with each bar */}
+                      {combinedChartTab === 'daily_timeline' && (
+                        <div
+                          className="flex items-center gap-1 pt-1"
+                          style={{
+                            paddingLeft: `${plotLeft}px`,
+                            paddingRight: `${plotRight}px`,
+                          }}
+                        >
+                          {computedPts.map((pt) => (
+                            <button
+                              key={`col-lbl-${pt.id}`}
+                              type="button"
+                              onClick={() => {
+                                if (pt.dateKey) {
+                                  setActiveCombinedDate(pt.dateKey);
+                                }
+                              }}
+                              style={{ width: `${colSlotW}px` }}
+                              className={`py-1 px-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-center truncate transition-all cursor-pointer ${
+                                pt.isFocused
+                                  ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] text-white shadow-xs'
+                                  : 'bg-[#FDF5FC] hover:bg-[#FCE8F8] dark:bg-[#10203D] border border-[#EBC7E9] dark:border-[#243F6E] text-[#5B2163] dark:text-slate-200'
+                              }`}
+                            >
+                              {pt.bottomLabel}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom 12-Month Selector Bar (White + Pink + Purple Theme) */}
+                  <div className="pt-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D4E85] dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>
+                        Klik Bulan untuk Menggabungkan / Memisahkan Data (
+                        {activeYearStr}):
+                      </span>
+                      <span className="text-[#C61196] dark:text-amber-300">
+                        Aktif:{' '}
+                        {effectiveCombinedMonths
+                          .map((m) => formatMonthId(m))
+                          .join(' + ')}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+                      {twelveMonthsData.map((mItem) => {
+                        const isSelected = mItem.isSelected;
+                        const hasData = mItem.hasData;
+
+                        return (
+                          <button
+                            key={mItem.monthKey}
+                            type="button"
+                            disabled={!hasData}
+                            onClick={() => {
+                              if (!hasData) return;
+                              const current = effectiveCombinedMonths;
+                              if (isSelected) {
+                                if (current.length > 1) {
+                                  setSelectedCombinedMonths(
+                                    current.filter(
+                                      (item) => item !== mItem.monthKey
+                                    )
+                                  );
+                                }
+                              } else {
+                                setSelectedCombinedMonths(
+                                  [...current, mItem.monthKey].sort()
+                                );
+                              }
+                            }}
+                            className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-center transition-all ${
+                              isSelected && hasData
+                                ? 'bg-gradient-to-r from-[#E0139C] to-[#7E22CE] border-b-[2px] border-[#581C87] text-white shadow-xs cursor-pointer'
+                                : hasData
+                                ? 'bg-[#FDF5FC] hover:bg-[#FCE8F8] dark:bg-[#132548] border border-[#EBC7E9] dark:border-[#243F6E] text-[#5B2163] dark:text-slate-200 cursor-pointer'
+                                : 'bg-slate-50 dark:bg-[#0A1428] border border-slate-200/70 dark:border-[#192D52] text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            <div className="truncate">{mItem.label}</div>
+                            {hasData && (
+                              <div className="text-[8px] font-mono opacity-90 mt-0.5">
+                                {mItem.dayCount}hr
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </MotionSection>
+              );
+            };
+
+            return (
+              <div className="space-y-4">
+                {!summary ? (
+                  <>
+                    <EmptyStateCard
+                      onUploadClick={() => {
+                        setActiveTab('pengaturan');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    />
+                    {pnlReportList.length > 0 && renderProfitChartSection()}
+                    <BerandaProfitLossCard
+                      report={berandaPnlReport}
+                      monthCount={pnlReportList.length}
+                      onOpenProfitLoss={(reportId) => {
+                        if (reportId) setSelectedPnlMonth(reportId);
+                        setActiveTab('labarugi');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      onUploadClick={() => {
+                        setActiveTab('pengaturan');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      onOpenInfo={setActiveInfoKey}
+                    />
+                  </>
+                ) : (
+                  <>
                 {(() => {
                   const totalUniqueProducts = Math.max(
                     1,
@@ -1036,7 +1975,6 @@ export default function App() {
                           .join(', ')})`
                       : 'conic-gradient(#E0139C 0deg 360deg)';
 
-                  // Top 5 Products for Horizontal Progress Bars
                   const rankedItems = (
                     rankMode === 'neg'
                       ? summary.topDeficits
@@ -1046,180 +1984,6 @@ export default function App() {
                     (rankMode === 'neg'
                       ? Math.abs(summary.totalNeg)
                       : Math.abs(summary.totalPos)) || 1;
-
-                  // Multi-Month Combined Daily Profit / Stock Chart Data
-                  const availableCombinedMonths = Array.from(
-                    new Set([...allMonths, ...pnlMonths])
-                  ).sort();
-                  const effectiveCombinedMonths = (() => {
-                    const validSelected = selectedCombinedMonths.filter((m) =>
-                      availableCombinedMonths.includes(m)
-                    );
-                    if (validSelected.length > 0) {
-                      return [...validSelected].sort();
-                    }
-                    return availableCombinedMonths;
-                  })();
-
-                  // Build per-month summary & combined daily timeline across effectiveCombinedMonths
-                  const combinedTimelineDays: {
-                    date: string;
-                    monthKey: string;
-                    isFirstOfMonth: boolean;
-                    negVal: number;
-                    posVal: number;
-                    netStockVal: number;
-                    dailyPnlProfit: number | null;
-                    combinedDailyProfit: number;
-                    diffCount: number;
-                  }[] = [];
-
-                  const perMonthComparison: {
-                    monthKey: string;
-                    soDayCount: number;
-                    totalNeg: number;
-                    totalPos: number;
-                    netStock: number;
-                    avgDailyStockNet: number;
-                    pnlNetProfit: number | null;
-                    pnlNetSales: number | null;
-                    pnlDaysCount: number;
-                    avgDailyPnlProfit: number | null;
-                    combinedDailyAvg: number;
-                  }[] = [];
-
-                  for (const mKey of effectiveCombinedMonths) {
-                    const mDates = allDates
-                      .filter((d) => d.startsWith(mKey))
-                      .sort();
-                    const pnlRep = pnlData[mKey] ?? null;
-                    const [yrStr, moStr] = mKey.split('-');
-                    const calendarDaysInMonth =
-                      new Date(Number(yrStr), Number(moStr), 0).getDate() || 30;
-
-                    // If a month has Laba Rugi (Net Profit) uploaded, determine its daily dates
-                    // either from existing SO dates or from the Laba Rugi period / calendar days
-                    const effectiveMonthDates = (() => {
-                      if (mDates.length > 0) return mDates;
-                      if (!pnlRep) return [];
-                      let maxDay = calendarDaysInMonth;
-                      if (
-                        pnlRep.periodEnd &&
-                        pnlRep.periodEnd.startsWith(mKey)
-                      ) {
-                        const parsedEndDay = Number(pnlRep.periodEnd.slice(8, 10));
-                        if (parsedEndDay >= 1 && parsedEndDay <= calendarDaysInMonth) {
-                          maxDay = parsedEndDay;
-                        }
-                      }
-                      return Array.from({ length: maxDay }, (_, idx) => {
-                        const dNum = String(idx + 1).padStart(2, '0');
-                        return `${mKey}-${dNum}`;
-                      });
-                    })();
-
-                    const pnlDaysDivisor =
-                      effectiveMonthDates.length > 0
-                        ? effectiveMonthDates.length
-                        : calendarDaysInMonth;
-                    const dailyPnlBase =
-                      pnlRep !== null
-                        ? pnlRep.netProfit / Math.max(1, pnlDaysDivisor)
-                        : null;
-
-                    let mNeg = 0;
-                    let mPos = 0;
-
-                    effectiveMonthDates.forEach((date, idx) => {
-                      let dNeg = 0;
-                      let dPos = 0;
-                      let dDiffCount = 0;
-                      for (const r of data[date] ?? []) {
-                        if (r[6] < 0) dNeg += r[6];
-                        else if (r[6] > 0) dPos += r[6];
-                        if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) {
-                          dDiffCount++;
-                        }
-                      }
-                      mNeg += dNeg;
-                      mPos += dPos;
-                      const dNetStock = dNeg + dPos;
-                      const dCombinedProfit =
-                        dailyPnlBase !== null ? dailyPnlBase : dNetStock;
-
-                      combinedTimelineDays.push({
-                        date,
-                        monthKey: mKey,
-                        isFirstOfMonth: idx === 0,
-                        negVal: dNeg,
-                        posVal: dPos,
-                        netStockVal: dNetStock,
-                        dailyPnlProfit: dailyPnlBase,
-                        combinedDailyProfit: dCombinedProfit,
-                        diffCount: dDiffCount,
-                      });
-                    });
-
-                    const mNetStock = mNeg + mPos;
-                    const avgDailyStockNet =
-                      mDates.length > 0 ? mNetStock / mDates.length : 0;
-                    const combinedDailyAvg =
-                      dailyPnlBase !== null ? dailyPnlBase : avgDailyStockNet;
-
-                    perMonthComparison.push({
-                      monthKey: mKey,
-                      soDayCount: effectiveMonthDates.length,
-                      totalNeg: mNeg,
-                      totalPos: mPos,
-                      netStock: mNetStock,
-                      avgDailyStockNet,
-                      pnlNetProfit: pnlRep ? pnlRep.netProfit : null,
-                      pnlNetSales: pnlRep ? pnlRep.netSales : null,
-                      pnlDaysCount: pnlDaysDivisor,
-                      avgDailyPnlProfit: dailyPnlBase,
-                      combinedDailyAvg,
-                    });
-                  }
-
-                  const hasAnyPnlInCombined = perMonthComparison.some(
-                    (m) => m.pnlNetProfit !== null
-                  );
-
-                  const maxCombinedDailyAbs = Math.max(
-                    1,
-                    ...combinedTimelineDays.map((d) =>
-                      Math.max(
-                        Math.abs(d.combinedDailyProfit),
-                        Math.abs(d.netStockVal),
-                        Math.abs(d.posVal),
-                        Math.abs(d.negVal)
-                      )
-                    )
-                  );
-
-                  const selectedCombinedDayObj =
-                    combinedTimelineDays.find(
-                      (d) => d.date === activeCombinedDate
-                    ) ??
-                    combinedTimelineDays[combinedTimelineDays.length - 1] ??
-                    null;
-
-                  const totalCombinedNetStock = perMonthComparison.reduce(
-                    (acc, m) => acc + m.netStock,
-                    0
-                  );
-                  const totalCombinedPosStock = perMonthComparison.reduce(
-                    (acc, m) => acc + m.totalPos,
-                    0
-                  );
-                  const totalCombinedNegStock = perMonthComparison.reduce(
-                    (acc, m) => acc + m.totalNeg,
-                    0
-                  );
-                  const totalCombinedPnlProfit = perMonthComparison.reduce(
-                    (acc, m) => acc + (m.pnlNetProfit ?? 0),
-                    0
-                  );
 
                   return (
                     <div className="surface-3d rounded-3xl p-3.5 sm:p-5 space-y-4 border border-[#EBC7E9] dark:border-[#243F6E]">
@@ -2171,774 +2935,8 @@ export default function App() {
                         </MotionSection>
                       </section>
 
-                      {/* ROW 4: GRAFIK KEUNTUNGAN & HASIL PER HARI (100% Reference Image Style: Deep Indigo Card · Periwinkle Pill Bars · Smooth Magenta Curve · Glowing White Dots · Highlighted Bottom Strip) */}
-                      {(() => {
-                        const formatShortVal = (val: number) => {
-                          const abs = Math.abs(val);
-                          if (abs >= 1_000_000_000) {
-                            return `${(abs / 1_000_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })}M`;
-                          }
-                          if (abs >= 1_000_000) {
-                            return `${(abs / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })}jt`;
-                          }
-                          if (abs >= 1_000) {
-                            return `${Math.round(abs / 1_000)}rb`;
-                          }
-                          return `${Math.round(abs)}`;
-                        };
-
-                        // Determine active year from latest available month
-                        const latestMonthKey =
-                          availableCombinedMonths[
-                            availableCombinedMonths.length - 1
-                          ] ||
-                          activeMonth ||
-                          '2026-11';
-                        const activeYearStr = latestMonthKey.slice(0, 4);
-
-                        const MONTH_NAMES_UPPER = [
-                          'JANUARI',
-                          'FEBRUARI',
-                          'MARET',
-                          'APRIL',
-                          'MEI',
-                          'JUNI',
-                          'JULI',
-                          'AGUSTUS',
-                          'SEPTEMBER',
-                          'OKTOBER',
-                          'NOVEMBER',
-                          'DESEMBER',
-                        ];
-
-                        // Build 12-month data for the active year so the 12-month strip at the bottom always looks like the reference image
-                        const twelveMonthsData = MONTH_NAMES_UPPER.map(
-                          (mName, mIdx) => {
-                            const mKey = `${activeYearStr}-${String(
-                              mIdx + 1
-                            ).padStart(2, '0')}`;
-                            const mDates = allDates
-                              .filter((d) => d.startsWith(mKey))
-                              .sort();
-                            const pnlRep = pnlData[mKey] ?? null;
-                            let mPos = 0;
-                            let mNegAbs = 0;
-                            for (const d of mDates) {
-                              for (const r of data[d] ?? []) {
-                                if (r[6] > 0) mPos += r[6];
-                                else if (r[6] < 0) mNegAbs += Math.abs(r[6]);
-                              }
-                            }
-                            const hasData =
-                              mDates.length > 0 || pnlRep !== null;
-                            const isSelectedMonth =
-                              effectiveCombinedMonths.includes(mKey);
-                            // Keuntungan uses Net Profit from Laba Rugi (fallback to positive stock surplus if no Laba Rugi uploaded for that month)
-                            const barVal =
-                              pnlRep !== null
-                                ? Math.max(0, Math.abs(pnlRep.netProfit))
-                                : mPos;
-                            // Kekurangan / Biaya uses negative stock loss (or Total Expenses/Opex + COGS if only Laba Rugi is present)
-                            const lineVal =
-                              mDates.length > 0
-                                ? mNegAbs
-                                : pnlRep !== null
-                                ? Math.max(0, Math.abs(pnlRep.totalOpex))
-                                : 0;
-
-                            return {
-                              monthKey: mKey,
-                              label: mName,
-                              shortLabel: mName.slice(0, 3),
-                              hasData,
-                              isSelected: isSelectedMonth,
-                              dayCount:
-                                mDates.length > 0
-                                  ? mDates.length
-                                  : pnlRep !== null
-                                  ? new Date(
-                                      Number(activeYearStr),
-                                      mIdx + 1,
-                                      0
-                                    ).getDate() || 30
-                                  : 0,
-                              barVal,
-                              lineVal,
-                              posVal: mPos,
-                              negAbsVal: mNegAbs,
-                              pnlNetProfit: pnlRep ? pnlRep.netProfit : null,
-                            };
-                          }
-                        );
-
-                        // Build chart columns depending on mode:
-                        // - 'daily_timeline': every day from the combined months (e.g. Oktober + November)
-                        // - 'month_compare': all 12 months (JANUARI - DESEMBER) just like the reference screenshot
-                        const chartColumns =
-                          combinedChartTab === 'daily_timeline'
-                            ? combinedTimelineDays.map((d) => {
-                                const dayNum = Number(d.date.slice(8));
-                                const shortMo = formatDateId(d.date)
-                                  .split(' ')[1]
-                                  .toUpperCase();
-                                // Daily Keuntungan uses daily prorated Net Profit from Laba Rugi (adjusted by daily stock variance so daily fluctuations remain visible, or pure Net Profit/day when no stock diff)
-                                const barValue =
-                                  d.dailyPnlProfit !== null
-                                    ? Math.max(
-                                        0,
-                                        d.dailyPnlProfit + d.netStockVal
-                                      )
-                                    : Math.abs(d.posVal);
-                                const lineValue = Math.abs(d.negVal);
-                                const isHighlighted =
-                                  selectedCombinedDayObj?.date === d.date ||
-                                  combinedTimelineDays.length <= 24;
-
-                                return {
-                                  id: d.date,
-                                  dateKey: d.date,
-                                  monthKey: d.monthKey,
-                                  isFirstOfMonth: d.isFirstOfMonth,
-                                  bottomLabel: `${dayNum} ${shortMo}`,
-                                  barVal: barValue,
-                                  lineVal: lineValue,
-                                  isActive: isHighlighted,
-                                  isFocused:
-                                    selectedCombinedDayObj?.date === d.date,
-                                  hasRealData: true,
-                                };
-                              })
-                            : twelveMonthsData.map((m) => ({
-                                id: m.monthKey,
-                                dateKey: '',
-                                monthKey: m.monthKey,
-                                isFirstOfMonth: false,
-                                bottomLabel: m.label,
-                                barVal: m.barVal,
-                                lineVal: m.lineVal,
-                                isActive: m.isSelected && m.hasData,
-                                isFocused: m.isSelected && m.hasData,
-                                hasRealData: m.hasData,
-                              }));
-
-                        // Nice rounded Y-axis ceiling (8 intervals = 9 grid lines: 0..maxScale)
-                        const rawMaxChartVal = Math.max(
-                          10_000,
-                          ...chartColumns.map((c) =>
-                            Math.max(c.barVal, c.lineVal)
-                          )
-                        );
-                        const magnitude = Math.pow(
-                          10,
-                          Math.max(
-                            3,
-                            Math.floor(Math.log10(rawMaxChartVal)) - 1
-                          )
-                        );
-                        const niceMaxScale =
-                          Math.ceil((rawMaxChartVal * 1.15) / magnitude) *
-                          magnitude;
-                        const yGridSteps = [
-                          1, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0,
-                        ].map((ratio) => Math.round(niceMaxScale * ratio));
-
-                        // Top header summary numbers: Keuntungan directly uses Net Profit from Laba Rugi (or fallback to Kelebihan Stok if no Laba Rugi uploaded yet)
-                        const headerNetProfitVal = hasAnyPnlInCombined
-                          ? totalCombinedPnlProfit
-                          : totalCombinedPosStock;
-                        const headerExpenseVal = Math.abs(
-                          totalCombinedNegStock
-                        );
-                        const avgDailyProfitVal =
-                          headerNetProfitVal /
-                          Math.max(1, combinedTimelineDays.length);
-
-                        // SVG coordinate geometry
-                        const colCount = Math.max(1, chartColumns.length);
-                        const colSlotW =
-                          combinedChartTab === 'daily_timeline' ? 54 : 68;
-                        const plotLeft = 58;
-                        const plotRight = 20;
-                        const plotTop = 30;
-                        const plotBottom = 18;
-                        const plotH = 220;
-                        const plotW = colCount * colSlotW;
-                        const svgW = plotLeft + plotW + plotRight;
-                        const svgH = plotTop + plotH + plotBottom;
-                        const baseY = plotTop + plotH;
-
-                        const computedPts = chartColumns.map((col, idx) => {
-                          const cx =
-                            plotLeft + idx * colSlotW + colSlotW / 2;
-                          const barRatio = Math.min(
-                            1,
-                            Math.max(0, col.barVal / niceMaxScale)
-                          );
-                          const lineRatio = Math.min(
-                            1,
-                            Math.max(0, col.lineVal / niceMaxScale)
-                          );
-                          const barH = col.hasRealData
-                            ? Math.max(18, Math.round(barRatio * plotH))
-                            : 14;
-                          const barY = baseY - barH;
-                          const lineY = col.hasRealData
-                            ? Math.min(
-                                baseY - 14,
-                                Math.max(
-                                  plotTop + 14,
-                                  Math.round(baseY - lineRatio * plotH)
-                                )
-                              )
-                            : baseY - 24;
-
-                          return {
-                            ...col,
-                            cx,
-                            barW: Math.min(28, Math.round(colSlotW * 0.46)),
-                            barY,
-                            barH,
-                            lineY,
-                          };
-                        });
-
-                        // Build smooth cubic-bezier SVG path through all line points
-                        const smoothCurvePath = (() => {
-                          if (computedPts.length === 0) return '';
-                          if (computedPts.length === 1) {
-                            const p = computedPts[0];
-                            return `M ${p.cx - 20} ${p.lineY} L ${p.cx + 20} ${p.lineY}`;
-                          }
-                          let d = `M ${computedPts[0].cx} ${computedPts[0].lineY}`;
-                          for (let i = 0; i < computedPts.length - 1; i++) {
-                            const curr = computedPts[i];
-                            const next = computedPts[i + 1];
-                            const dx = (next.cx - curr.cx) * 0.44;
-                            const cp1x = Math.round(curr.cx + dx);
-                            const cp1y = curr.lineY;
-                            const cp2x = Math.round(next.cx - dx);
-                            const cp2y = next.lineY;
-                            d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.cx} ${next.lineY}`;
-                          }
-                          return d;
-                        })();
-
-                        return (
-                          <MotionSection className="rounded-3xl bg-gradient-to-br from-[#16194A] via-[#1E2368] to-[#12153E] border border-[#4450B5]/70 p-4 sm:p-7 space-y-5 text-white shadow-[0_24px_55px_-12px_rgba(10,12,42,0.85)]">
-                            {/* Top Metrics Header (Matches "Income $244,388   Expenses $180,477" + Mode Switch on Right) */}
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
-                                <div className="flex items-baseline gap-3">
-                                  <span className="text-sm sm:text-base font-medium text-[#9BB0FF] tracking-wide">
-                                    {hasAnyPnlInCombined
-                                      ? 'Keuntungan (Net Profit)'
-                                      : 'Keuntungan / Lebih'}
-                                  </span>
-                                  <span className="text-xl sm:text-2xl font-extrabold font-mono text-white tabular-nums tracking-tight">
-                                    {headerNetProfitVal < 0 ? '-' : ''}
-                                    {formatRupiah(headerNetProfitVal)}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-baseline gap-3">
-                                  <span className="text-sm sm:text-base font-semibold text-[#F428C0] tracking-wide">
-                                    Kekurangan / Minus
-                                  </span>
-                                  <span className="text-xl sm:text-2xl font-extrabold font-mono text-white tabular-nums tracking-tight">
-                                    {formatRupiah(headerExpenseVal)}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-baseline gap-2 text-xs sm:text-sm font-mono text-[#B7C5FF]">
-                                  <span>Rata-rata/Hari:</span>
-                                  <strong
-                                    className={
-                                      avgDailyProfitVal >= 0
-                                        ? 'text-emerald-300'
-                                        : 'text-rose-300'
-                                    }
-                                  >
-                                    {avgDailyProfitVal >= 0 ? '+' : '-'}
-                                    {formatRupiah(avgDailyProfitVal)}
-                                  </strong>
-                                </div>
-                              </div>
-
-                              {/* Mode Toggle & Select All Months */}
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="inline-flex items-center rounded-full bg-[#10143A]/90 border border-[#3B469E] p-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setCombinedChartTab('daily_timeline')
-                                    }
-                                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                                      combinedChartTab === 'daily_timeline'
-                                        ? 'bg-gradient-to-r from-[#5370FE] to-[#F428C0] text-white shadow-sm'
-                                        : 'text-[#A6B4F0] hover:text-white'
-                                    }`}
-                                  >
-                                    Per Hari ({combinedTimelineDays.length} Hr)
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setCombinedChartTab('month_compare')
-                                    }
-                                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                                      combinedChartTab === 'month_compare'
-                                        ? 'bg-gradient-to-r from-[#5370FE] to-[#F428C0] text-white shadow-sm'
-                                        : 'text-[#A6B4F0] hover:text-white'
-                                    }`}
-                                  >
-                                    Per Bulan (Jan – Des)
-                                  </button>
-                                </div>
-
-                                {availableCombinedMonths.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setSelectedCombinedMonths(
-                                        availableCombinedMonths
-                                      )
-                                    }
-                                    className="px-3 py-1.5 rounded-full text-xs font-bold bg-[#232B78] hover:bg-[#2F3996] border border-[#4C59C4] text-white transition-colors cursor-pointer"
-                                  >
-                                    Gabung Semua ({availableCombinedMonths.length}{' '}
-                                    Bulan)
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Selected Day Quick Detail Bar (when in Per Hari mode) */}
-                            {combinedChartTab === 'daily_timeline' &&
-                              selectedCombinedDayObj && (
-                                <div className="rounded-2xl bg-[#11153C]/80 border border-[#354093] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#4E6CFE] to-[#7448F7] text-white font-extrabold">
-                                      {formatDateFullId(
-                                        selectedCombinedDayObj.date
-                                      )}
-                                    </span>
-                                    <span className="text-[#B4C2FF]">
-                                      {selectedCombinedDayObj.diffCount} barang
-                                      selisih
-                                    </span>
-                                  </div>
-
-                                  <div className="flex flex-wrap items-center gap-3 font-mono tabular-nums">
-                                    {selectedCombinedDayObj.dailyPnlProfit !==
-                                      null && (
-                                      <span className="text-[#9BB0FF]">
-                                        Net Profit/Hr:{' '}
-                                        <strong className="text-white">
-                                          {selectedCombinedDayObj.dailyPnlProfit >=
-                                          0
-                                            ? '+'
-                                            : '-'}
-                                          {formatRupiah(
-                                            selectedCombinedDayObj.dailyPnlProfit
-                                          )}
-                                        </strong>
-                                      </span>
-                                    )}
-                                    <span className="text-[#9BB0FF]">
-                                      Lebih:{' '}
-                                      <strong className="text-white">
-                                        +{formatRupiah(selectedCombinedDayObj.posVal)}
-                                      </strong>
-                                    </span>
-                                    <span className="text-[#F428C0]">
-                                      Kurang:{' '}
-                                      <strong className="text-white">
-                                        -{formatRupiah(selectedCombinedDayObj.negVal)}
-                                      </strong>
-                                    </span>
-                                    {allDates.includes(
-                                      selectedCombinedDayObj.date
-                                    ) && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleOpenDayInHarian(
-                                            selectedCombinedDayObj.date
-                                          )
-                                        }
-                                        className="px-2.5 py-1 rounded-lg bg-[#252E82] hover:bg-[#323EA3] border border-[#5260CE] font-sans font-bold text-white cursor-pointer"
-                                      >
-                                        Buka Tanggal Ini →
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                            {/* Main Chart Canvas (Scrollable Horizontally when many days are combined) */}
-                            <div className="overflow-x-auto pb-1">
-                              <div
-                                style={{
-                                  minWidth: `${Math.max(660, svgW)}px`,
-                                }}
-                              >
-                                <svg
-                                  viewBox={`0 0 ${svgW} ${svgH}`}
-                                  className="w-full h-auto select-none overflow-visible"
-                                >
-                                  <defs>
-                                    {/* Bright Periwinkle Gradient for Active Bars */}
-                                    <linearGradient
-                                      id="refActiveBarGrad"
-                                      x1="0"
-                                      y1="0"
-                                      x2="0"
-                                      y2="1"
-                                    >
-                                      <stop offset="0%" stopColor="#839DFF" />
-                                      <stop offset="100%" stopColor="#5874F8" />
-                                    </linearGradient>
-
-                                    {/* Deep Royal Blue Gradient for Inactive Bars */}
-                                    <linearGradient
-                                      id="refMutedBarGrad"
-                                      x1="0"
-                                      y1="0"
-                                      x2="0"
-                                      y2="1"
-                                    >
-                                      <stop offset="0%" stopColor="#2A46D4" />
-                                      <stop offset="100%" stopColor="#1D319E" />
-                                    </linearGradient>
-
-                                    {/* Soft Magenta Glow Filter for the Smooth Curve & White Dots */}
-                                    <filter
-                                      id="refMagentaGlow"
-                                      x="-20%"
-                                      y="-20%"
-                                      width="140%"
-                                      height="140%"
-                                    >
-                                      <feDropShadow
-                                        dx="0"
-                                        dy="3"
-                                        stdDeviation="4"
-                                        floodColor="#F428C0"
-                                        floodOpacity="0.65"
-                                      />
-                                    </filter>
-                                  </defs>
-
-                                  {/* 9 Horizontal Grid Lines + Left Y-Axis Scale Labels */}
-                                  {yGridSteps.map((stepVal, sIdx) => {
-                                    const yPos = Math.round(
-                                      plotTop +
-                                        (sIdx / (yGridSteps.length - 1)) * plotH
-                                    );
-                                    return (
-                                      <g key={`grid-${sIdx}`}>
-                                        <text
-                                          x={plotLeft - 12}
-                                          y={yPos + 4}
-                                          textAnchor="end"
-                                          fill="#95A4E8"
-                                          fontSize="10"
-                                          fontFamily="ui-monospace, monospace"
-                                        >
-                                          {stepVal === 0
-                                            ? '0'
-                                            : formatShortVal(stepVal)}
-                                        </text>
-                                        <line
-                                          x1={plotLeft}
-                                          y1={yPos}
-                                          x2={svgW - plotRight}
-                                          y2={yPos}
-                                          stroke="rgba(165, 180, 252, 0.14)"
-                                          strokeWidth="1"
-                                        />
-                                      </g>
-                                    );
-                                  })}
-
-                                  {/* Vertical Rounded Pill Bars + Top Value Labels */}
-                                  {computedPts.map((pt) => {
-                                    const xLeft = Math.round(
-                                      pt.cx - pt.barW / 2
-                                    );
-                                    return (
-                                      <g
-                                        key={`bar-${pt.id}`}
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                          if (
-                                            combinedChartTab ===
-                                              'daily_timeline' &&
-                                            pt.dateKey
-                                          ) {
-                                            setActiveCombinedDate(pt.dateKey);
-                                          } else if (pt.hasRealData) {
-                                            const current =
-                                              effectiveCombinedMonths;
-                                            const isChecked = current.includes(
-                                              pt.monthKey
-                                            );
-                                            if (
-                                              isChecked &&
-                                              current.length > 1
-                                            ) {
-                                              setSelectedCombinedMonths(
-                                                current.filter(
-                                                  (m) => m !== pt.monthKey
-                                                )
-                                              );
-                                            } else if (!isChecked) {
-                                              setSelectedCombinedMonths(
-                                                [...current, pt.monthKey].sort()
-                                              );
-                                            }
-                                          }
-                                        }}
-                                      >
-                                        {/* Month boundary dashed line in daily mode */}
-                                        {combinedChartTab ===
-                                          'daily_timeline' &&
-                                          pt.isFirstOfMonth && (
-                                            <g>
-                                              <line
-                                                x1={
-                                                  pt.cx -
-                                                  Math.round(colSlotW / 2)
-                                                }
-                                                y1={plotTop - 10}
-                                                x2={
-                                                  pt.cx -
-                                                  Math.round(colSlotW / 2)
-                                                }
-                                                y2={baseY}
-                                                stroke="rgba(244, 40, 192, 0.45)"
-                                                strokeWidth="1.5"
-                                                strokeDasharray="4 4"
-                                              />
-                                              <text
-                                                x={pt.cx}
-                                                y={plotTop - 14}
-                                                textAnchor="middle"
-                                                fill="#F9A8D4"
-                                                fontSize="9"
-                                                fontWeight="800"
-                                              >
-                                                {formatMonthId(
-                                                  pt.monthKey
-                                                ).toUpperCase()}
-                                              </text>
-                                            </g>
-                                          )}
-
-                                        {/* Rounded Pill Bar */}
-                                        <rect
-                                          x={xLeft}
-                                          y={pt.barY}
-                                          width={pt.barW}
-                                          height={pt.barH}
-                                          rx={8}
-                                          ry={8}
-                                          fill={
-                                            pt.isActive
-                                              ? 'url(#refActiveBarGrad)'
-                                              : 'url(#refMutedBarGrad)'
-                                          }
-                                          stroke={
-                                            pt.isFocused
-                                              ? '#FFFFFF'
-                                              : 'transparent'
-                                          }
-                                          strokeWidth={pt.isFocused ? '1.5' : '0'}
-                                        />
-
-                                        {/* Top Value Label right above the bar (e.g. "31rb", "35rb") */}
-                                        {pt.isActive && pt.hasRealData && (
-                                          <text
-                                            x={pt.cx}
-                                            y={Math.max(12, pt.barY - 7)}
-                                            textAnchor="middle"
-                                            fill="#FFFFFF"
-                                            fontSize="11"
-                                            fontWeight="700"
-                                            fontFamily="ui-monospace, monospace"
-                                          >
-                                            {formatShortVal(pt.barVal)}
-                                          </text>
-                                        )}
-                                      </g>
-                                    );
-                                  })}
-
-                                  {/* Smooth Cubic-Bezier Pink-Magenta Line Overlay */}
-                                  {smoothCurvePath && (
-                                    <path
-                                      d={smoothCurvePath}
-                                      fill="none"
-                                      stroke="#F428C0"
-                                      strokeWidth="3"
-                                      strokeLinecap="round"
-                                      filter="url(#refMagentaGlow)"
-                                    />
-                                  )}
-
-                                  {/* Glowing White-Centered Dots on the Curve + Second Value Label Below Dot */}
-                                  {computedPts.map((pt) => {
-                                    if (!pt.isActive || !pt.hasRealData) {
-                                      return null;
-                                    }
-                                    return (
-                                      <g
-                                        key={`dot-${pt.id}`}
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                          if (pt.dateKey) {
-                                            setActiveCombinedDate(pt.dateKey);
-                                          }
-                                        }}
-                                      >
-                                        {/* Outer Soft Halo */}
-                                        <circle
-                                          cx={pt.cx}
-                                          cy={pt.lineY}
-                                          r="7"
-                                          fill="rgba(244, 40, 192, 0.28)"
-                                        />
-                                        {/* Glowing White Dot with Pink Ring */}
-                                        <circle
-                                          cx={pt.cx}
-                                          cy={pt.lineY}
-                                          r="4.5"
-                                          fill="#FFFFFF"
-                                          stroke="#F428C0"
-                                          strokeWidth="2.5"
-                                        />
-                                        {/* Value Label directly below the dot (e.g. "22rb", "25rb") */}
-                                        <text
-                                          x={pt.cx}
-                                          y={Math.min(
-                                            baseY - 4,
-                                            pt.lineY + 18
-                                          )}
-                                          textAnchor="middle"
-                                          fill="#FFFFFF"
-                                          fontSize="10.5"
-                                          fontWeight="700"
-                                          fontFamily="ui-monospace, monospace"
-                                        >
-                                          {formatShortVal(pt.lineVal)}
-                                        </text>
-                                      </g>
-                                    );
-                                  })}
-                                </svg>
-
-                                {/* Bottom Column Labels Strip directly aligned with each bar */}
-                                {combinedChartTab === 'daily_timeline' && (
-                                  <div
-                                    className="flex items-center gap-1 pt-1"
-                                    style={{
-                                      paddingLeft: `${plotLeft}px`,
-                                      paddingRight: `${plotRight}px`,
-                                    }}
-                                  >
-                                    {computedPts.map((pt) => (
-                                      <button
-                                        key={`col-lbl-${pt.id}`}
-                                        type="button"
-                                        onClick={() => {
-                                          if (pt.dateKey) {
-                                            setActiveCombinedDate(pt.dateKey);
-                                          }
-                                        }}
-                                        style={{ width: `${colSlotW}px` }}
-                                        className={`py-1.5 px-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-center truncate transition-all cursor-pointer ${
-                                          pt.isFocused
-                                            ? 'bg-gradient-to-b from-[#4E6CFE] to-[#6A48F6] border-b-[3px] border-[#F428C0] text-white shadow-[0_6px_16px_rgba(88,96,255,0.45)]'
-                                            : 'bg-[#151A4A]/90 border-b-[3px] border-[#5364E8]/60 text-[#C3CEFF] hover:text-white'
-                                        }`}
-                                      >
-                                        {pt.bottomLabel}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Bottom 12-Month Selector Bar (Exact Reference Image Style: JANUARY | FEBRUARY | MARCH ... DECEMBER) */}
-                            <div className="pt-1">
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9BB0FF] mb-2 flex items-center justify-between">
-                                <span>
-                                  Klik Bulan untuk Menggabungkan / Memisahkan Data ({activeYearStr}):
-                                </span>
-                                <span>
-                                  Aktif:{' '}
-                                  {effectiveCombinedMonths
-                                    .map((m) => formatMonthId(m))
-                                    .join(' + ')}
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
-                                {twelveMonthsData.map((mItem) => {
-                                  const isSelected = mItem.isSelected;
-                                  const hasData = mItem.hasData;
-
-                                  return (
-                                    <button
-                                      key={mItem.monthKey}
-                                      type="button"
-                                      disabled={!hasData}
-                                      onClick={() => {
-                                        if (!hasData) return;
-                                        const current = effectiveCombinedMonths;
-                                        if (isSelected) {
-                                          if (current.length > 1) {
-                                            setSelectedCombinedMonths(
-                                              current.filter(
-                                                (item) =>
-                                                  item !== mItem.monthKey
-                                              )
-                                            );
-                                          }
-                                        } else {
-                                          setSelectedCombinedMonths(
-                                            [
-                                              ...current,
-                                              mItem.monthKey,
-                                            ].sort()
-                                          );
-                                        }
-                                      }}
-                                      className={`py-2 px-1.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-center transition-all ${
-                                        isSelected && hasData
-                                          ? 'bg-gradient-to-b from-[#4E6CFE] to-[#6846F6] border-b-[3px] border-[#F428C0] text-white shadow-[0_8px_20px_rgba(88,96,255,0.45)] cursor-pointer'
-                                          : hasData
-                                          ? 'bg-[#171C52] hover:bg-[#222970] border-b-[3px] border-[#3D49A6] text-[#B7C4FF] hover:text-white cursor-pointer'
-                                          : 'bg-[#11153E]/70 border-b-[3px] border-transparent text-[#5F6BA8] cursor-not-allowed'
-                                      }`}
-                                    >
-                                      <div className="truncate">
-                                        {mItem.label}
-                                      </div>
-                                      {hasData && (
-                                        <div className="text-[8px] font-mono opacity-90 mt-0.5">
-                                          {mItem.dayCount}hr
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </MotionSection>
-                        );
-                      })()}
+                      {/* ROW 4: GRAFIK KEUNTUNGAN (Dominant White Surface · Pink & Purple Wizzmie Theme · Net Sales Based on Upload Dates) */}
+                      {renderProfitChartSection()}
                     </div>
                   );
                 })()}
@@ -2946,9 +2944,9 @@ export default function App() {
                 {/* Informasi Menu Laba Rugi */}
                 <BerandaProfitLossCard
                   report={berandaPnlReport}
-                  monthCount={pnlMonths.length}
-                  onOpenProfitLoss={(monthKey) => {
-                    if (monthKey) setSelectedPnlMonth(monthKey);
+                  monthCount={pnlReportList.length}
+                  onOpenProfitLoss={(reportId) => {
+                    if (reportId) setSelectedPnlMonth(reportId);
                     setActiveTab('labarugi');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
@@ -2958,10 +2956,11 @@ export default function App() {
                   }}
                   onOpenInfo={setActiveInfoKey}
                 />
-              </>
-            )}
-          </div>
-        )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         {/* PAGE 2: LAPORAN HARIAN */}
         {activeTab === 'harian' && (
@@ -3939,91 +3938,159 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 5: PENGATURAN (TERMASUK UPLOAD EXCEL) */}
+        {/* PAGE 5: PENGATURAN (UPLOAD TERPISAH: 1. STOCK OPNAME & 2. PROFIT LOSS CONSOLIDATION) */}
         {activeTab === 'pengaturan' && (
-          <div className="space-y-5 max-w-4xl">
-            <MotionSection className="surface-3d rounded-3xl p-5 sm:p-7 space-y-5">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                    <GsapWordTitle text="Upload Laporan Excel" />
-                  </h1>
-                  <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
+          <div className="space-y-5 max-w-5xl">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+              {/* KOTAK 1: UPLOAD KHUSUS LAPORAN STOCK OPNAME */}
+              <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/35 text-amber-800 dark:text-amber-300 text-xs font-extrabold uppercase tracking-wide">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Fitur Upload 1 · Stok Gudang</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                      <GsapWordTitle text="Upload Laporan Stock Opname" />
+                    </h1>
+                    <InfoButton guideKey="upload" onOpen={setActiveInfoKey} />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Khusus file Excel <strong>Stock Opname Detail Report</strong> (.xlsx / .xls). Tanggal otomatis dibaca dari kolom <em>Stock Opname Date</em> di dalam file.
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Pilih file laporan <strong>Stock Opname</strong> atau <strong>Profit Loss Consolidation</strong> (.xlsx / .xls). Semua baris, tanggal, bulan, dan rumus langsung dirapikan otomatis.
-                </p>
-              </div>
 
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  onDragEnter={(e) => {
                     e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files);
-                }}
-                className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 cursor-pointer transition-colors grid grid-cols-1 md:grid-cols-12 gap-6 items-center ${
-                  isDragging
-                    ? 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25'
-                    : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-amber-500 dark:hover:border-amber-400'
-                }`}
-              >
-                <div className="md:col-span-7 text-center md:text-left space-y-2.5">
-                  <div className="mx-auto md:mx-0 w-12 h-12 rounded-2xl bg-amber-100/90 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-xs">
+                    setIsDragging(true);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files) {
+                      void handleStockFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`rounded-2xl border-2 border-dashed p-5 sm:p-6 cursor-pointer transition-colors flex flex-col items-center text-center space-y-3 ${
+                    isDragging
+                      ? 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25'
+                      : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-amber-500 dark:hover:border-amber-400'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100/90 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-xs">
                     <FileSpreadsheet className="w-6 h-6" />
                   </div>
-                  <p className="text-base sm:text-lg font-bold text-amber-800 dark:text-amber-300">
-                    Ketuk di sini untuk pilih file Excel (.xlsx / .xls)
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Atau tarik file langsung ke kotak ini. Aman upload berulang kali — tanggal yang sama otomatis diperbarui tanpa dobel.
+                  <div className="space-y-1">
+                    <p className="text-sm sm:text-base font-extrabold text-amber-800 dark:text-amber-300">
+                      Ketuk untuk pilih file Stock Opname (.xlsx / .xls)
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Atau tarik file Stock Opname ke kotak ini. Tanggal yang sama otomatis diperbarui tanpa dobel.
+                    </p>
+                  </div>
+                  <span className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Pilih File Stock Opname</span>
+                  </span>
+                </div>
+              </MotionSection>
+
+              {/* KOTAK 2: UPLOAD KHUSUS PROFIT LOSS CONSOLIDATION (DENGAN POP-UP PILIH TANGGAL & BULAN) */}
+              <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-500/15 border border-fuchsia-200 dark:border-fuchsia-500/35 text-fuchsia-800 dark:text-fuchsia-300 text-xs font-extrabold uppercase tracking-wide">
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>Fitur Upload 2 · Pilih Tanggal Manual</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                      <GsapWordTitle text="Upload Profit Loss Consolidation" />
+                    </h2>
+                    <InfoButton guideKey="profitLoss" onOpen={setActiveInfoKey} />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Khusus file <strong>Profit Loss Consolidation</strong> (.xlsx / .xls). Setelah file dipilih, akan muncul <strong>pop-up pemilihan tanggal &amp; bulan</strong> (misal upload ke-1: <strong>1–16 Nov 2026</strong>, upload ke-2: <strong>18 Nov 2026</strong>) agar tidak saling menimpa.
                   </p>
                 </div>
 
-                <div className="md:col-span-5 rounded-2xl overflow-hidden bg-white dark:bg-[#0D1C34] h-40 sm:h-48 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.18)]">
-                  {!uploadImgFailed ? (
-                    <img
-                      src={uploadExcel3d}
-                      alt="Ilustrasi 3D file Excel berubah menjadi data stok rapi"
-                      referrerPolicy="no-referrer"
-                      onError={() => setUploadImgFailed(true)}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
-                      <FileSpreadsheet className="w-12 h-12 opacity-75" />
-                    </div>
-                  )}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => pnlFileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      pnlFileInputRef.current?.click();
+                    }
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    setIsPnlDragging(true);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsPnlDragging(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsPnlDragging(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsPnlDragging(false);
+                    if (e.dataTransfer.files) {
+                      void handlePnlFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`rounded-2xl border-2 border-dashed p-5 sm:p-6 cursor-pointer transition-colors flex flex-col items-center text-center space-y-3 ${
+                    isPnlDragging
+                      ? 'border-fuchsia-500 bg-fuchsia-50/70 dark:border-fuchsia-400 dark:bg-fuchsia-950/25'
+                      : 'border-slate-300 dark:border-[#1E355D] bg-slate-50/60 dark:bg-[#0A162B] hover:border-fuchsia-500 dark:hover:border-fuchsia-400'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-100/90 dark:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 flex items-center justify-center shadow-xs">
+                    <Coins className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm sm:text-base font-extrabold text-fuchsia-800 dark:text-fuchsia-300">
+                      Ketuk untuk pilih file Profit Loss Consolidation (.xlsx / .xls)
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Pop-up tanggal &amp; bulan otomatis terbuka setelah file dipilih. Net Sales langsung tampil di Grafik Keuntungan Beranda sesuai tanggal yang ditentukan.
+                    </p>
+                  </div>
+                  <span className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Pilih File Profit Loss &amp; Atur Tanggal</span>
+                  </span>
                 </div>
-              </div>
-            </MotionSection>
+              </MotionSection>
+            </div>
 
             {lastUpload && (
               <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                      <GsapWordTitle text="Upload Berhasil" />
+                      <GsapWordTitle text="Upload Stock Opname Berhasil" />
                     </h2>
                     <p className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
                       Semua <strong>{lastUpload.totalRows} catatan stok</strong> ({lastUpload.uniqueProducts} jenis barang: {lastUpload.diffRows} selisih, {lastUpload.pasRows} pas) sudah masuk ke{' '}
@@ -4068,10 +4135,90 @@ export default function App() {
               </MotionSection>
             )}
 
+            {/* Daftar Periode Profit Loss Consolidation yang Tersimpan */}
+            {pnlReportList.length > 0 && (
+              <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      <GsapWordTitle text="Periode Profit Loss Consolidation yang Tersimpan" />
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Setiap periode disimpan terpisah sesuai tanggal yang Anda pilih dan ditampilkan pada Grafik Keuntungan (Net Sales) di Beranda.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('beranda')}
+                    className="btn-3d-primary px-3.5 py-2 text-xs font-bold rounded-xl self-start sm:self-auto cursor-pointer"
+                  >
+                    Lihat Grafik Keuntungan di Beranda →
+                  </button>
+                </div>
+
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {pnlReportList.map((rep) => {
+                    const daysCount = getPnlPeriodDays(rep);
+                    const perDayNetSales = rep.netSales / Math.max(1, daysCount);
+                    return (
+                      <div
+                        key={rep.id}
+                        className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-extrabold text-slate-900 dark:text-white">
+                              {formatPnlPeriodRange(rep)}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                              {formatMonthId(rep.monthKey)} · {daysCount} hari
+                            </span>
+                            {rep.fileName && (
+                              <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px]">
+                                ({rep.fileName})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-mono tabular-nums">
+                            Net Sales:{' '}
+                            <strong className="text-emerald-700 dark:text-emerald-400">
+                              {formatSignedRupiah(rep.netSales)}
+                            </strong>{' '}
+                            ({formatSignedRupiah(perDayNetSales)}/hari) · Net Profit:{' '}
+                            <strong>{formatSignedRupiah(rep.netProfit)}</strong>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPnlMonth(rep.id);
+                              setActiveTab('labarugi');
+                            }}
+                            className="btn-3d-soft px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-100 min-h-[36px] cursor-pointer"
+                          >
+                            Buka Laba Rugi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePnlMonth(rep.id)}
+                            className="btn-3d-soft px-3 py-1.5 text-xs font-semibold rounded-xl text-rose-600 dark:text-rose-400 min-h-[36px] cursor-pointer"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </MotionSection>
+            )}
+
             {allMonths.length > 0 && (
               <MotionSection className="surface-3d rounded-3xl p-5 sm:p-6 space-y-3">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  <GsapWordTitle text="Data Bulan yang Tersimpan" />
+                  <GsapWordTitle text="Data Bulan Stock Opname yang Tersimpan" />
                 </h2>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {allMonths.map((m) => (
@@ -4159,6 +4306,20 @@ export default function App() {
         )}
       </main>
 
+      {/* Pop-up Pemilihan Tanggal & Bulan setelah Upload Profit Loss Consolidation */}
+      <PnlPeriodPickerModal
+        item={pendingPnlQueue[0] ?? null}
+        queueIndex={Math.max(
+          0,
+          pendingPnlBatchTotal - pendingPnlQueue.length
+        )}
+        queueTotal={Math.max(1, pendingPnlBatchTotal)}
+        existingPnlData={pnlData}
+        defaultMonthKey={activeMonth || pnlMonths[pnlMonths.length - 1] || '2026-11'}
+        onConfirm={handleConfirmPnlPeriod}
+        onCancel={handleCancelPnlPeriod}
+      />
+
       {/* Mobile Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Menu utama"
@@ -4192,7 +4353,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Global Date Range Pop-up Modal */}
+      {/* Global Date Range Pop-up Modal (Copied from Menu Pengaturan Period Picker) */}
       {activeMonth && (
         <DateRangePicker
           monthKey={activeMonth}
@@ -4203,12 +4364,22 @@ export default function App() {
             setPurposeFilter('ALL');
           }}
           availableDates={activeMonthDates}
-          rangeStart={activeRange.start}
-          rangeEnd={activeRange.end}
+          allAvailableDates={allDates}
+          rangeStart={viewScope === 'day' && activeDay ? activeDay : activeRange.start}
+          rangeEnd={viewScope === 'day' && activeDay ? activeDay : activeRange.end}
           isOpen={isRangePickerOpen}
           onOpenChange={setIsRangePickerOpen}
           onConfirm={(start, end) => {
+            const targetMonth = start.slice(0, 7);
+            if (targetMonth && targetMonth !== activeMonth) {
+              setSelectedMonth(targetMonth);
+              setCategoryFilter('ALL');
+              setPurposeFilter('ALL');
+            }
             setDateRange({ start, end });
+            if (start === end) {
+              setSelectedDay(start);
+            }
             setViewScope('range');
             setIsRangePickerOpen(false);
           }}
@@ -5174,14 +5345,14 @@ function BerandaProfitLossCard({
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
               Periode {formatPnlPeriodRange(report)}
               {report.branchName ? ` · ${report.branchName}` : ''}
-              {monthCount > 1 ? ` · ${monthCount} bulan tersimpan` : ''}
+              {monthCount > 1 ? ` · ${monthCount} periode tersimpan` : ''}
             </p>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => onOpenProfitLoss(report.monthKey)}
+          onClick={() => onOpenProfitLoss(report.id)}
           className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px] cursor-pointer"
         >
           <span>Buka Detail Laba Rugi</span>

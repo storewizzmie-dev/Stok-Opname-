@@ -71,8 +71,8 @@ export function ProfitLossView({
 }: {
   pnlData: PnlDataset;
   activeMonth: string;
-  onSelectMonth: (monthKey: string) => void;
-  onDeleteMonth: (monthKey: string) => void;
+  onSelectMonth: (reportId: string) => void;
+  onDeleteMonth: (reportId: string) => void;
   onOpenInfo: (key: InfoGuideKey) => void;
 }) {
   const [sectionFilter, setSectionFilter] = useState<SectionFilter>('all');
@@ -83,23 +83,38 @@ export function ProfitLossView({
   const [deleteArmedMonth, setDeleteArmedMonth] = useState<string | null>(null);
   const [notesVersion, setNotesVersion] = useState<number>(0);
 
-  const allMonths = useMemo(() => Object.keys(pnlData).sort(), [pnlData]);
+  const allReportKeys = useMemo(
+    () =>
+      Object.keys(pnlData).sort((a, b) => {
+        const ra = pnlData[a];
+        const rb = pnlData[b];
+        if (!ra || !rb) return a.localeCompare(b);
+        if (ra.periodStart !== rb.periodStart) {
+          return ra.periodStart.localeCompare(rb.periodStart);
+        }
+        return ra.periodEnd.localeCompare(rb.periodEnd);
+      }),
+    [pnlData]
+  );
 
-  const resolvedMonth = useMemo(() => {
-    if (!allMonths.length) return '';
-    return allMonths.includes(activeMonth)
-      ? activeMonth
-      : allMonths[allMonths.length - 1];
-  }, [allMonths, activeMonth]);
+  const resolvedKey = useMemo(() => {
+    if (!allReportKeys.length) return '';
+    if (allReportKeys.includes(activeMonth)) return activeMonth;
+    const byMonth = allReportKeys.filter(
+      (k) => pnlData[k]?.monthKey === activeMonth
+    );
+    if (byMonth.length > 0) return byMonth[byMonth.length - 1];
+    return allReportKeys[allReportKeys.length - 1];
+  }, [allReportKeys, activeMonth, pnlData]);
 
-  const report = resolvedMonth ? pnlData[resolvedMonth] : null;
+  const report = resolvedKey ? pnlData[resolvedKey] : null;
 
   const prevReport = useMemo(() => {
-    if (!resolvedMonth) return null;
-    const idx = allMonths.indexOf(resolvedMonth);
+    if (!resolvedKey) return null;
+    const idx = allReportKeys.indexOf(resolvedKey);
     if (idx <= 0) return null;
-    return pnlData[allMonths[idx - 1]] ?? null;
-  }, [allMonths, pnlData, resolvedMonth]);
+    return pnlData[allReportKeys[idx - 1]] ?? null;
+  }, [allReportKeys, pnlData, resolvedKey]);
 
   const prevRowMap = useMemo(() => {
     const map = new Map<string, PnlRow>();
@@ -141,7 +156,7 @@ export function ProfitLossView({
           </h1>
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
             Upload file Excel <strong>Profit Loss Consolidation Report</strong>{' '}
-            dari sistem ESB melalui menu <strong>Pengaturan</strong>. Aplikasi langsung menghitung persentase setiap pos{' '}
+            dari sistem ESB melalui menu <strong>Pengaturan</strong> lalu tentukan periode tanggalnya. Aplikasi langsung menghitung persentase setiap pos{' '}
             <strong>Description dibagi Net Sales</strong> secara otomatis.
           </p>
         </div>
@@ -149,18 +164,18 @@ export function ProfitLossView({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
           <MotionCard delay={0.03} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
-              1. Bulan Sama, Tanggal Beda
+              1. Pilih Tanggal &amp; Bulan Manual
             </div>
             <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
-              Otomatis memperbarui data di bulan yang sama tanpa menumpuk data dobel.
+              Setiap file yang diupload ditentukan tanggal/periodenya lewat pop-up (misal 1–16 Nov &amp; 18 Nov) sehingga tidak saling menimpa.
             </p>
           </MotionCard>
           <MotionCard delay={0.07} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
-              2. Bulan Berbeda
+              2. Periode Tersimpan Rapi
             </div>
             <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
-              Otomatis dibuatkan folder bulan baru yang terpisah dan bisa dibandingkan.
+              Semua periode yang diupload tersimpan sendiri-sendiri dan otomatis muncul pada Grafik Keuntungan di Beranda.
             </p>
           </MotionCard>
           <MotionCard delay={0.11} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
@@ -284,12 +299,12 @@ export function ProfitLossView({
                   <GsapWordTitle text="Laba Rugi" />
                 </h1>
                 <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
-                  <GsapWordTitle text={formatMonthId(report.monthKey)} />
+                  <GsapWordTitle text={formatPnlPeriodRange(report)} />
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/90 tabular-nums">
-                Periode: <strong>{formatPnlPeriodRange(report)}</strong>
-                {report.generatedAt ? ` · Dibuat: ${report.generatedAt}` : ''}
+                Bulan: <strong>{formatMonthId(report.monthKey)}</strong> · Periode: <strong>{formatPnlPeriodRange(report)}</strong>
+                {report.fileName ? ` · File: ${report.fileName}` : ''}
               </p>
             </div>
           </div>
@@ -297,18 +312,19 @@ export function ProfitLossView({
         </div>
       </MotionSection>
 
-      {/* Month Switcher */}
+      {/* Period / Report Switcher */}
       <section className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap gap-2">
-          {allMonths.map((m) => {
-            const isActive = m === resolvedMonth;
-            const r = pnlData[m];
+          {allReportKeys.map((repKey) => {
+            const isActive = repKey === resolvedKey;
+            const r = pnlData[repKey];
+            if (!r) return null;
             return (
               <button
-                key={m}
+                key={repKey}
                 type="button"
                 onClick={() => {
-                  onSelectMonth(m);
+                  onSelectMonth(repKey);
                   setExpandedRowKey(null);
                   setSelectedKpiDesc(null);
                   setDeleteArmedMonth(null);
@@ -319,7 +335,7 @@ export function ProfitLossView({
                     : 'btn-3d-soft text-slate-700 dark:text-slate-200'
                 }`}
               >
-                {formatMonthId(m)} ({formatPnlPeriodRange(r)})
+                {formatPnlPeriodRange(r)}
               </button>
             );
           })}
@@ -328,24 +344,24 @@ export function ProfitLossView({
         <button
           type="button"
           onClick={() => {
-            if (deleteArmedMonth === report.monthKey) {
+            if (deleteArmedMonth === resolvedKey) {
               setDeleteArmedMonth(null);
-              onDeleteMonth(report.monthKey);
+              onDeleteMonth(resolvedKey);
             } else {
-              setDeleteArmedMonth(report.monthKey);
+              setDeleteArmedMonth(resolvedKey);
             }
           }}
           className={`px-3 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 min-h-[38px] cursor-pointer ${
-            deleteArmedMonth === report.monthKey
+            deleteArmedMonth === resolvedKey
               ? 'bg-rose-600 text-white border border-rose-700'
               : 'btn-3d-soft text-rose-600 dark:text-rose-400'
           }`}
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>
-            {deleteArmedMonth === report.monthKey
+            {deleteArmedMonth === resolvedKey
               ? 'Yakin? Ketuk Lagi'
-              : `Hapus ${formatMonthId(report.monthKey)}`}
+              : `Hapus Periode (${formatPnlPeriodRange(report)})`}
           </span>
         </button>
       </section>
@@ -518,8 +534,9 @@ export function ProfitLossView({
       {/* Detail & Simple App Analysis Panel when a top KPI card is clicked */}
       {selectedKpiRow && (() => {
         const kpiInfo = describePnlRow(selectedKpiRow, report, prevReport);
+        const noteScopeKey = report.id || report.monthKey;
         const kpiNote = getPnlPermanentNote(
-          report.monthKey,
+          noteScopeKey,
           selectedKpiRow.description
         );
         void notesVersion;
@@ -550,7 +567,7 @@ export function ProfitLossView({
               permanentNote={kpiNote}
               onResetPermanentNote={() => {
                 removePnlPermanentNote(
-                  report.monthKey,
+                  noteScopeKey,
                   selectedKpiRow.description
                 );
                 setNotesVersion((v) => v + 1);
@@ -565,7 +582,7 @@ export function ProfitLossView({
               permanentNote={kpiNote}
               onSavePermanentNote={(text, provider) => {
                 savePnlPermanentNote({
-                  monthKey: report.monthKey,
+                  monthKey: noteScopeKey,
                   description: selectedKpiRow.description,
                   text,
                   provider,
@@ -588,7 +605,7 @@ export function ProfitLossView({
           {prevReport && (
             <span className="text-amber-700 dark:text-amber-300 font-semibold">
               {' '}
-              · Menampilkan pembanding vs {formatMonthId(prevReport.monthKey)}.
+              · Menampilkan pembanding vs {formatPnlPeriodRange(prevReport)}.
             </span>
           )}
         </div>
@@ -674,9 +691,10 @@ export function ProfitLossView({
               const info = isExpanded
                 ? describePnlRow(row, report, prevReport)
                 : null;
+              const noteScopeKey = report.id || report.monthKey;
               const rowPermanentNote =
                 (void notesVersion,
-                getPnlPermanentNote(report.monthKey, row.description));
+                getPnlPermanentNote(noteScopeKey, row.description));
 
               return (
                 <div
@@ -762,7 +780,7 @@ export function ProfitLossView({
                         </div>
                         {deltaPct !== null && Math.abs(deltaPct) >= 0.01 && (
                           <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                            vs bln lalu:{' '}
+                            vs periode lalu:{' '}
                             <span
                               className={
                                 deltaPct > 0
@@ -806,7 +824,7 @@ export function ProfitLossView({
                         permanentNote={rowPermanentNote}
                         onResetPermanentNote={() => {
                           removePnlPermanentNote(
-                            report.monthKey,
+                            noteScopeKey,
                             row.description
                           );
                           setNotesVersion((v) => v + 1);
@@ -838,19 +856,19 @@ export function ProfitLossView({
                         </p>
                       </div>
 
-                      {/* 3. Perbandingan Bulan Lalu (jika ada) */}
+                      {/* 3. Perbandingan Periode Sebelumnya (jika ada) */}
                       {prevReport && prevRow && (
                         <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 tabular-nums">
                           <div className="text-slate-600 dark:text-slate-300">
                             <strong className="text-slate-900 dark:text-white">
-                              Bandingkan vs {formatMonthId(prevReport.monthKey)}:
+                              Bandingkan vs {formatPnlPeriodRange(prevReport)}:
                             </strong>{' '}
-                            Bulan lalu{' '}
+                            Periode lalu{' '}
                             <span className="font-mono font-semibold">
                               {formatSignedRupiah(prevRow.value)} (
                               {formatPercentId(prevRow.percentToNetSales)})
                             </span>{' '}
-                            → Bulan ini{' '}
+                            → Periode ini{' '}
                             <span className="font-mono font-semibold">
                               {formatSignedRupiah(row.value)} (
                               {formatPercentId(row.percentToNetSales)})
@@ -901,7 +919,7 @@ export function ProfitLossView({
                         permanentNote={rowPermanentNote}
                         onSavePermanentNote={(text, provider) => {
                           savePnlPermanentNote({
-                            monthKey: report.monthKey,
+                            monthKey: noteScopeKey,
                             description: row.description,
                             text,
                             provider,
