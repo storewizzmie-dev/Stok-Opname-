@@ -206,7 +206,7 @@ const KEPERLUAN_GROUP_DEFINITIONS: KeperluanGroupMeta[] = [
     id: 'operational',
     title: 'Perlengkapan & Operasional',
     shortLabel: 'Operasional',
-    indicationNeg: 'Pemakaian kebersihan toko / selisih pencatatan',
+    indicationNeg: 'Pemakaian kebersihan harian / selisih pencatatan',
     indicationPos: 'Stok gudang operasional belum diinput pemakaian',
     barColor: '#D65106',
     badgeClass:
@@ -860,10 +860,9 @@ export default function App() {
       {/* ===== Sidebar (desktop) ===== */}
       <aside className="wz-sidebar hidden md:flex">
         <div className="flex items-center gap-3 px-2">
-          <span className="wz-logo">W</span>
+          <span className="wz-logo">S</span>
           <span className="leading-tight">
             <span className="wz-brand block">Stok<span className="wz-brand-accent">Opname</span></span>
-            <span className="wz-brand-sub block">Control Room</span>
           </span>
         </div>
         <div className="wz-side-label">Navigasi</div>
@@ -899,7 +898,7 @@ export default function App() {
       {/* ===== Command bar ===== */}
       <header className="wz-topbar">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="md:hidden"><span className="wz-logo">W</span></span>
+          <span className="md:hidden"><span className="wz-logo">S</span></span>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
@@ -909,7 +908,7 @@ export default function App() {
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="min-w-0"
             >
-              <div className="wz-crumb">Wizzmie / {navItems.find((n) => n.id === activeTab)?.label}</div>
+              <div className="wz-crumb">{navItems.find((n) => n.id === activeTab)?.label}</div>
               {activeTab !== 'beranda' && (
                 <h1 className="wz-page-title truncate">
                   {({ harian: 'Opname Harian', barang: 'Cek per Barang', labarugi: 'Laba & Rugi', pengaturan: 'Data & Pengaturan' } as Record<string, string>)[activeTab]}
@@ -2047,7 +2046,6 @@ export default function App() {
                               <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                                 <div className="min-w-0">
                                   <div className="v2-eyebrow">
-                                    Ringkasan Outlet · {summary.branchName || 'Wizzmie'}
                                     <InfoButton guideKey="overview" onOpen={setActiveInfoKey} />
                                   </div>
                                   <div className={`v2-hero-num ${summary.netTotal < -0.5 ? 'v2-t-neg' : 'v2-t-pos'}`}>
@@ -2795,91 +2793,16 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 5: PENGATURAN (UPLOAD TERPISAH: 1. STOCK OPNAME & 2. PROFIT LOSS CONSOLIDATION) */}
+        {/* PAGE 5: PENGATURAN */}
         {activeTab === 'pengaturan' && (
-          <div className="v2-grid">
-            <section className="v2-hero v2-span-full">
-              <div className="v2-hero-glow" />
-              <div className="relative">
-                <div className="v2-eyebrow">Pusat Data</div>
-                <div className="v2-hero-num" style={{ fontSize: 'clamp(2rem,6vw,3.6rem)' }}>Upload &amp; kelola laporan</div>
-                <p className="v2-hero-sub">{allMonths.length} bulan stok · {pnlReportList.length} periode laba rugi tersimpan di perangkat ini</p>
-              </div>
-            </section>
-
-            <section
-              className="v2-drop v2-span-full"
-              role="button"
-              tabIndex={0}
+          <div className="flex flex-col items-center justify-center py-10">
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('is-over'); }}
-              onDragLeave={(e) => e.currentTarget.classList.remove('is-over')}
-              onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('is-over'); if (e.dataTransfer.files?.length) void handleUnifiedFiles(e.dataTransfer.files); }}
+              className="wizzmie-pink-pill inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold cursor-pointer"
             >
-              <div className="flex items-start justify-between gap-3">
-                <span className="v2-drop-icon"><FileSpreadsheet className="w-6 h-6" /></span>
-                <span onClick={(e) => e.stopPropagation()}><InfoButton guideKey="upload" onOpen={setActiveInfoKey} /></span>
-              </div>
-              <h3 className="v2-drop-title">Upload Laporan Excel (Stock Opname &amp; Laba Rugi)</h3>
-              <p className="v2-drop-sub">
-                Satu tempat upload untuk semua jenis file Excel (.xlsx / .xls), baik <strong>Stock Opname Detail Report</strong> maupun <strong>Profit Loss Consolidation</strong>. Aplikasi otomatis mengenali jenis laporan yang Anda pilih.
-              </p>
-              <span className="wizzmie-pink-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm mt-auto self-start">
-                <Upload className="w-4 h-4" /> Pilih atau tarik file Excel ke sini
-              </span>
-            </section>
-
-            {lastUpload && (
-              <section className="v2-panel v2-span-full v2-success">
-                <header className="v2-panel-head flex-wrap">
-                  <h3><Check className="w-4 h-4 inline" /> Upload Stock Opname berhasil</h3>
-                  <button type="button" className="v2-ghost" onClick={() => setActiveTab('harian')}>Lihat di Harian <ArrowRight className="w-4 h-4" /></button>
-                </header>
-                <p className="text-sm" style={{ color: 'var(--v2-mute)' }}>
-                  <b style={{ color: 'var(--v2-fg)' }}>{lastUpload.totalRows} catatan</b> · {lastUpload.uniqueProducts} jenis barang · {lastUpload.diffRows} selisih · {lastUpload.pasRows} pas → {lastUpload.monthsAffected.map(formatMonthId).join(', ')}
-                </p>
-                <div className="grid sm:grid-cols-2 gap-3 mt-3 text-sm">
-                  <div className="v2-cat"><b className="v2-t-pos">Tanggal baru ({lastUpload.addedDates.length})</b><small className="block mt-1">{lastUpload.addedDates.length ? lastUpload.addedDates.map(formatDateId).join(', ') : 'Tidak ada tanggal baru.'}</small></div>
-                  <div className="v2-cat"><b style={{ color: 'var(--ember)' }}>Diperbarui ({lastUpload.updatedDates.length})</b><small className="block mt-1">{lastUpload.updatedDates.length ? lastUpload.updatedDates.map(formatDateId).join(', ') : 'Tidak ada yang diperbarui.'}</small></div>
-                </div>
-              </section>
-            )}
-
-            <section className="v2-panel v2-span-full lg:col-span-1">
-              <header className="v2-panel-head"><h3>Bulan Stok Tersimpan</h3><span>{allMonths.length}</span></header>
-              <div className="flex flex-col gap-2">
-                {allMonths.map((m) => (
-                  <button key={m} type="button" className="v2-row" onClick={() => { handleSelectMonth(m); setActiveTab('harian'); }}>
-                    <span className="v2-row-badge">{m.slice(5)}</span>
-                    <span className="flex-1 text-left"><b className="block">{formatMonthId(m)}</b><small>{monthCounts[m]} hari tersimpan</small></span>
-                    <ChevronRight className="w-4 h-4 opacity-50" />
-                  </button>
-                ))}
-                {!allMonths.length && <div className="v2-empty">Belum ada data stok.</div>}
-              </div>
-            </section>
-
-            <section className="v2-panel v2-span-2">
-              <header className="v2-panel-head"><h3>Periode Laba Rugi Tersimpan</h3><span>{pnlReportList.length}</span></header>
-              <div className="flex flex-col gap-2">
-                {pnlReportList.map((rep) => {
-                  const daysCount = getPnlPeriodDays(rep);
-                  const perDay = rep.netSales / Math.max(1, daysCount);
-                  return (
-                    <div key={rep.id} className="v2-row">
-                      <span className="v2-row-badge">{daysCount}h</span>
-                      <span className="flex-1 min-w-0">
-                        <b className="block truncate">{formatPnlPeriodRange(rep)} <small>· {formatMonthId(rep.monthKey)}{rep.fileName ? ` · ${rep.fileName}` : ''}</small></b>
-                        <small>Net Sales <span className="v2-t-pos">{formatSignedRupiah(rep.netSales)}</span> ({formatSignedRupiah(perDay)}/hari) · Net Profit <b>{formatSignedRupiah(rep.netProfit)}</b></small>
-                      </span>
-                      <button type="button" className="v2-ghost" onClick={() => { setSelectedPnlMonth(rep.id); setActiveTab('labarugi'); }}>Buka</button>
-                      <button type="button" className="v2-ghost v2-t-neg" onClick={() => handleDeletePnlMonth(rep.id)}>Hapus</button>
-                    </div>
-                  );
-                })}
-                {!pnlReportList.length && <div className="v2-empty">Belum ada laporan laba rugi.</div>}
-              </div>
-            </section>
+              <Upload className="w-4 h-4" /> Upload File Excel
+            </button>
           </div>
         )}
 

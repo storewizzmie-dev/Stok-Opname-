@@ -96,7 +96,7 @@ const APP_FEATURES_GUIDE = `=== PANDUAN FITUR & MENU WEB APP "PANTAU STOK OPNAME
      * Jika salah satu baris pos diklik, muncul pop-up/panel "Analisa Sederhana (Dari Aplikasi)" serta tombol analisa AI (Gemini AI & Groq AI). Setelah jawaban AI muncul, pengguna bisa mengajukan pertanyaan lanjutan di kolom tanya AI dan bisa menekan tombol "Jadikan Note Penjelasan Permanen" agar penjelasan AI tersebut disimpan permanen di Analisa Sederhana.
    - MENU PENGATURAN:
      * Tempat satu-satunya untuk Upload File Excel (.xlsx / .xls), baik file Excel Stok Opname Harian maupun file Excel Profit Loss Consolidation (Laba Rugi). Aplikasi otomatis mengenali jenis file Excel yang diupload.
-     * Menampilkan daftar Data Bulan yang Tersimpan serta tombol ganti Tema Tampilan (Tema Wizzmie Navy & Gold atau Tema Cerah).
+     * Menampilkan tombol upload laporan Excel.
 
 3. Fitur Tombol "Rentang Tanggal" & "Cek 1 Hari" di Pojok Kanan Atas:
    - Di Menu Beranda, Menu Harian, dan Menu Cek Barang, tombol "Rentang Tanggal" dan "Cek 1 Hari" berada di pojok kanan atas kartu header agar hemat tempat.
@@ -154,9 +154,7 @@ function buildAllPnlContext(
       const pct = (v: number) =>
         rep.netSales > 0 ? (v / rep.netSales) * 100 : 0;
       lines.push(
-        `- ${formatPnlPeriodRange(rep)} (${formatMonthId(rep.monthKey)} | ${
-          rep.branchName || 'Outlet'
-        }): Net Sales ${formatSignedRupiah(
+        `- ${formatPnlPeriodRange(rep)} (${formatMonthId(rep.monthKey)}): Net Sales ${formatSignedRupiah(
           rep.netSales
         )} (100%) | Total COGS ${formatSignedRupiah(
           rep.totalCogs
@@ -185,9 +183,7 @@ function buildAllPnlContext(
   lines.push(
     `\nDetail Laba Rugi Bulan Aktif: ${formatMonthId(
       activeReport.monthKey
-    )} (Periode ${formatPnlPeriodRange(activeReport)}, ${periodDays} hari, Cabang: ${
-      activeReport.branchName || 'Outlet'
-    }):`,
+    )} (Periode ${formatPnlPeriodRange(activeReport)}, ${periodDays} hari):`,
     `- Total Sales (Penjualan Kotor): ${formatSignedRupiah(
       activeReport.totalSales
     )} (${formatPercentId(netPct(activeReport.totalSales))} dari Net Sales)`,
@@ -535,7 +531,7 @@ export function GlobalAiChatWidget({
         <div
           role="dialog"
           aria-modal="false"
-          aria-label="Asisten AI Wizzmie"
+          aria-label="Asisten AI"
           data-lenis-prevent
           className={`fixed z-50 transition-all duration-200 flex flex-col bg-white dark:bg-[#130E0B] border-2 border-slate-200/90 dark:border-[#3D3630] rounded-3xl shadow-[0_24px_60px_-15px_rgba(8,5,3,0.75)] overflow-hidden ${
             isExpanded

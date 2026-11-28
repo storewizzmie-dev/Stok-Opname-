@@ -30,6 +30,15 @@ export type StockRow = [
 
 export type StockDataset = Record<string, StockRow[]>;
 
+export function sanitizeBranchLabel(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw
+    .replace(/\b(wizzmie|outlet|toko)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s\-–—·]+|[\s\-–—·]+$/g, '')
+    .trim();
+}
+
 export function sanitizeDataset(raw: unknown): StockDataset {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {};
@@ -37,9 +46,18 @@ export function sanitizeDataset(raw: unknown): StockDataset {
   const clean: StockDataset = {};
   for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(key) && Array.isArray(val)) {
-      clean[key] = val.filter(
-        (row): row is StockRow => Array.isArray(row) && row.length >= 7
-      );
+      clean[key] = val
+        .filter((row): row is StockRow => Array.isArray(row) && row.length >= 7)
+        .map((row) => {
+          const copy = [...row] as StockRow;
+          if (typeof copy[0] === 'string') {
+            copy[0] = copy[0].replace(/\bwizzmie\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+          }
+          if (typeof copy[9] === 'string') {
+            copy[9] = sanitizeBranchLabel(copy[9]);
+          }
+          return copy;
+        });
     }
   }
   return clean;
@@ -93,6 +111,7 @@ const CANONICAL_UNIT_LABELS: Record<CanonicalUnit, string> = {
 export function normalizeItemLookupKey(name: string): string {
   return name
     .toLowerCase()
+    .replace(/\bwizzmie\b/gi, '')
     .replace(/\s*\(\s*/g, ' (')
     .replace(/\s*\)\s*/g, ') ')
     .replace(/\s*@\s*/g, ' @')
@@ -722,22 +741,22 @@ export const ITEM_PACKAGING_CATALOG: ItemPackagingSpec[] = [
     unitRatios: { ml: 1, liter: 1000, botol: 1100, dus: 13200 },
     displayOrder: ['dus', 'botol', 'liter'],
   },
-  { name: 'WIP - Sirup Wizzmie Caramel', specText: 'Satuan Botol / ml' },
-  { name: 'WIP - Sirup Wizzmie Hazelnut', specText: 'Satuan Botol / ml' },
+  { name: 'WIP - Sirup Caramel', specText: 'Satuan Botol / ml' },
+  { name: 'WIP - Sirup Hazelnut', specText: 'Satuan Botol / ml' },
   {
-    name: 'WIP - Sirup Wizzmie Leci',
+    name: 'WIP - Sirup Leci',
     specText: '1 dus 12 botol, 1 botol 1000 ml',
     unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
     displayOrder: ['dus', 'botol'],
   },
   {
-    name: 'WIP - Sirup Wizzmie Rozen Roos',
+    name: 'WIP - Sirup Rozen Roos',
     specText: '1 dus 12 botol, 1 botol 1000 ml',
     unitRatios: { ml: 1, liter: 1000, botol: 1000, dus: 12000 },
     displayOrder: ['dus', 'botol'],
   },
   {
-    name: 'WIP - Sirup Wizzmie Vanila',
+    name: 'WIP - Sirup Vanila',
     specText: '1 botol 1000 ml',
     unitRatios: { ml: 1, liter: 1000, botol: 1000 },
     displayOrder: ['botol', 'liter'],
@@ -1953,8 +1972,8 @@ export function computeSummary(
     let diffCount = 0;
     const dayRows = data[date] ?? [];
     for (const r of dayRows) {
-      if (!branchName && r[9]) branchName = r[9];
-      if (!locationName && r[11]) locationName = r[11];
+      if (!branchName && r[9]) branchName = sanitizeBranchLabel(r[9]);
+      if (!locationName && r[11]) locationName = sanitizeBranchLabel(r[11]);
       if (r[6] < 0) negVal += r[6];
       else if (r[6] > 0) posVal += r[6];
       if (Math.abs(r[4]) > 1e-9 || Math.abs(r[6]) > 0.5) diffCount++;
@@ -2288,7 +2307,7 @@ export function buildAiStockContext(
       : 'PAS Rp 0';
 
   const lines: string[] = [
-    `Cabang: ${summary.branchName || 'Toko'}`,
+    ...(summary.branchName ? [`Lokasi: ${summary.branchName}`] : []),
     ...(options?.currentMenu ? [`Menu dibuka: ${options.currentMenu}`] : []),
     `Periode dipilih di layar: ${periodLabel}`,
     `Hasil Akhir Periode: ${netLabel}`,

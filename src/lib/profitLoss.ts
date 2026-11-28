@@ -289,11 +289,17 @@ export function parseProfitLossRows(rows: unknown[][]): PnlMonthReport {
       !/^profit\s*loss/i.test(cellText(r[0])) &&
       !/^(generated|period|show zero|mode|report file)/i.test(cellText(r[0]))
     ) {
-      branchName = cellText(r[0]);
+      branchName = cellText(r[0])
+        .replace(/\b(wizzmie|outlet|toko)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
     }
   }
   if (!branchName) {
-    branchName = cellText(headerRow[2]) || 'Outlet';
+    branchName = cellText(headerRow[2])
+      .replace(/\b(wizzmie|outlet|toko)\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
   // Note: Profit Loss Consolidation files may not contain a Period row or accurate date info;
@@ -474,7 +480,13 @@ export function sanitizePnlDataset(raw: unknown): PnlDataset {
       periodStart,
       periodEnd,
       generatedAt: typeof rep.generatedAt === 'string' ? rep.generatedAt : '',
-      branchName: typeof rep.branchName === 'string' ? rep.branchName : 'Outlet',
+      branchName:
+        typeof rep.branchName === 'string'
+          ? rep.branchName
+              .replace(/\b(wizzmie|outlet|toko)\b/gi, '')
+              .replace(/\s{2,}/g, ' ')
+              .trim()
+          : '',
       fileName: typeof rep.fileName === 'string' ? rep.fileName : undefined,
       netSales: rep.netSales,
       totalSales: typeof rep.totalSales === 'number' ? rep.totalSales : rep.netSales,
@@ -561,12 +573,12 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
   'gross profit': {
     meaning:
-      'Laba Kotor (Net Sales dikurangi Total COGS) sebelum membayar gaji/biaya operasional outlet.',
+      'Laba Kotor (Net Sales dikurangi Total COGS) sebelum membayar gaji/biaya operasional.',
     tip: 'Gross Profit adalah dana yang tersisa untuk menutup seluruh Biaya Operasional sekaligus menghasilkan Laba Bersih.',
   },
   promosi: {
     meaning:
-      'Biaya marketing, iklan, spanduk, atau aktivitas promosi untuk menarik pelanggan ke outlet.',
+      'Biaya marketing, iklan, spanduk, atau aktivitas promosi untuk menarik pelanggan.',
     tip: 'Evaluasi apakah biaya promosi sepadan dengan kenaikan Net Sales di bulan tersebut.',
   },
   'mdr expenses': {
@@ -586,12 +598,12 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
   ob: {
     meaning:
-      'Biaya operasional kebersihan / perlengkapan kebersihan (Office Boy / sanitasi outlet).',
-    tip: 'Jaga pengadaan barang kebersihan sesuai anggaran bulanan outlet.',
+      'Biaya operasional kebersihan / perlengkapan kebersihan (Office Boy / sanitasi).',
+    tip: 'Jaga pengadaan barang kebersihan sesuai anggaran bulanan.',
   },
   'paper supplies': {
     meaning:
-      'Biaya tisu, struk thermal, kertas alas, dan kebutuhan kertas operasional outlet.',
+      'Biaya tisu, struk thermal, kertas alas, dan kebutuhan kertas operasional.',
     tip: 'Pantau pemakaian rutin agar tidak melebihi rasio wajar terhadap Net Sales.',
   },
   'guest supplies': {
@@ -601,17 +613,17 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
   pengiriman: {
     meaning:
-      'Ongkos kirim/ekspedisi distribusi bahan baku atau perlengkapan ke outlet.',
+      'Ongkos kirim/ekspedisi distribusi bahan baku atau perlengkapan.',
     tip: 'Gabungkan jadwal pengiriman barang bila memungkinkan agar ongkos kirim lebih hemat.',
   },
   'repair & maintenance': {
     meaning:
-      'Biaya servis, perbaikan alat masak, AC, chiller, kulkas, atau fasilitas outlet.',
+      'Biaya servis, perbaikan alat masak, AC, chiller, kulkas, atau fasilitas.',
     tip: 'Lakukan perawatan rutin alat agar biaya perbaikan mendadak yang mahal bisa dicegah.',
   },
   'office expense': {
     meaning:
-      'Biaya keperluan administrasi kantor/kasir outlet (pulsa/internet, meterai, kebutuhan admin).',
+      'Biaya keperluan administrasi kantor/kasir (pulsa/internet, meterai, kebutuhan admin).',
     tip: 'Cek rincian bon/kas kecil agar setiap pengeluaran kantor tercatat pada akun yang tepat.',
   },
   'printing & stationary': {
@@ -631,13 +643,13 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
   'total operational expense': {
     meaning:
-      'Total seluruh Biaya Operasional outlet (Promosi, MDR, Gas, Kebersihan, Pengiriman, Perawatan, dll).',
+      'Total seluruh Biaya Operasional (Promosi, MDR, Gas, Kebersihan, Pengiriman, Perawatan, dll).',
     tip: 'Menjaga persentase Biaya Operasional tetap terkendali membuat porsi Laba Bersih lebih tebal.',
   },
   'operational profit/loss': {
     meaning:
       'Laba (atau Rugi) Operasional = Gross Profit dikurangi Total Operational Expense, sebelum pos lain-lain.',
-    tip: 'Ini cerminan murni keuntungan dari kegiatan jualan dan operasional harian outlet.',
+    tip: 'Ini cerminan murni keuntungan dari kegiatan jualan dan operasional harian.',
   },
   'rounding/ pos adjustment': {
     meaning:
@@ -651,12 +663,12 @@ const SPECIFIC_MEANINGS: Record<string, { meaning: string; tip: string }> = {
   },
   'total other income & expense': {
     meaning:
-      'Gabungan seluruh pendapatan dan beban di luar operasional utama restoran.',
+      'Gabungan seluruh pendapatan dan beban di luar operasional utama.',
     tip: 'Cek komponennya agar tidak ada biaya besar yang tersembunyi di pos lain-lain.',
   },
   'net profit/(net loss)': {
     meaning:
-      'Laba Bersih (atau Rugi Bersih) akhir outlet setelah seluruh penjualan dikurangi diskon, HPP, biaya operasional, dan pos lain-lain.',
+      'Laba Bersih (atau Rugi Bersih) akhir setelah seluruh penjualan dikurangi diskon, HPP, biaya operasional, dan pos lain-lain.',
     tip: 'Persen Net Profit ÷ Net Sales menunjukkan berapa rupiah keuntungan bersih yang benar-benar didapat dari setiap Rp 100 penjualan.',
   },
 };
@@ -697,7 +709,7 @@ function buildSimpleAppAnalysis(
       Math.abs(report.totalSales) > 1e-9
         ? (Math.abs(report.totalDiscount) / Math.abs(report.totalSales)) * 100
         : 0;
-    return `Penjualan bersih outlet mencapai ${valStr} (rata-rata ${formatSignedRupiah(
+    return `Penjualan bersih mencapai ${valStr} (rata-rata ${formatSignedRupiah(
       dailyAvg
     )}/hari selama ${periodDays} hari), berasal dari penjualan kotor ${formatSignedRupiah(
       report.totalSales
@@ -756,7 +768,7 @@ function buildSimpleAppAnalysis(
       report.netSales
     )} dikurangi modal bahan baku ${formatSignedRupiah(
       report.totalCogs
-    )}, tersisa Laba Kotor sebesar ${valStr} (${pctStr}). Dana inilah yang dipakai untuk menutup seluruh biaya operasional outlet sebelum menjadi laba bersih.${prevNote}`;
+    )}, tersisa Laba Kotor sebesar ${valStr} (${pctStr}). Dana inilah yang dipakai untuk menutup seluruh biaya operasional sebelum menjadi laba bersih.${prevNote}`;
   }
 
   if (descKey === 'total operational expense') {
@@ -782,8 +794,8 @@ function buildSimpleAppAnalysis(
   if (descKey.startsWith('operational profit')) {
     const statusText =
       row.value >= 0
-        ? `Outlet menghasilkan Laba Operasional sebesar ${valStr} (${pctStr} dari Net Sales)`
-        : `Operasional outlet mengalami selisih minus sebesar ${valStr} (${pctStr})`;
+        ? `Menghasilkan Laba Operasional sebesar ${valStr} (${pctStr} dari Net Sales)`
+        : `Operasional mengalami selisih minus sebesar ${valStr} (${pctStr})`;
     return `${statusText} setelah Laba Kotor ${formatSignedRupiah(
       report.grossProfit
     )} dikurangi Biaya Operasional ${formatSignedRupiah(
@@ -795,7 +807,7 @@ function buildSimpleAppAnalysis(
     const otherNet = report.netProfit - report.operationalProfit;
     const isProfit = row.value >= 0;
     return `${
-      isProfit ? 'Keuntungan bersih akhir outlet tercatat' : 'Laporan berakhir rugi bersih sebesar'
+      isProfit ? 'Keuntungan bersih akhir tercatat' : 'Laporan berakhir rugi bersih sebesar'
     } ${valStr} (${pctStr} dari Net Sales), terbentuk dari hasil operasional ${formatSignedRupiah(
       report.operationalProfit
     )} ditambah/dikurangi pos lain-lain bersih ${formatSignedRupiah(
@@ -875,11 +887,11 @@ export function describePnlRow(
   const meaning =
     specific?.meaning ??
     (row.section === 'revenue'
-      ? `Pos pendapatan/penjualan "${row.description}" yang mempengaruhi total Net Sales outlet.`
+      ? `Pos pendapatan/penjualan "${row.description}" yang mempengaruhi total Net Sales.`
       : row.section === 'cogs'
       ? `Pos modal bahan baku / HPP "${row.description}" yang langsung mengurangi Laba Kotor (Gross Profit).`
       : row.section === 'opex'
-      ? `Pos biaya operasional "${row.description}" untuk mendukung jalannya operasional outlet.`
+      ? `Pos biaya operasional "${row.description}" untuk mendukung jalannya operasional.`
       : `Pos laporan "${row.description}" yang mempengaruhi hasil akhir Laba Bersih.`);
 
   const actionTip =
@@ -953,7 +965,7 @@ export function describePnlRow(
     const opexCount = report.rows.filter(
       (r) => r.section === 'opex' && r.kind === 'item'
     ).length;
-    originFormula = `Total dari ${opexCount} akun biaya operasional outlet dengan total ${formatSignedRupiah(
+    originFormula = `Total dari ${opexCount} akun biaya operasional dengan total ${formatSignedRupiah(
       report.totalOpex
     )}.`;
   } else if (descKey.startsWith('operational profit')) {
@@ -1028,7 +1040,6 @@ export function buildAiPnlContext(
     `=== DATA LABA RUGI (PROFIT LOSS CONSOLIDATION) ${formatMonthId(
       report.monthKey
     )} ===`,
-    `Outlet: ${report.branchName}`,
     `Periode: ${formatPnlPeriodRange(report)}`,
     `Net Sales (Pembagi 100%): ${formatSignedRupiah(report.netSales)}`,
     `Total COGS: ${formatSignedRupiah(report.totalCogs)} (${formatPercentId(
@@ -1250,7 +1261,6 @@ export function buildPnlAnalysisContext(
 
   return [
     `=== PROFIL LAPORAN LABA RUGI ===`,
-    `Outlet: ${report.branchName}`,
     `Bulan: ${formatMonthId(report.monthKey)} (${formatPnlPeriodRange(report)}, ${periodDays} hari)`,
     report.generatedAt ? `Waktu Generate ESB: ${report.generatedAt}` : '',
     ``,

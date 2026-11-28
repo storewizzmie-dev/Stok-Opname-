@@ -182,7 +182,9 @@ function SummaryTicket({ s, label, extra }: { s: SummaryResult; label: string; e
       <div className="s3-ticket-top">
         <div className="s3-eyebrow">Selisih bersih · {label}</div>
         <div className={`s3-big s3-t-${tone(s.netTotal)}`}>{rpFull(net)}</div>
-        <div className="s3-sub">{s.branchName || 'Outlet'}{s.locationName ? ` · ${s.locationName}` : ''}</div>
+        {(s.branchName || s.locationName) && (
+          <div className="s3-sub">{[s.branchName, s.locationName].filter(Boolean).join(' · ')}</div>
+        )}
       </div>
       <div className="s3-split">
         <motion.i className="s3-bg-neg" initial={{ width: 0 }} animate={{ width: `${negPct}%` }} transition={{ duration: 0.8, ease }} />

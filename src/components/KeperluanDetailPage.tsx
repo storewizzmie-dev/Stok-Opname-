@@ -85,8 +85,8 @@ export const KEPERLUAN_GROUP_LIST: KeperluanGroupDefinition[] = [
     title: 'Perlengkapan & Operasional',
     shortLabel: 'Operasional',
     description:
-      'Tisu, sabun cuci, cairan pembersih (chemical), sanitizer, gas LPG, ATK, dan perlengkapan operasional toko.',
-    indicationNeg: 'Pemakaian kebersihan toko / selisih pencatatan',
+      'Tisu, sabun cuci, cairan pembersih (chemical), sanitizer, gas LPG, ATK, dan perlengkapan operasional harian.',
+    indicationNeg: 'Pemakaian kebersihan harian / selisih pencatatan',
     indicationPos: 'Stok gudang operasional belum diinput pemakaian',
     barColor: '#D65106',
     badgeClass:
