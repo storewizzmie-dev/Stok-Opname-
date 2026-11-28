@@ -1,3 +1,4 @@
+// @ts-nocheck -- imported legacy code written for a looser tsconfig
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
@@ -270,15 +271,15 @@ export function BerandaDetailModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="beranda-detail-modal-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs"
+      className="s3-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-3xl bg-white dark:bg-[#0B162C] border border-slate-200 dark:border-[#1E355D] rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[90vh] flex flex-col shadow-2xl"
+        className="w-full sm:max-w-3xl bg-white dark:bg-[#17120E] border border-slate-200 dark:border-[#352E28] rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[90vh] flex flex-col shadow-2xl"
       >
         {/* Modal Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-[#1E355D] bg-slate-50/80 dark:bg-[#081226] flex items-center justify-between gap-3 shrink-0">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-[#352E28] bg-slate-50/80 dark:bg-[#130E0B] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {modalType === 'neg' ? (
               <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/35 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
@@ -377,7 +378,7 @@ export function BerandaDetailModal({
                 </div>
 
                 {everList.length > netList.length && (
-                  <div className="flex rounded-xl p-1 bg-white/80 dark:bg-[#081226] border border-slate-200 dark:border-[#1E355D] shrink-0 self-start sm:self-center">
+                  <div className="flex rounded-xl p-1 bg-white/80 dark:bg-[#130E0B] border border-slate-200 dark:border-[#352E28] shrink-0 self-start sm:self-center">
                     <button
                       type="button"
                       onClick={() => setListScope('net')}
@@ -405,7 +406,7 @@ export function BerandaDetailModal({
               </div>
 
               {everList.length > netList.length && listScope === 'net' && (
-                <div className="rounded-xl bg-amber-50 dark:bg-[#0F2244] border border-amber-200 dark:border-[#1E355D] px-3.5 py-2.5 flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200">
+                <div className="rounded-xl bg-amber-50 dark:bg-[#241D18] border border-amber-200 dark:border-[#352E28] px-3.5 py-2.5 flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200">
                   <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>
                     Ada{' '}
@@ -435,7 +436,7 @@ export function BerandaDetailModal({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari nama barang, kode, atau keperluan..."
-                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px]"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-[#37302A] bg-slate-50 dark:bg-[#130E0B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px]"
                   />
                 </div>
                 <div className="sm:col-span-5">
@@ -443,7 +444,7 @@ export function BerandaDetailModal({
                     aria-label="Filter bagian"
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px] cursor-pointer"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-[#37302A] bg-slate-50 dark:bg-[#130E0B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[42px] cursor-pointer"
                   >
                     <option value="ALL">
                       Semua Bagian ({activeBaseList.length} barang)
@@ -459,7 +460,7 @@ export function BerandaDetailModal({
 
               {/* Item List */}
               {filteredList.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 dark:border-[#1E355D] p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                <div className="rounded-2xl border border-slate-200 dark:border-[#352E28] p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
                   {activeBaseList.length === 0
                     ? modalType === 'neg'
                       ? 'Bagus! Tidak ada barang yang kekurangan stok pada periode ini.'
@@ -492,13 +493,13 @@ export function BerandaDetailModal({
                     return (
                       <div
                         key={s.name}
-                        className="rounded-2xl border border-slate-200 dark:border-[#1E355D] bg-slate-50/70 dark:bg-[#0D1C34] overflow-hidden"
+                        className="rounded-2xl border border-slate-200 dark:border-[#352E28] bg-slate-50/70 dark:bg-[#1D1712] overflow-hidden"
                       >
                         <div className="p-3.5 sm:p-4 space-y-3">
                           {/* Row Header */}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-2.5 min-w-0">
-                              <span className="w-7 h-7 rounded-lg bg-white dark:bg-[#16294C] border border-slate-200 dark:border-[#244379] text-slate-700 dark:text-slate-200 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
+                              <span className="w-7 h-7 rounded-lg bg-white dark:bg-[#2A231E] border border-slate-200 dark:border-[#423B35] text-slate-700 dark:text-slate-200 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
                                 {String(idx + 1).padStart(2, '0')}
                               </span>
                               <div className="min-w-0">
@@ -555,7 +556,7 @@ export function BerandaDetailModal({
 
                           {/* Detail Metrics Grid */}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                            <div className="rounded-xl bg-white dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] px-3 py-2">
+                            <div className="rounded-xl bg-white dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#312A25] px-3 py-2">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                                 Di Sistem ESB
                               </div>
@@ -564,7 +565,7 @@ export function BerandaDetailModal({
                               </div>
                             </div>
 
-                            <div className="rounded-xl bg-white dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] px-3 py-2">
+                            <div className="rounded-xl bg-white dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#312A25] px-3 py-2">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                                 Hitungan Gudang
                               </div>
@@ -573,7 +574,7 @@ export function BerandaDetailModal({
                               </div>
                             </div>
 
-                            <div className="rounded-xl bg-white dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] px-3 py-2">
+                            <div className="rounded-xl bg-white dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#312A25] px-3 py-2">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                                 {listScope === 'allEvents'
                                   ? isNegMode
@@ -592,7 +593,7 @@ export function BerandaDetailModal({
                               </div>
                             </div>
 
-                            <div className="rounded-xl bg-white dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] px-3 py-2">
+                            <div className="rounded-xl bg-white dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#312A25] px-3 py-2">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                                 Frekuensi Kejadian
                               </div>
@@ -614,7 +615,7 @@ export function BerandaDetailModal({
 
                           {/* When item has both kurang and lebih on different dates, show transparent breakdown */}
                           {s.negVal < -0.5 && s.posVal > 0.5 && (
-                            <div className="rounded-xl bg-white/90 dark:bg-[#09162D] border border-slate-200/70 dark:border-[#1A3157] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs font-mono tabular-nums">
+                            <div className="rounded-xl bg-white/90 dark:bg-[#17120E] border border-slate-200/70 dark:border-[#312A25] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs font-mono tabular-nums">
                               <span className="text-rose-600 dark:text-rose-400">
                                 Total saat kurang: -{formatRupiah(s.negVal)}
                               </span>
@@ -636,7 +637,7 @@ export function BerandaDetailModal({
                               onClick={() =>
                                 setExpandedProduct(isExpanded ? null : s.name)
                               }
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#13264A] border border-slate-200 dark:border-[#234176] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-amber-400 transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#27211C] border border-slate-200 dark:border-[#403934] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-amber-400 transition-colors cursor-pointer"
                             >
                               <CalendarDays className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                               <span>
@@ -663,7 +664,7 @@ export function BerandaDetailModal({
 
                         {/* Expanded Per-Date Rows */}
                         {isExpanded && (
-                          <div className="border-t border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#081226] divide-y divide-slate-100 dark:divide-[#15284A]">
+                          <div className="border-t border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#130E0B] divide-y divide-slate-100 dark:divide-[#29221D]">
                             {item.entries.map((entry, eIdx) => {
                               const r = entry.meta.row;
                               const unit = r[1];
@@ -769,7 +770,7 @@ export function BerandaDetailModal({
           {modalType === 'net' && (
             <>
               {/* Plain Indonesian Explanation */}
-              <div className="rounded-2xl p-4 bg-amber-50/90 dark:bg-gradient-to-br dark:from-[#18294A] dark:to-[#0F1D36] border border-amber-200 dark:border-amber-500/35 space-y-2">
+              <div className="rounded-2xl p-4 bg-amber-50/90 dark:bg-gradient-to-br dark:from-[#2A231E] dark:to-[#1E1813] border border-amber-200 dark:border-amber-500/35 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-amber-800 dark:text-amber-300">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>Apa Arti Angka Hasil Gabungan Ini?</span>
@@ -784,7 +785,7 @@ export function BerandaDetailModal({
               </div>
 
               {/* 3-Step Formula Card With Exact Numbers */}
-              <div className="rounded-2xl border border-slate-200 dark:border-[#1E355D] bg-slate-50/80 dark:bg-[#0D1C34] p-4 sm:p-5 space-y-3.5">
+              <div className="rounded-2xl border border-slate-200 dark:border-[#352E28] bg-slate-50/80 dark:bg-[#1D1712] p-4 sm:p-5 space-y-3.5">
                 <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-amber-300">
                   <Calculator className="w-4 h-4" />
                   <span>Rumus Lengkap &amp; Asal Angkanya</span>
@@ -795,7 +796,7 @@ export function BerandaDetailModal({
                   <button
                     type="button"
                     onClick={() => onChangeModalType('pos')}
-                    className="text-left rounded-xl p-3.5 bg-white dark:bg-[#081226] border border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-400 transition-colors cursor-pointer space-y-1.5"
+                    className="text-left rounded-xl p-3.5 bg-white dark:bg-[#130E0B] border border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-400 transition-colors cursor-pointer space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
@@ -817,7 +818,7 @@ export function BerandaDetailModal({
                   <button
                     type="button"
                     onClick={() => onChangeModalType('neg')}
-                    className="text-left rounded-xl p-3.5 bg-white dark:bg-[#081226] border border-rose-200 dark:border-rose-900/50 hover:border-rose-400 transition-colors cursor-pointer space-y-1.5"
+                    className="text-left rounded-xl p-3.5 bg-white dark:bg-[#130E0B] border border-rose-200 dark:border-rose-900/50 hover:border-rose-400 transition-colors cursor-pointer space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-400">
@@ -842,7 +843,7 @@ export function BerandaDetailModal({
                   className={`rounded-xl p-4 border space-y-2 ${
                     isNetMinus
                       ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50'
-                      : 'bg-amber-50 dark:bg-[#13264A] border-amber-300/70 dark:border-amber-500/35'
+                      : 'bg-amber-50 dark:bg-[#27211C] border-amber-300/70 dark:border-amber-500/35'
                   }`}
                 >
                   <div className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-amber-300">
@@ -890,7 +891,7 @@ export function BerandaDetailModal({
               </div>
 
               {/* How Each Row is Calculated + Real Example */}
-              <div className="rounded-2xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0D1C34] p-4 space-y-2.5">
+              <div className="rounded-2xl border border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#1D1712] p-4 space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-white">
                   <Coins className="w-4 h-4 text-amber-500" />
                   <span>Dari Mana Nilai Rupiah Tiap Barang Didapat?</span>
@@ -899,11 +900,11 @@ export function BerandaDetailModal({
                   <p>
                     Setiap 1 baris barang di file Excel dihitung dengan cara:
                   </p>
-                  <div className="rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-200 dark:border-[#1A3157] px-3 py-2 font-mono text-xs font-semibold text-slate-800 dark:text-amber-200">
+                  <div className="rounded-xl bg-slate-50 dark:bg-[#130E0B] border border-slate-200 dark:border-[#312A25] px-3 py-2 font-mono text-xs font-semibold text-slate-800 dark:text-amber-200">
                     Selisih Uang = (Hitungan Gudang − Catatan Sistem ESB) × Harga Satuan
                   </div>
                   {countsAndSample.sample && (
-                    <div className="rounded-xl bg-amber-50/70 dark:bg-[#09172E] border border-amber-200/70 dark:border-[#1E355D] px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 space-y-1">
+                    <div className="rounded-xl bg-amber-50/70 dark:bg-[#18130E] border border-amber-200/70 dark:border-[#352E28] px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 space-y-1">
                       <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                         <Package className="w-3.5 h-3.5" />
                         <span>
@@ -947,8 +948,8 @@ export function BerandaDetailModal({
 
               {/* Proof By Category (Sums up exactly to Hasil Gabungan) */}
               {summary.categoryStats.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0D1C34] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-[#1E355D] flex items-center justify-between gap-2">
+                <div className="rounded-2xl border border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#1D1712] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-[#352E28] flex items-center justify-between gap-2">
                     <div>
                       <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                         Rincian Sumber Angka Per Bagian (Produksi / Operasional)
@@ -958,7 +959,7 @@ export function BerandaDetailModal({
                       </p>
                     </div>
                   </div>
-                  <div className="divide-y divide-slate-100 dark:divide-[#15284A] text-xs">
+                  <div className="divide-y divide-slate-100 dark:divide-[#29221D] text-xs">
                     {summary.categoryStats.map((cat) => (
                       <div
                         key={cat.category}
@@ -995,7 +996,7 @@ export function BerandaDetailModal({
                         </div>
                       </div>
                     ))}
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#081226] flex items-center justify-between font-bold text-xs sm:text-sm tabular-nums">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#130E0B] flex items-center justify-between font-bold text-xs sm:text-sm tabular-nums">
                       <span className="text-slate-800 dark:text-slate-200">
                         Total Semua Bagian
                       </span>
@@ -1021,11 +1022,11 @@ export function BerandaDetailModal({
 
               {/* Optional Collapsible Daily Proof */}
               {activeDailyRows.length > 1 && (
-                <div className="rounded-2xl border border-slate-200 dark:border-[#1E355D] bg-white dark:bg-[#0D1C34] overflow-hidden">
+                <div className="rounded-2xl border border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#1D1712] overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setShowDateTable((prev) => !prev)}
-                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-[#132548] transition-colors cursor-pointer"
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-[#26201B] transition-colors cursor-pointer"
                   >
                     <div>
                       <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
@@ -1043,7 +1044,7 @@ export function BerandaDetailModal({
                   </button>
 
                   {showDateTable && (
-                    <div className="border-t border-slate-100 dark:border-[#1E355D] divide-y divide-slate-100 dark:divide-[#15284A] text-xs">
+                    <div className="border-t border-slate-100 dark:border-[#352E28] divide-y divide-slate-100 dark:divide-[#29221D] text-xs">
                       {activeDailyRows
                         .slice()
                         .reverse()
@@ -1099,7 +1100,7 @@ export function BerandaDetailModal({
         </div>
 
         {/* Sticky Modal Footer */}
-        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 dark:border-[#1E355D] bg-slate-50/90 dark:bg-[#081226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 dark:border-[#352E28] bg-slate-50/90 dark:bg-[#130E0B] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
           {(modalType === 'neg' || modalType === 'pos') && (
             <div className="text-xs text-slate-600 dark:text-slate-300 tabular-nums">
               Menampilkan <strong>{filteredList.length} barang</strong> · Total

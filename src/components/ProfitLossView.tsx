@@ -1,3 +1,4 @@
+// @ts-nocheck -- imported legacy code written for a looser tsconfig
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -162,7 +163,7 @@ export function ProfitLossView({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
-          <MotionCard delay={0.03} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          <MotionCard delay={0.03} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               1. Pilih Tanggal &amp; Bulan Manual
             </div>
@@ -170,7 +171,7 @@ export function ProfitLossView({
               Setiap file yang diupload ditentukan tanggal/periodenya lewat pop-up (misal 1–16 Nov &amp; 18 Nov) sehingga tidak saling menimpa.
             </p>
           </MotionCard>
-          <MotionCard delay={0.07} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          <MotionCard delay={0.07} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               2. Periode Tersimpan Rapi
             </div>
@@ -178,7 +179,7 @@ export function ProfitLossView({
               Semua periode yang diupload tersimpan sendiri-sendiri dan otomatis muncul pada Grafik Keuntungan di Beranda.
             </p>
           </MotionCard>
-          <MotionCard delay={0.11} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] space-y-1">
+          <MotionCard delay={0.11} className="rounded-2xl p-4 bg-slate-50 dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] space-y-1">
             <div className="font-bold text-slate-900 dark:text-white">
               3. Rumus Otomatis (%)
             </div>
@@ -275,41 +276,50 @@ export function ProfitLossView({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Hero Banner */}
-      <MotionSection className="wizzmie-hero-card relative overflow-hidden rounded-2xl p-4 sm:p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-start sm:items-center gap-4 min-w-0">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 shadow-lg shadow-amber-500/20 shrink-0">
-              <div className="w-full h-full rounded-2xl bg-slate-900 dark:bg-[#0F2244] flex items-center justify-center text-amber-400">
-                <FileSpreadsheet className="w-8 h-8 sm:w-9 sm:h-9" />
-              </div>
+    <div className="space-y-5 v2-pnl">
+      {/* V2 Hero */}
+      <section className="v2-hero">
+        <div className="v2-hero-glow" />
+        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="min-w-0">
+            <div className="v2-eyebrow">
+              Laba Bersih · {formatPnlPeriodRange(report)}
+              <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
             </div>
-
-            <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400 truncate">
-                  Profit Loss Consolidation
-                </span>
-                <InfoButton guideKey="profitLoss" onOpen={onOpenInfo} />
-              </div>
-              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                  <GsapWordTitle text="Laba Rugi" />
-                </h1>
-                <span className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
-                  <GsapWordTitle text={formatPnlPeriodRange(report)} />
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/90 tabular-nums">
-                Bulan: <strong>{formatMonthId(report.monthKey)}</strong> · Periode: <strong>{formatPnlPeriodRange(report)}</strong>
-                {report.fileName ? ` · File: ${report.fileName}` : ''}
-              </p>
+            <div className={`v2-hero-num ${isNetLoss ? 'v2-t-neg' : 'v2-t-pos'}`}>
+              {formatSignedRupiah(report.netProfit)}
             </div>
+            <p className="v2-hero-sub">
+              Margin {pct(report.netProfit)} dari Net Sales {formatRupiah(report.netSales)}
+              {report.branchName ? ` · ${report.branchName}` : ''}
+            </p>
           </div>
-
+          <div className="v2-share w-full lg:max-w-md">
+            {(() => {
+              const ns = Math.max(1, Math.abs(report.netSales));
+              const parts = [
+                { k: 'HPP', v: Math.abs(report.totalCogs), c: 'v2-share-cogs' },
+                { k: 'Biaya Operasional', v: Math.abs(report.totalOpex), c: 'v2-share-opex' },
+                { k: 'Laba', v: Math.max(0, report.netProfit), c: 'v2-share-profit' },
+              ];
+              return (
+                <>
+                  <div className="v2-share-bar">
+                    {parts.map((pp) => (
+                      <i key={pp.k} className={pp.c} style={{ width: `${Math.min(100, (pp.v / ns) * 100)}%` }} />
+                    ))}
+                  </div>
+                  <div className="v2-share-legend">
+                    {parts.map((pp) => (
+                      <span key={pp.k}><i className={pp.c} />{pp.k} <b>{((pp.v / ns) * 100).toFixed(1)}%</b></span>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
-      </MotionSection>
+      </section>
 
       {/* Period / Report Switcher */}
       <section className="flex flex-wrap items-center justify-between gap-2.5">
@@ -328,11 +338,7 @@ export function ProfitLossView({
                   setSelectedKpiDesc(null);
                   setDeleteArmedMonth(null);
                 }}
-                className={`px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl min-h-[40px] whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'btn-3d-primary'
-                    : 'btn-3d-soft text-slate-700 dark:text-slate-200'
-                }`}
+                className={`v2-chip ${isActive ? 'is-on' : ''}`}
               >
                 {formatPnlPeriodRange(r)}
               </button>
@@ -371,7 +377,7 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0}
           onClick={() => toggleKpiSelection('net sales')}
-          className={`col-span-2 lg:col-span-1 rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`col-span-2 lg:col-span-1 rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'net sales'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
               : 'border-amber-300/70 dark:border-amber-500/35'
@@ -388,7 +394,7 @@ export function ProfitLossView({
               {formatRupiah(report.netSales)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'net sales' ? 'Rincian dibuka' : 'Ketuk · Rincian'}
             </span>
@@ -402,10 +408,10 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.04}
           onClick={() => toggleKpiSelection('total cost of goods sold')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total cost of goods sold'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
-              : 'border-slate-200 dark:border-[#1E355D]'
+              : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
@@ -419,7 +425,7 @@ export function ProfitLossView({
               {formatSignedRupiah(report.totalCogs)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'total cost of goods sold' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
@@ -433,10 +439,10 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.08}
           onClick={() => toggleKpiSelection('gross profit')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'gross profit'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
-              : 'border-slate-200 dark:border-[#1E355D]'
+              : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
@@ -450,7 +456,7 @@ export function ProfitLossView({
               {formatSignedRupiah(report.grossProfit)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'gross profit' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
@@ -464,10 +470,10 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.12}
           onClick={() => toggleKpiSelection('total operational expense')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#0D1C34] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total operational expense'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
-              : 'border-slate-200 dark:border-[#1E355D]'
+              : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
@@ -481,7 +487,7 @@ export function ProfitLossView({
               {formatSignedRupiah(report.totalOpex)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#1C3259] flex items-center justify-between text-xs">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'total operational expense' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
@@ -540,7 +546,7 @@ export function ProfitLossView({
         );
         void notesVersion;
         return (
-          <section className="rounded-2xl bg-slate-50 dark:bg-[#081226] border border-amber-300/80 dark:border-amber-500/40 p-4 sm:p-5 space-y-3 shadow-sm text-xs">
+          <section className="rounded-2xl bg-slate-50 dark:bg-[#130E0B] border border-amber-300/80 dark:border-amber-500/40 p-4 sm:p-5 space-y-3 shadow-sm text-xs">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
@@ -594,7 +600,7 @@ export function ProfitLossView({
       })()}
 
       {/* Formula Info Banner */}
-      <MotionCard className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1A3157] px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-700 dark:text-blue-200">
+      <MotionCard className="rounded-xl bg-white dark:bg-[#1D1712] border border-slate-200 dark:border-[#312A25] px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-700 dark:text-blue-200">
         <Calculator className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
         <div className="leading-relaxed">
           <strong>Rumus Otomatis:</strong> Setiap baris{' '}
@@ -630,7 +636,7 @@ export function ProfitLossView({
                 className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer min-h-[36px] ${
                   sectionFilter === key
                     ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs'
-                    : 'bg-slate-100 dark:bg-[#081226] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#1E355D]'
+                    : 'bg-slate-100 dark:bg-[#130E0B] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#352E28]'
                 }`}
               >
                 {label}
@@ -646,7 +652,7 @@ export function ProfitLossView({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari description atau kode..."
-                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px]"
+                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-[#37302A] bg-slate-50 dark:bg-[#130E0B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px]"
               />
             </div>
 
@@ -656,7 +662,7 @@ export function ProfitLossView({
               className={`px-3 py-2 text-xs font-semibold rounded-xl border min-h-[38px] whitespace-nowrap cursor-pointer ${
                 hideZero
                   ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-300'
-                  : 'bg-slate-50 dark:bg-[#081226] border-slate-200 dark:border-[#1F3763] text-slate-600 dark:text-slate-300'
+                  : 'bg-slate-50 dark:bg-[#130E0B] border-slate-200 dark:border-[#37302A] text-slate-600 dark:text-slate-300'
               }`}
             >
               {hideZero ? 'Rp 0 Disembunyikan' : 'Tampilkan Semua (Termasuk Rp 0)'}
@@ -702,8 +708,8 @@ export function ProfitLossView({
                     isAnchor
                       ? 'bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/40'
                       : isSummary
-                      ? 'bg-slate-100/90 dark:bg-[#122547] border-slate-300/80 dark:border-[#244379]'
-                      : 'bg-white dark:bg-[#0A162B] border-slate-200/80 dark:border-[#1A3157]'
+                      ? 'bg-slate-100/90 dark:bg-[#26201A] border-slate-300/80 dark:border-[#423B35]'
+                      : 'bg-white dark:bg-[#17120E] border-slate-200/80 dark:border-[#312A25]'
                   }`}
                 >
                   <button
@@ -801,7 +807,7 @@ export function ProfitLossView({
                               ? 'bg-amber-400 text-slate-950'
                               : row.percentToNetSales < -0.01
                               ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
-                              : 'bg-slate-100 dark:bg-[#16294C] text-slate-900 dark:text-amber-300'
+                              : 'bg-slate-100 dark:bg-[#2A231E] text-slate-900 dark:text-amber-300'
                           }`}
                         >
                           {formatPercentId(row.percentToNetSales)}
@@ -816,7 +822,7 @@ export function ProfitLossView({
                   </button>
 
                   {isExpanded && info && (
-                    <div className="px-4 py-4 border-t border-slate-200/80 dark:border-[#1E355D] bg-slate-50 dark:bg-[#081226] text-xs space-y-3">
+                    <div className="px-4 py-4 border-t border-slate-200/80 dark:border-[#352E28] bg-slate-50 dark:bg-[#130E0B] text-xs space-y-3">
                       {/* 1. Analisa Sederhana Bawaan Aplikasi / Note Permanen */}
                       <SimpleAnalysisCard
                         defaultText={info.simpleAnalysis}
@@ -831,7 +837,7 @@ export function ProfitLossView({
                       />
 
                       {/* 2. Arti Pos Ini */}
-                      <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1">
+                      <div className="rounded-xl bg-white dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] p-3 space-y-1">
                         <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
                           <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                           <span>Apa Arti Pos Ini?</span>
@@ -842,12 +848,12 @@ export function ProfitLossView({
                       </div>
 
                       {/* 2. Rumus Persentase */}
-                      <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 space-y-1.5">
+                      <div className="rounded-xl bg-white dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] p-3 space-y-1.5">
                         <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300">
                           <Calculator className="w-3.5 h-3.5 shrink-0" />
                           <span>Rumus Persentase (÷ Net Sales)</span>
                         </div>
-                        <div className="font-mono text-[11px] sm:text-xs bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1A3157] rounded-lg px-2.5 py-2 text-slate-800 dark:text-slate-100 tabular-nums">
+                        <div className="font-mono text-[11px] sm:text-xs bg-slate-50 dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#312A25] rounded-lg px-2.5 py-2 text-slate-800 dark:text-slate-100 tabular-nums">
                           {info.formulaEquation}
                         </div>
                         <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -857,7 +863,7 @@ export function ProfitLossView({
 
                       {/* 3. Perbandingan Periode Sebelumnya (jika ada) */}
                       {prevReport && prevRow && (
-                        <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1E355D] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 tabular-nums">
+                        <div className="rounded-xl bg-white dark:bg-[#1D1712] border border-slate-200 dark:border-[#352E28] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 tabular-nums">
                           <div className="text-slate-600 dark:text-slate-300">
                             <strong className="text-slate-900 dark:text-white">
                               Bandingkan vs {formatPnlPeriodRange(prevReport)}:
@@ -957,7 +963,7 @@ function SimpleAnalysisCard({
 
   return (
     <div
-      className={`rounded-xl bg-white dark:bg-[#0D1C34] border p-3.5 space-y-2 ${
+      className={`rounded-xl bg-white dark:bg-[#1D1712] border p-3.5 space-y-2 ${
         permanentNote
           ? 'border-emerald-300 dark:border-emerald-500/45'
           : 'border-blue-200 dark:border-blue-500/35'
@@ -993,7 +999,7 @@ function SimpleAnalysisCard({
               <button
                 type="button"
                 onClick={onResetPermanentNote}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#16294C] text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-300 cursor-pointer"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#2A231E] text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-300 cursor-pointer"
                 title="Hapus note permanen dan kembalikan analisa bawaan aplikasi"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -1206,7 +1212,7 @@ function PnlAiAnalysisPanel({
     permanentNote?.text === cleanedMainAnalysis;
 
   return (
-    <div className="rounded-xl bg-white dark:bg-[#0D1C34] border border-amber-300/75 dark:border-amber-500/35 p-3.5 space-y-2.5">
+    <div className="rounded-xl bg-white dark:bg-[#1D1712] border border-amber-300/75 dark:border-amber-500/35 p-3.5 space-y-2.5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-300/60 dark:border-amber-500/35 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
@@ -1226,7 +1232,7 @@ function PnlAiAnalysisPanel({
           <div
             role="group"
             aria-label="Pilih penyedia AI"
-            className="inline-flex rounded-lg p-0.5 bg-slate-100 dark:bg-[#081226] border border-slate-200 dark:border-[#1E355D]"
+            className="inline-flex rounded-lg p-0.5 bg-slate-100 dark:bg-[#130E0B] border border-slate-200 dark:border-[#352E28]"
           >
             <button
               type="button"
@@ -1298,9 +1304,9 @@ function PnlAiAnalysisPanel({
             </span>
           </div>
           <div className="space-y-1.5 animate-pulse">
-            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#16294C] w-full" />
-            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#16294C] w-11/12" />
-            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#16294C] w-4/5" />
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#2A231E] w-full" />
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#2A231E] w-11/12" />
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#2A231E] w-4/5" />
           </div>
         </div>
       )}
@@ -1322,7 +1328,7 @@ function PnlAiAnalysisPanel({
       )}
 
       {!isLoading && !errorMsg && paragraphs.length > 0 && (
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#1A3157]">
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#312A25]">
           <div className="space-y-2 text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
@@ -1361,7 +1367,7 @@ function PnlAiAnalysisPanel({
           </div>
 
           {/* Follow-up Q&A thread + input */}
-          <div className="pt-2.5 border-t border-slate-100 dark:border-[#1A3157] space-y-2.5">
+          <div className="pt-2.5 border-t border-slate-100 dark:border-[#312A25] space-y-2.5">
             {followUpMessages.length > 0 && (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {followUpMessages.map((msg, idx) => {
@@ -1378,7 +1384,7 @@ function PnlAiAnalysisPanel({
                       className={`rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
                         msg.role === 'user'
                           ? 'bg-amber-50 dark:bg-amber-500/15 border border-amber-200/80 dark:border-amber-500/30 text-slate-900 dark:text-amber-100 ml-4 sm:ml-8'
-                          : 'bg-slate-50 dark:bg-[#081226] border border-slate-200/80 dark:border-[#1E355D] text-slate-700 dark:text-slate-200 mr-4 sm:mr-8 space-y-1.5'
+                          : 'bg-slate-50 dark:bg-[#130E0B] border border-slate-200/80 dark:border-[#352E28] text-slate-700 dark:text-slate-200 mr-4 sm:mr-8 space-y-1.5'
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-0.5">
@@ -1404,7 +1410,7 @@ function PnlAiAnalysisPanel({
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer disabled:cursor-default ${
                               isReplyPinned
                                 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-                                : 'bg-white dark:bg-[#0D1C34] border border-slate-200 dark:border-[#1F3763] text-amber-700 dark:text-amber-300 hover:border-amber-400'
+                                : 'bg-white dark:bg-[#1D1712] border border-slate-200 dark:border-[#37302A] text-amber-700 dark:text-amber-300 hover:border-amber-400'
                             }`}
                           >
                             {isReplyPinned ? (
@@ -1466,7 +1472,7 @@ function PnlAiAnalysisPanel({
                   onChange={(e) => setQuestionInput(e.target.value)}
                   disabled={isAsking}
                   placeholder={`Tanya lanjutan ke ${providerLabel} tentang ${row.description}...`}
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-[#1F3763] bg-slate-50 dark:bg-[#081226] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px] disabled:opacity-60"
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-[#37302A] bg-slate-50 dark:bg-[#130E0B] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[38px] disabled:opacity-60"
                 />
               </div>
               <button

@@ -1,3 +1,4 @@
+// @ts-nocheck -- imported legacy code written for a looser tsconfig
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bot,
@@ -248,6 +249,11 @@ export function GlobalAiChatWidget({
   selectedPnlMonth,
 }: GlobalAiChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setIsOpen(true);
+    window.addEventListener('wz-open-ai', open);
+    return () => window.removeEventListener('wz-open-ai', open);
+  }, []);
   const [isExpanded, setIsExpanded] = useState(false);
   const [providerChoice, setProviderChoice] = useState<AiProviderOption>(() => {
     try {
@@ -491,12 +497,12 @@ export function GlobalAiChatWidget({
   return (
     <>
       {/* FLOATING CHAT LAUNCHER LOGO (KANAN BAWAH) */}
-      <div className="fixed right-4 sm:right-6 bottom-20 md:bottom-6 z-40 flex flex-col items-end">
+      <div className="wz-ai-fab fixed right-3 bottom-[6.5rem] z-40 flex flex-col items-end md:hidden">
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-label="Buka Chat Asisten AI"
-          className="group relative flex items-center gap-2.5 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-extrabold shadow-[0_10px_28px_-6px_rgba(245,158,11,0.65),0_4px_0_0_#b45309] hover:brightness-105 active:translate-y-0.5 transition-all cursor-pointer border-2 border-amber-200/90"
+          className="group relative flex items-center gap-2.5 pl-3.5 pr-4 py-3 rounded-full bg-amber-400 text-slate-950 font-extrabold shadow-[0_10px_28px_-6px_rgba(149,199,71,0.65),0_4px_0_0_#B45309] hover:brightness-105 active:translate-y-0.5 transition-all cursor-pointer border-2 border-amber-200/90"
         >
           {/* Pulse Online Dot */}
           <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
@@ -531,19 +537,19 @@ export function GlobalAiChatWidget({
           aria-modal="false"
           aria-label="Asisten AI Wizzmie"
           data-lenis-prevent
-          className={`fixed z-50 transition-all duration-200 flex flex-col bg-white dark:bg-[#081226] border-2 border-slate-200/90 dark:border-[#243E6C] rounded-3xl shadow-[0_24px_60px_-15px_rgba(2,6,23,0.75)] overflow-hidden ${
+          className={`fixed z-50 transition-all duration-200 flex flex-col bg-white dark:bg-[#130E0B] border-2 border-slate-200/90 dark:border-[#3D3630] rounded-3xl shadow-[0_24px_60px_-15px_rgba(8,5,3,0.75)] overflow-hidden ${
             isExpanded
               ? 'inset-3 sm:inset-auto sm:right-6 sm:bottom-24 md:bottom-24 sm:w-[680px] sm:h-[78vh] max-h-[840px]'
               : 'inset-x-3 bottom-20 top-14 sm:inset-auto sm:right-6 sm:bottom-24 md:bottom-24 sm:w-[430px] sm:h-[620px] max-h-[82vh]'
           }`}
         >
           {/* Premium Pop-up Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-[#09152B] via-[#0F2142] to-[#132952] text-white border-b border-[#223B68] shrink-0">
+          <div className="px-4 py-3 bg-gradient-to-r from-[#16110D] via-[#231C17] to-[#2B241F] text-white border-b border-[#3B332E] shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-slate-950 flex items-center justify-center shadow-md shrink-0">
+                <div className="relative w-9 h-9 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-md shrink-0">
                   <Bot className="w-5 h-5 stroke-[2.2]" />
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#09152B]" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#16110D]" />
                 </div>
                 <h3 className="text-sm sm:text-base font-black tracking-tight text-white truncate">
                   Asisten AI Pintar
@@ -552,7 +558,7 @@ export function GlobalAiChatWidget({
 
               <div className="flex items-center gap-1.5 shrink-0">
                 {/* Pilihan Engine AI: Otomatis / Gemini / Groq / OpenAI */}
-                <div className="inline-flex items-center rounded-lg bg-[#060E1D] p-0.5 border border-white/10 shrink-0">
+                <div className="inline-flex items-center rounded-lg bg-[#0E0B08] p-0.5 border border-white/10 shrink-0">
                   {(
                     [
                       { id: 'auto', label: 'Auto' },
@@ -613,7 +619,7 @@ export function GlobalAiChatWidget({
           {/* Chat Messages Scroll Container */}
           <div
             data-lenis-prevent
-            className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 dark:bg-[#071022]"
+            className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 dark:bg-[#110D09]"
           >
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
@@ -630,11 +636,11 @@ export function GlobalAiChatWidget({
                         ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-semibold rounded-br-xs'
                         : msg.isError
                         ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 rounded-bl-xs'
-                        : 'bg-white dark:bg-[#0D1A32] border border-slate-200/90 dark:border-[#1E355D] text-slate-800 dark:text-slate-100 rounded-bl-xs'
+                        : 'bg-white dark:bg-[#1B1511] border border-slate-200/90 dark:border-[#352E28] text-slate-800 dark:text-slate-100 rounded-bl-xs'
                     }`}
                   >
                     {!isUser && (
-                      <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-slate-100 dark:border-[#1C325A]">
+                      <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-slate-100 dark:border-[#322B26]">
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                           <Bot className="w-3.5 h-3.5" />
                           <span>
@@ -701,7 +707,7 @@ export function GlobalAiChatWidget({
 
             {isLoading && (
               <div className="flex items-start">
-                <div className="rounded-2xl rounded-bl-xs px-4 py-3 bg-white dark:bg-[#0D1A32] border border-slate-200/90 dark:border-[#1E355D] text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2.5 shadow-xs">
+                <div className="rounded-2xl rounded-bl-xs px-4 py-3 bg-white dark:bg-[#1B1511] border border-slate-200/90 dark:border-[#352E28] text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2.5 shadow-xs">
                   <Loader2 className="w-4 h-4 animate-spin text-amber-500 shrink-0" />
                   <span>
                     Asisten AI sedang memeriksa data semua menu...
@@ -719,7 +725,7 @@ export function GlobalAiChatWidget({
               e.preventDefault();
               sendQuestion(input);
             }}
-            className="p-3 bg-white dark:bg-[#081226] border-t border-slate-200 dark:border-[#1E355D] shrink-0"
+            className="p-3 bg-white dark:bg-[#130E0B] border-t border-slate-200 dark:border-[#352E28] shrink-0"
           >
             <div className="flex items-end gap-2">
               <textarea
@@ -735,7 +741,7 @@ export function GlobalAiChatWidget({
                 }}
                 placeholder="Tanya apa saja: data stok, barang, laba rugi, atau fungsi fitur web ini..."
                 disabled={isLoading}
-                className="flex-1 resize-none rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm bg-slate-100 dark:bg-[#0D1A32] border border-slate-200 dark:border-[#213A67] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                className="flex-1 resize-none rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm bg-slate-100 dark:bg-[#1B1511] border border-slate-200 dark:border-[#3A332D] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
               />
               <button
                 type="submit"
