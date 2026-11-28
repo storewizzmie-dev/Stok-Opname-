@@ -418,11 +418,11 @@ export default function App() {
     }
   };
 
-  // Dedicated Upload Handler 1: Stock Opname (.xlsx / .xls)
-  const handleStockFiles = async (files: FileList | File[]) => {
+  // Unified Upload Handler: Automatically detects Stock Opname (.xlsx/.xls) & Profit Loss Consolidation (.xlsx/.xls)
+  const handleUnifiedFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (!list.length) return;
-    setStatus({ text: 'Sedang membaca file Stock Opname...' });
+    setStatus({ text: 'Sedang membaca dan mengenali file Excel...' });
 
     try {
       const addedDates: string[] = [];
@@ -433,17 +433,23 @@ export default function App() {
       let pasRows = 0;
       const productSet = new Set<string>();
       const nextData: StockDataset = { ...data };
+      let hasStockFiles = false;
+      const parsedPnlItems: PendingPnlUploadItem[] = [];
 
       for (const file of list) {
         const buffer = await file.arrayBuffer();
         const reportType = detectExcelReportType(buffer);
 
         if (reportType === 'pnl') {
-          throw new Error(
-            `File "${file.name}" adalah laporan Profit Loss Consolidation. Silakan unggah pada kotak "Upload Profit Loss Consolidation" di sebelahnya.`
-          );
+          const parsedPnl = parseProfitLossBuffer(buffer);
+          parsedPnlItems.push({
+            report: parsedPnl,
+            fileName: file.name,
+          });
+          continue;
         }
 
+        hasStockFiles = true;
         const parsed = parseExcelBuffer(buffer);
         for (const dateKey of Object.keys(parsed)) {
           const rowsForDate = parsed[dateKey];
@@ -474,100 +480,71 @@ export default function App() {
         }
       }
 
-      const importedDates = [
-        ...addedDates,
-        ...updatedDates,
-        ...unchangedDates,
-      ].sort();
+      if (hasStockFiles) {
+        const importedDates = [
+          ...addedDates,
+          ...updatedDates,
+          ...unchangedDates,
+        ].sort();
 
-      if (!importedDates.length) {
-        throw new Error('tidak ada baris data Stock Opname yang terbaca');
+        if (!importedDates.length && !parsedPnlItems.length) {
+          throw new Error('Tidak ada baris data yang terbaca dari file Excel.');
+        }
+
+        if (importedDates.length > 0) {
+          const latestDate = importedDates[importedDates.length - 1];
+          const latestMonth = latestDate.slice(0, 7);
+          const monthsAffected = Array.from(
+            new Set(importedDates.map((d) => d.slice(0, 7)))
+          ).sort();
+
+          setData(nextData);
+          persistData(nextData);
+          setSelectedMonth(latestMonth);
+          setSelectedDay(latestDate);
+          setDateRange(null);
+          setIsRangePickerOpen(false);
+          setSelectedProduct('');
+          setSearchQuery('');
+          setDailySearch('');
+          setPurposeFilter('ALL');
+          setProductCategoryFilter('ALL');
+          setActiveBarDate('');
+          setLastUpload({
+            addedDates: addedDates.sort(),
+            updatedDates: updatedDates.sort(),
+            unchangedDates: unchangedDates.sort(),
+            monthsAffected,
+            totalRows,
+            diffRows,
+            pasRows,
+            uniqueProducts: productSet.size,
+          });
+        }
       }
 
-      const latestDate = importedDates[importedDates.length - 1];
-      const latestMonth = latestDate.slice(0, 7);
-      const monthsAffected = Array.from(
-        new Set(importedDates.map((d) => d.slice(0, 7)))
-      ).sort();
+      if (parsedPnlItems.length > 0) {
+        setPendingPnlBatchTotal(parsedPnlItems.length);
+        setPendingPnlQueue(parsedPnlItems);
+        setStatus({
+          text: `File "${parsedPnlItems[0].fileName}" berhasil dibaca. Silakan pilih tanggal dan bulan periode pada pop-up.`,
+        });
+      } else if (hasStockFiles) {
+        const updateSummaryText =
+          updatedDates.length > 0
+            ? `${updatedDates.length} tanggal diperbarui`
+            : 'tidak ada yang diperbarui';
+        setStatus({
+          text: `Berhasil membaca Stock Opname (${totalRows} baris · ${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updateSummaryText}.`,
+        });
+      }
 
-      setData(nextData);
-      persistData(nextData);
-      setSelectedMonth(latestMonth);
-      setSelectedDay(latestDate);
-      setDateRange(null);
-      setIsRangePickerOpen(false);
-      setSelectedProduct('');
-      setSearchQuery('');
-      setDailySearch('');
-      setPurposeFilter('ALL');
-      setProductCategoryFilter('ALL');
-      setActiveBarDate('');
-      setLastUpload({
-        addedDates: addedDates.sort(),
-        updatedDates: updatedDates.sort(),
-        unchangedDates: unchangedDates.sort(),
-        monthsAffected,
-        totalRows,
-        diffRows,
-        pasRows,
-        uniqueProducts: productSet.size,
-      });
-
-      const updateSummaryText =
-        updatedDates.length > 0
-          ? `${updatedDates.length} tanggal diperbarui`
-          : 'tidak ada yang diperbarui';
-      setStatus({
-        text: `Berhasil membaca Stock Opname (${totalRows} baris · ${productSet.size} barang: ${diffRows} selisih, ${pasRows} pas): ${addedDates.length} tanggal baru, ${updateSummaryText}.`,
-      });
       setActiveTab('pengaturan');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Format file tidak sesuai.';
       setStatus({
-        text: `Gagal membaca file Stock Opname: ${message}`,
-        isError: true,
-      });
-    }
-  };
-
-  // Dedicated Upload Handler 2: Profit Loss Consolidation (.xlsx / .xls) -> Opens Pop-up Date & Month Picker
-  const handlePnlFiles = async (files: FileList | File[]) => {
-    const list = Array.from(files);
-    if (!list.length) return;
-    setStatus({ text: 'Sedang membaca file Profit Loss Consolidation...' });
-
-    try {
-      const parsedItems: PendingPnlUploadItem[] = [];
-      for (const file of list) {
-        const buffer = await file.arrayBuffer();
-        const reportType = detectExcelReportType(buffer);
-        if (reportType === 'stock') {
-          throw new Error(
-            `File "${file.name}" adalah laporan Stock Opname. Silakan unggah pada kotak "Upload Laporan Stock Opname".`
-          );
-        }
-        const parsedPnl = parseProfitLossBuffer(buffer);
-        parsedItems.push({
-          report: parsedPnl,
-          fileName: file.name,
-        });
-      }
-
-      if (!parsedItems.length) {
-        throw new Error('Tidak ada file Profit Loss Consolidation yang terbaca');
-      }
-
-      setPendingPnlBatchTotal(parsedItems.length);
-      setPendingPnlQueue(parsedItems);
-      setStatus({
-        text: `File "${parsedItems[0].fileName}" berhasil dibaca. Silakan pilih tanggal dan bulan periode pada pop-up.`,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Format file tidak sesuai.';
-      setStatus({
-        text: `Gagal membaca file Profit Loss Consolidation: ${message}`,
+        text: `Gagal membaca file Excel: ${message}`,
         isError: true,
       });
     }
@@ -866,7 +843,7 @@ export default function App() {
       activeKey={`${activeTab}-${activeMonth}-${viewScope}-${selectedPnlMonth}-${activeKeperluanPageId ?? 'main'}`}
     >
       <div className="min-h-screen app-canvas-bg text-slate-900 dark:text-slate-100 pb-20 md:pb-10 transition-colors">
-      {/* Dedicated Hidden File Input 1: Stock Opname */}
+      {/* Unified Hidden File Input: Stock Opname & Profit Loss Consolidation */}
       <input
         ref={fileInputRef}
         type="file"
@@ -874,19 +851,7 @@ export default function App() {
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) void handleStockFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
-      {/* Dedicated Hidden File Input 2: Profit Loss Consolidation */}
-      <input
-        ref={pnlFileInputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files) void handlePnlFiles(e.target.files);
+          if (e.target.files) void handleUnifiedFiles(e.target.files);
           e.target.value = '';
         }}
       />
@@ -936,19 +901,12 @@ export default function App() {
           <span className="md:hidden"><span className="wz-logo">W</span></span>
           <div className="min-w-0">
             <div className="wz-crumb">Wizzmie / {navItems.find((n) => n.id === activeTab)?.label}</div>
-            <h1 className="wz-page-title truncate">
-              {({ beranda: 'Ringkasan Outlet', harian: 'Opname Harian', barang: 'Cek per Barang', labarugi: 'Laba & Rugi', pengaturan: 'Data & Pengaturan' } as Record<string, string>)[activeTab]}
-            </h1>
+            {activeTab !== 'beranda' && (
+              <h1 className="wz-page-title truncate">
+                {({ harian: 'Opname Harian', barang: 'Cek per Barang', labarugi: 'Laba & Rugi', pengaturan: 'Data & Pengaturan' } as Record<string, string>)[activeTab]}
+              </h1>
+            )}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="wz-chip hidden lg:inline-flex"><span className="wz-dot-on" /> Live · {new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-          <button type="button" className="wz-icon-btn md:hidden" aria-label="Ganti tema" onClick={() => setIsDark((prev) => !prev)}>
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-          <button type="button" className="wizzmie-pink-pill hidden sm:inline-flex items-center gap-2 px-4 py-2 text-sm" onClick={() => window.dispatchEvent(new Event('wz-open-ai'))}>
-            <Lightbulb className="w-4 h-4" /> Tanya AI
-          </button>
         </div>
       </header>
 
@@ -1324,12 +1282,12 @@ export default function App() {
 
               const colCount = Math.max(1, chartColumns.length);
               const colSlotW =
-                combinedChartTab === 'daily_timeline' ? 54 : 68;
-              const plotLeft = 58;
-              const plotRight = 20;
-              const plotTop = 30;
-              const plotBottom = 18;
-              const plotH = 215;
+                combinedChartTab === 'daily_timeline' ? 68 : 82;
+              const plotLeft = 68;
+              const plotRight = 24;
+              const plotTop = 34;
+              const plotBottom = 20;
+              const plotH = 220;
               const plotW = colCount * colSlotW;
               const svgW = plotLeft + plotW + plotRight;
               const svgH = plotTop + plotH + plotBottom;
@@ -1393,7 +1351,7 @@ export default function App() {
                           ? 'GRAFIK KEUNTUNGAN (NET SALES)'
                           : 'GRAFIK KEUNTUNGAN'}
                       </span>
-                      <span className="text-lg sm:text-xl font-black font-mono text-[#451300] dark:text-white tabular-nums tracking-tight">
+                      <span className="text-lg sm:text-xl font-black font-mono text-[#451300] dark:text-white tabular-nums tracking-wide">
                         {headerNetSalesVal < 0 ? '-' : ''}
                         {formatRupiah(headerNetSalesVal)}
                       </span>
@@ -1764,7 +1722,7 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2.5">
                       {twelveMonthsData.map((mItem) => {
                         const isSelected = mItem.isSelected;
                         const hasData = mItem.hasData;
@@ -1791,7 +1749,7 @@ export default function App() {
                                 );
                               }
                             }}
-                            className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-center transition-all ${
+                            className={`py-2 px-2 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-center transition-all ${
                               isSelected && hasData
                                 ? 'bg-gradient-to-r from-[#D65106] to-[#A33D05] border-b-[2px] border-[#722600] text-white shadow-xs cursor-pointer'
                                 : hasData
@@ -1801,8 +1759,8 @@ export default function App() {
                           >
                             <div className="truncate">{mItem.label}</div>
                             {hasData && (
-                              <div className="text-[8px] font-mono opacity-90 mt-0.5">
-                                {mItem.dayCount}hr
+                              <div className="text-[9px] font-mono tracking-wide opacity-90 mt-1">
+                                {mItem.dayCount} hr
                               </div>
                             )}
                           </button>
@@ -2189,15 +2147,15 @@ export default function App() {
                                 </span>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-2 text-xs font-mono tabular-nums">
-                                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 font-bold text-emerald-700 dark:text-emerald-300">
+                              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs font-mono tabular-nums tracking-wide">
+                                <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 font-bold text-emerald-700 dark:text-emerald-300">
                                   Lebih: +{formatRupiah(selectedDailyBar.posVal)}
                                 </span>
-                                <span className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 font-bold text-rose-700 dark:text-rose-300">
+                                <span className="px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 font-bold text-rose-700 dark:text-rose-300">
                                   Kurang: -{formatRupiah(selectedDailyBar.negVal)}
                                 </span>
                                 <span
-                                  className={`px-2.5 py-1 rounded-lg border font-extrabold ${
+                                  className={`px-3 py-1.5 rounded-lg border font-extrabold ${
                                     selectedDailyBar.negVal +
                                       selectedDailyBar.posVal <
                                     -0.5
@@ -2217,7 +2175,7 @@ export default function App() {
                                   onClick={() =>
                                     handleOpenDayInHarian(selectedDailyBar.date)
                                   }
-                                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#2D2620] border border-[#F8C8B6] dark:border-amber-400/40 font-sans font-extrabold text-[#BE490C] dark:text-[#ACE25B] hover:underline cursor-pointer"
+                                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2D2620] border border-[#F8C8B6] dark:border-amber-400/40 font-sans font-extrabold text-[#BE490C] dark:text-[#ACE25B] hover:underline cursor-pointer"
                                 >
                                   Buka Barang →
                                 </button>
@@ -2226,9 +2184,9 @@ export default function App() {
                           )}
 
                           {/* Diverging Up/Down Bar Chart Area */}
-                          <div className="flex gap-2 items-stretch">
+                          <div className="flex gap-3 items-stretch">
                             {/* Left Y-Axis Labels */}
-                            <div className="flex flex-col justify-between py-1 text-[10px] font-mono font-bold tabular-nums select-none shrink-0 text-right pr-1">
+                            <div className="flex flex-col justify-between py-1 text-[10px] font-mono font-bold tabular-nums tracking-wide select-none shrink-0 text-right pr-1.5">
                               <span className="text-emerald-600 dark:text-emerald-400">
                                 +{formatCompactRupiah(maxDailySideVal)}
                               </span>
@@ -2241,11 +2199,11 @@ export default function App() {
                             </div>
 
                             {/* Scrollable Columns */}
-                            <div className="flex-1 overflow-x-auto pb-1">
+                            <div className="flex-1 overflow-x-auto pb-1.5">
                               <div
-                                className="flex items-stretch justify-between gap-1.5 px-1.5"
+                                className="flex items-stretch justify-between gap-2.5 px-2"
                                 style={{
-                                  minWidth: `${Math.max(280, chartDays.length * 32)}px`,
+                                  minWidth: `${Math.max(340, chartDays.length * 44)}px`,
                                 }}
                               >
                                 {chartDays.map((day) => {
@@ -2274,7 +2232,7 @@ export default function App() {
                                         handleOpenDayInHarian(day.date)
                                       }
                                       title={`${formatDateId(day.date)}: Lebih +${formatRupiah(day.posVal)} | Kurang -${formatRupiah(day.negVal)}`}
-                                      className={`group flex-1 min-w-[26px] rounded-xl py-1.5 px-0.5 flex flex-col items-center transition-all cursor-pointer ${
+                                      className={`group flex-1 min-w-[36px] rounded-xl py-2 px-1 flex flex-col items-center transition-all cursor-pointer ${
                                         isSelected
                                           ? 'bg-[#FEEAE2] dark:bg-amber-400/15 ring-2 ring-[#D65106] dark:ring-amber-400'
                                           : 'hover:bg-[#FBF7F2] dark:hover:bg-[#26201B]/60'
@@ -2283,12 +2241,12 @@ export default function App() {
                                       {/* Top Zone: Lebih (+) Green Bar growing UP from center line */}
                                       <div className="h-[68px] w-full flex flex-col justify-end items-center">
                                         {day.posVal > 0.5 && isSelected && (
-                                          <span className="text-[8px] font-mono font-extrabold text-emerald-700 dark:text-emerald-300 mb-0.5 leading-none">
+                                          <span className="text-[9px] font-mono font-extrabold tracking-wide text-emerald-700 dark:text-emerald-300 mb-1 leading-none">
                                             +{formatCompactRupiah(day.posVal)}
                                           </span>
                                         )}
                                         <div
-                                          className={`w-3.5 sm:w-4 rounded-t-md transition-all ${
+                                          className={`w-4 sm:w-4.5 rounded-t-md transition-all ${
                                             day.posVal > 0.5
                                               ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-xs'
                                               : 'bg-slate-200 dark:bg-slate-700'
@@ -2303,7 +2261,7 @@ export default function App() {
                                       {/* Bottom Zone: Kurang (-) Red Bar growing DOWN from center line */}
                                       <div className="h-[68px] w-full flex flex-col justify-start items-center">
                                         <div
-                                          className={`w-3.5 sm:w-4 rounded-b-md transition-all ${
+                                          className={`w-4 sm:w-4.5 rounded-b-md transition-all ${
                                             day.negVal < -0.5
                                               ? 'bg-gradient-to-b from-rose-500 to-rose-600 shadow-xs'
                                               : 'bg-slate-200 dark:bg-slate-700'
@@ -2311,7 +2269,7 @@ export default function App() {
                                           style={{ height: `${negPx}px` }}
                                         />
                                         {day.negVal < -0.5 && isSelected && (
-                                          <span className="text-[8px] font-mono font-extrabold text-rose-700 dark:text-rose-300 mt-0.5 leading-none">
+                                          <span className="text-[9px] font-mono font-extrabold tracking-wide text-rose-700 dark:text-rose-300 mt-1 leading-none">
                                             -{formatCompactRupiah(day.negVal)}
                                           </span>
                                         )}
@@ -2319,7 +2277,7 @@ export default function App() {
 
                                       {/* Date Number Badge */}
                                       <span
-                                        className={`mt-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-extrabold tabular-nums ${
+                                        className={`mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-extrabold tabular-nums tracking-wide ${
                                           isSelected
                                             ? 'bg-[#D65106] dark:bg-amber-400 text-white dark:text-slate-950'
                                             : dayNet < -0.5
@@ -2337,7 +2295,7 @@ export default function App() {
                           </div>
 
                           {/* 3 Quick Insight Pills Footer */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-[#ECE7E2] dark:border-[#322B25] text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#ECE7E2] dark:border-[#322B25] text-xs">
                             <button
                               type="button"
                               onClick={() => {
@@ -2345,12 +2303,12 @@ export default function App() {
                                   setActiveBarDate(worstMinusDay.date);
                                 }
                               }}
-                              className="text-left rounded-xl p-2.5 bg-rose-50/70 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 transition-colors cursor-pointer"
+                              className="text-left rounded-xl p-3.5 bg-rose-50/70 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 transition-colors cursor-pointer"
                             >
                               <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
                                 Hari Minus Terbesar
                               </div>
-                              <div className="font-mono font-black text-rose-700 dark:text-rose-300 mt-0.5 tabular-nums">
+                              <div className="font-mono font-black text-rose-700 dark:text-rose-300 mt-1.5 tabular-nums tracking-wide">
                                 {worstMinusDay
                                   ? `${formatDateId(worstMinusDay.date)} (-${formatCompactRupiah(worstMinusDay.negVal)})`
                                   : '-'}
@@ -2364,12 +2322,12 @@ export default function App() {
                                   setActiveBarDate(bestPlusDay.date);
                                 }
                               }}
-                              className="text-left rounded-xl p-2.5 bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200/80 dark:border-emerald-500/25 hover:border-emerald-400 transition-colors cursor-pointer"
+                              className="text-left rounded-xl p-3.5 bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200/80 dark:border-emerald-500/25 hover:border-emerald-400 transition-colors cursor-pointer"
                             >
                               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
                                 Hari Hasil Terbaik
                               </div>
-                              <div className="font-mono font-black text-emerald-700 dark:text-emerald-300 mt-0.5 tabular-nums">
+                              <div className="font-mono font-black text-emerald-700 dark:text-emerald-300 mt-1.5 tabular-nums tracking-wide">
                                 {bestPlusDay
                                   ? `${formatDateId(bestPlusDay.date)} (${
                                       bestPlusDay.negVal + bestPlusDay.posVal >=
@@ -2381,11 +2339,11 @@ export default function App() {
                               </div>
                             </button>
 
-                            <div className="rounded-xl p-2.5 bg-[#FBF6F1] dark:bg-[#1F1914] border border-[#F8C8B6] dark:border-[#3E3731]">
+                            <div className="rounded-xl p-3.5 bg-[#FBF6F1] dark:bg-[#1F1914] border border-[#F8C8B6] dark:border-[#3E3731]">
                               <div className="text-[10px] font-bold uppercase tracking-wider text-[#814730] dark:text-[#BEB6AC]">
                                 Rata-rata Per Hari ({chartDays.length} hr)
                               </div>
-                              <div className="font-mono font-bold text-[11px] mt-0.5 tabular-nums flex items-center gap-2">
+                              <div className="font-mono font-bold text-xs mt-1.5 tabular-nums tracking-wide flex items-center gap-2.5">
                                 <span className="text-rose-600 dark:text-rose-400">
                                   -{formatCompactRupiah(avgDailyNeg)}/hr
                                 </span>
@@ -2471,9 +2429,9 @@ export default function App() {
                                       behavior: 'smooth',
                                     });
                                   }}
-                                  className="group w-full text-left rounded-xl border border-[#FAD6C8] hover:border-[#D65106] dark:border-[#362F29] dark:hover:border-amber-400/70 bg-[#FDFAF6] hover:bg-[#F9F5F0] dark:bg-[#1E1813] dark:hover:bg-[#27201B] p-3 space-y-2 transition-all cursor-pointer shadow-2xs"
+                                  className="group w-full text-left rounded-xl border border-[#FAD6C8] hover:border-[#D65106] dark:border-[#362F29] dark:hover:border-amber-400/70 bg-[#FDFAF6] hover:bg-[#F9F5F0] dark:bg-[#1E1813] dark:hover:bg-[#27201B] p-3.5 space-y-2.5 transition-all cursor-pointer shadow-2xs"
                                 >
-                                  <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span
@@ -2487,14 +2445,14 @@ export default function App() {
                                         </span>
                                         <ChevronRight className="w-3.5 h-3.5 text-[#BE490C] dark:text-amber-300 opacity-75 group-hover:translate-x-0.5 transition-transform shrink-0" />
                                       </div>
-                                      <div className="text-[11px] font-medium text-[#924D32] dark:text-[#BEB6AC] mt-0.5">
+                                      <div className="text-[11px] font-medium text-[#924D32] dark:text-[#BEB6AC] mt-1">
                                         {purposeRankMode === 'neg'
                                           ? bucket.indicationNeg
                                           : bucket.indicationPos}
                                       </div>
                                     </div>
 
-                                    <div className="text-right shrink-0 font-mono tabular-nums">
+                                    <div className="text-right shrink-0 font-mono tabular-nums tracking-wide space-y-0.5">
                                       <div
                                         className={`text-xs sm:text-sm font-black ${
                                           purposeRankMode === 'neg'
@@ -2506,7 +2464,7 @@ export default function App() {
                                           ? `-${formatRupiah(bucket.negVal)}`
                                           : `+${formatRupiah(bucket.posVal)}`}
                                       </div>
-                                      <div className="text-[10px] font-bold text-[#814730] dark:text-[#BEB6AC]">
+                                      <div className="text-[11px] font-bold text-[#814730] dark:text-[#BEB6AC]">
                                         {activeItems.length} barang ({pct}%)
                                       </div>
                                     </div>
@@ -2651,7 +2609,7 @@ export default function App() {
                               Tidak ada barang selisih pada kategori ini.
                             </p>
                           ) : (
-                            <div className="space-y-2.5 my-auto py-1">
+                            <div className="space-y-3 my-auto py-1">
                               {rankedItems.map((item, idx) => {
                                 const sharePct = Math.min(
                                   100,
@@ -2668,10 +2626,10 @@ export default function App() {
                                     key={item.name}
                                     type="button"
                                     onClick={() => handlePickProduct(item.name)}
-                                    className="w-full grid grid-cols-12 items-center gap-2 text-left text-xs hover:bg-[#FBF7F2] dark:hover:bg-[#26201B]/60 rounded-xl py-1.5 px-2 transition-colors cursor-pointer"
+                                    className="w-full grid grid-cols-12 items-center gap-3 text-left text-xs hover:bg-[#FBF7F2] dark:hover:bg-[#26201B]/60 rounded-xl py-2.5 px-3 transition-colors cursor-pointer"
                                   >
-                                    <span className="col-span-5 font-semibold text-[#451300] dark:text-slate-100 truncate flex items-center gap-2">
-                                      <span className="w-5 h-5 rounded-md bg-[#FEE7DE] dark:bg-amber-400/15 text-[#BE490C] dark:text-amber-300 font-mono text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                                    <span className="col-span-5 font-semibold text-[#451300] dark:text-slate-100 truncate flex items-center gap-2.5">
+                                      <span className="w-6 h-6 rounded-md bg-[#FEE7DE] dark:bg-amber-400/15 text-[#BE490C] dark:text-amber-300 font-mono text-[11px] font-extrabold flex items-center justify-center shrink-0">
                                         {idx + 1}
                                       </span>
                                       <span className="truncate">
@@ -2679,7 +2637,7 @@ export default function App() {
                                       </span>
                                     </span>
                                     <span
-                                      className={`col-span-3 font-mono font-bold text-right tabular-nums ${
+                                      className={`col-span-3 font-mono font-bold text-right tabular-nums tracking-wide ${
                                         rankMode === 'neg'
                                           ? 'text-rose-600 dark:text-rose-400'
                                           : 'text-emerald-600 dark:text-emerald-400'
@@ -2698,7 +2656,7 @@ export default function App() {
                                         style={{ width: `${sharePct}%` }}
                                       />
                                     </div>
-                                    <span className="col-span-1 font-mono text-[11px] font-bold text-right text-[#814730] dark:text-[#BEB6AC] tabular-nums">
+                                    <span className="col-span-1 font-mono text-[11px] font-bold text-right text-[#814730] dark:text-[#BEB6AC] tabular-nums tracking-wide">
                                       {sharePct}%
                                     </span>
                                   </button>
@@ -2830,39 +2788,26 @@ export default function App() {
               </div>
             </section>
 
-            {[
-              { key: 'stok', title: 'Stock Opname', sub: 'File Stock Opname Detail Report (.xlsx/.xls). Tanggal dibaca otomatis dari kolom Stock Opname Date. Tanggal yang sama diperbarui tanpa dobel.', icon: <FileSpreadsheet className="w-6 h-6" />, guide: 'upload' as InfoGuideKey, open: () => fileInputRef.current?.click(), drop: (f: FileList) => void handleStockFiles(f) },
-              { key: 'pnl', title: 'Laba Rugi', sub: 'File Profit Loss Consolidation (.xlsx/.xls). Setelah dipilih muncul pop-up untuk menentukan tanggal & bulan periodenya.', icon: <Coins className="w-6 h-6" />, guide: 'profitLoss' as InfoGuideKey, open: () => pnlFileInputRef.current?.click(), drop: (f: FileList) => void handlePnlFiles(f) },
-            ].map((u) => (
-              <section
-                key={u.key}
-                className="v2-drop"
-                role="button"
-                tabIndex={0}
-                onClick={u.open}
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('is-over'); }}
-                onDragLeave={(e) => e.currentTarget.classList.remove('is-over')}
-                onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('is-over'); if (e.dataTransfer.files?.length) u.drop(e.dataTransfer.files); }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="v2-drop-icon">{u.icon}</span>
-                  <span onClick={(e) => e.stopPropagation()}><InfoButton guideKey={u.guide} onOpen={setActiveInfoKey} /></span>
-                </div>
-                <h3 className="v2-drop-title">{u.title}</h3>
-                <p className="v2-drop-sub">{u.sub}</p>
-                <span className="wizzmie-pink-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm mt-auto self-start">
-                  <Upload className="w-4 h-4" /> Pilih atau tarik file ke sini
-                </span>
-              </section>
-            ))}
-
-            <section className="v2-panel">
-              <header className="v2-panel-head"><h3>Tampilan</h3></header>
-              <button type="button" className="v2-theme" onClick={() => setIsDark((prev) => !prev)}>
-                <span className="v2-kpi-icon" style={{ ['--k' as string]: 'var(--ember)' }}>{isDark ? <Moon /> : <Sun />}</span>
-                <span className="flex-1 text-left"><b className="block">{isDark ? 'Midnight Ember' : 'Terang'}</b><small>Ketuk untuk ganti ke {isDark ? 'tema terang' : 'Midnight Ember'}</small></span>
-                <span className={`v2-switch ${isDark ? 'is-on' : ''}`}><i /></span>
-              </button>
+            <section
+              className="v2-drop v2-span-full"
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('is-over'); }}
+              onDragLeave={(e) => e.currentTarget.classList.remove('is-over')}
+              onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('is-over'); if (e.dataTransfer.files?.length) void handleUnifiedFiles(e.dataTransfer.files); }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className="v2-drop-icon"><FileSpreadsheet className="w-6 h-6" /></span>
+                <span onClick={(e) => e.stopPropagation()}><InfoButton guideKey="upload" onOpen={setActiveInfoKey} /></span>
+              </div>
+              <h3 className="v2-drop-title">Upload Laporan Excel (Stock Opname &amp; Laba Rugi)</h3>
+              <p className="v2-drop-sub">
+                Satu tempat upload untuk semua jenis file Excel (.xlsx / .xls), baik <strong>Stock Opname Detail Report</strong> maupun <strong>Profit Loss Consolidation</strong>. Aplikasi otomatis mengenali jenis laporan yang Anda pilih.
+              </p>
+              <span className="wizzmie-pink-pill inline-flex items-center gap-2 px-5 py-2.5 text-sm mt-auto self-start">
+                <Upload className="w-4 h-4" /> Pilih atau tarik file Excel ke sini
+              </span>
             </section>
 
             {lastUpload && (
@@ -3048,41 +2993,19 @@ export default function App() {
 }
 
 function EmptyStateCard({
-  onUploadClick,
+  onUploadClick: _onUploadClick,
 }: {
   onUploadClick: () => void;
 }) {
-  const [imgFailed, setImgFailed] = useState(false);
-
   return (
     <MotionSection className="surface-3d rounded-3xl p-6 sm:p-8 lg:p-10">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        <div className="lg:col-span-7 flex flex-col justify-center space-y-5">
-          <div className="space-y-2.5">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white text-balance">
-              <GsapWordTitle text="Pantau Stok Gudang Jadi Lebih Gampang" />
-            </h1>
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-              Silakan buka menu <strong>Pengaturan</strong> untuk mengupload file Excel stok opname harian Anda. Aplikasi langsung menghitung mana barang yang kurang, mana yang lebih, dan membantu mengecek kemungkinan salah hitung dengan bahasa sederhana.
-            </p>
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 rounded-2xl overflow-hidden bg-gradient-to-br from-amber-50 via-white to-sky-50 dark:from-[#1D1712] dark:via-[#221C17] dark:to-[#0E0A08] border border-slate-200 dark:border-[#352E28] shadow-[0_12px_28px_-12px_rgba(149,199,71,0.22)] min-h-[220px]">
-          {!imgFailed ? (
-            <img
-              src={heroInventory3d}
-              alt="Ilustrasi 3D rak penyimpanan stok produksi / operasional dan tablet pemantau"
-              referrerPolicy="no-referrer"
-              onError={() => setImgFailed(true)}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <PackageSearch className="w-14 h-14 opacity-75" />
-            </div>
-          )}
-        </div>
+      <div className="flex flex-col justify-center space-y-3">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white text-balance">
+          <GsapWordTitle text="Pantau Stok Gudang Jadi Lebih Gampang" />
+        </h1>
+        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+          Silakan buka menu <strong>Pengaturan</strong> untuk mengupload file Excel stok opname harian atau laba rugi Anda. Aplikasi langsung menghitung mana barang yang kurang, mana yang lebih, dan membantu mengecek kemungkinan salah hitung dengan bahasa sederhana.
+        </p>
       </div>
     </MotionSection>
   );
@@ -3960,22 +3883,22 @@ function BerandaProfitLossCard({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         {metrics.map((m, idx) => (
           <MotionCard
             key={m.label}
             delay={idx * 0.04}
-            className={`rounded-xl border p-3 space-y-1 ${m.box}`}
+            className={`rounded-xl border p-3.5 sm:p-4 space-y-1.5 ${m.box}`}
           >
             <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">
               {m.label}
             </div>
             <div
-              className={`text-xs sm:text-sm font-black font-mono tabular-nums break-words leading-snug ${m.tone}`}
+              className={`text-sm sm:text-base font-black font-mono tabular-nums tracking-wide break-words leading-relaxed ${m.tone}`}
             >
               {m.value}
             </div>
-            <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium tabular-nums truncate">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium tabular-nums tracking-wide truncate">
               {m.sub}
             </div>
           </MotionCard>

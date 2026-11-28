@@ -372,33 +372,33 @@ export function ProfitLossView({
       </section>
 
       {/* 5 Main Summary KPI Cards (Klik untuk Rincian & Analisa) */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Net Sales */}
         <MotionCardButton
           delay={0}
           onClick={() => toggleKpiSelection('net sales')}
-          className={`col-span-2 lg:col-span-1 rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`sm:col-span-2 lg:col-span-1 rounded-2xl p-4 sm:p-5 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'net sales'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
               : 'border-amber-300/70 dark:border-amber-500/35'
           }`}
         >
           <div>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 Net Sales (Acuan)
               </span>
               <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
-            <div className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
+            <div className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-white mt-2 tabular-nums tracking-wide break-words leading-relaxed">
               {formatRupiah(report.netSales)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'net sales' ? 'Rincian dibuka' : 'Ketuk · Rincian'}
             </span>
-            <span className="font-mono font-extrabold text-amber-700 dark:text-amber-300">
+            <span className="font-mono font-extrabold tracking-wide text-amber-700 dark:text-amber-300">
               100,00%
             </span>
           </div>
@@ -408,28 +408,28 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.04}
           onClick={() => toggleKpiSelection('total cost of goods sold')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 sm:p-5 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total cost of goods sold'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
               : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Total COGS (HPP)
               </span>
               <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
-            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
+            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-2 tabular-nums tracking-wide break-words leading-relaxed">
               {formatSignedRupiah(report.totalCogs)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'total cost of goods sold' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
-            <span className="font-mono font-extrabold text-rose-600 dark:text-rose-400">
+            <span className="font-mono font-extrabold tracking-wide text-rose-600 dark:text-rose-400">
               {formatPercentId(pct(report.totalCogs))}
             </span>
           </div>
@@ -439,28 +439,28 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.08}
           onClick={() => toggleKpiSelection('gross profit')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 sm:p-5 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'gross profit'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
               : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Gross Profit
               </span>
               <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
-            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
+            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-2 tabular-nums tracking-wide break-words leading-relaxed">
               {formatSignedRupiah(report.grossProfit)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'gross profit' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
-            <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+            <span className="font-mono font-extrabold tracking-wide text-emerald-600 dark:text-emerald-400">
               {formatPercentId(pct(report.grossProfit))}
             </span>
           </div>
@@ -470,28 +470,28 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.12}
           onClick={() => toggleKpiSelection('total operational expense')}
-          className={`rounded-2xl p-4 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
+          className={`rounded-2xl p-4 sm:p-5 bg-white dark:bg-[#1D1712] border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:border-amber-400 dark:hover:border-amber-400/70 ${
             selectedKpiDesc === 'total operational expense'
               ? 'border-amber-400 ring-2 ring-amber-400/60'
               : 'border-slate-200 dark:border-[#352E28]'
           }`}
         >
           <div>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Biaya Operasional
               </span>
               <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             </div>
-            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-1 tabular-nums break-words leading-snug">
+            <div className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-white mt-2 tabular-nums tracking-wide break-words leading-relaxed">
               {formatSignedRupiah(report.totalOpex)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#322B26] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               {selectedKpiDesc === 'total operational expense' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
-            <span className="font-mono font-extrabold text-amber-600 dark:text-amber-300">
+            <span className="font-mono font-extrabold tracking-wide text-amber-600 dark:text-amber-300">
               {formatPercentId(pct(report.totalOpex))}
             </span>
           </div>
@@ -501,7 +501,7 @@ export function ProfitLossView({
         <MotionCardButton
           delay={0.16}
           onClick={() => toggleKpiSelection('net profit')}
-          className={`rounded-2xl p-4 border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:brightness-105 ${
+          className={`rounded-2xl p-4 sm:p-5 border shadow-sm flex flex-col justify-between text-left transition-all cursor-pointer hover:brightness-105 ${
             isNetLoss
               ? 'wizzmie-loss-banner text-rose-950 dark:text-rose-100'
               : 'wizzmie-gold-card text-amber-950 dark:text-amber-100'
@@ -510,7 +510,7 @@ export function ProfitLossView({
           }`}
         >
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide opacity-85 flex items-center justify-between gap-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider opacity-85 flex items-center justify-between gap-1.5">
               <span className="flex items-center gap-1">
                 {isNetLoss ? (
                   <TrendingDown className="w-3.5 h-3.5" />
@@ -521,15 +521,15 @@ export function ProfitLossView({
               </span>
               <Info className="w-3.5 h-3.5 shrink-0" />
             </div>
-            <div className="text-sm sm:text-base font-black font-mono mt-1 tabular-nums break-words leading-snug">
+            <div className="text-sm sm:text-base font-black font-mono mt-2 tabular-nums tracking-wide break-words leading-relaxed">
               {formatSignedRupiah(report.netProfit)}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-black/10 dark:border-white/15 flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2.5 border-t border-black/10 dark:border-white/15 flex items-center justify-between text-xs">
             <span className="opacity-80">
               {selectedKpiDesc === 'net profit' ? 'Rincian dibuka' : '÷ Net Sales'}
             </span>
-            <span className="font-mono font-black">
+            <span className="font-mono font-black tracking-wide">
               {formatPercentId(pct(report.netProfit))}
             </span>
           </div>
@@ -676,7 +676,7 @@ export function ProfitLossView({
             Tidak ada baris Description yang cocok dengan filter Anda.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filteredRows.map((row, idx) => {
               const rowKey = `${row.account}-${row.description}-${idx}`;
               const isExpanded = expandedRowKey === rowKey;
@@ -717,9 +717,9 @@ export function ProfitLossView({
                     onClick={() =>
                       setExpandedRowKey(isExpanded ? null : rowKey)
                     }
-                    className="w-full px-3.5 py-3 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                    className="w-full px-4 sm:px-5 py-3.5 sm:py-4 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
                   >
-                    <div className="min-w-0 flex-1 space-y-1">
+                    <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         {(isAnchor || isSummary) && (
                           <span
@@ -749,7 +749,7 @@ export function ProfitLossView({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <div className="flex-1 max-w-xs h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
@@ -770,8 +770,8 @@ export function ProfitLossView({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 tabular-nums">
-                      <div className="sm:text-right">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 shrink-0 tabular-nums tracking-wide">
+                      <div className="sm:text-right space-y-0.5">
                         <div
                           className={`text-xs sm:text-sm font-mono ${
                             isAnchor || isSummary ? 'font-extrabold' : 'font-bold'
@@ -800,9 +800,9 @@ export function ProfitLossView({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <span
-                          className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-mono font-black min-w-[76px] text-right ${
+                          className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-black min-w-[88px] text-right tracking-wide ${
                             isAnchor
                               ? 'bg-amber-400 text-slate-950'
                               : row.percentToNetSales < -0.01
