@@ -1240,7 +1240,7 @@ function PnlAiAnalysisPanel({
               onClick={() => setSelectedProvider('gemini')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
                 selectedProvider === 'gemini'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  ? 'bg-amber-400 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1252,7 +1252,7 @@ function PnlAiAnalysisPanel({
               onClick={() => setSelectedProvider('groq')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
                 selectedProvider === 'groq'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  ? 'bg-amber-400 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1264,7 +1264,7 @@ function PnlAiAnalysisPanel({
               onClick={() => setSelectedProvider('openai')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60 ${
                 selectedProvider === 'openai'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  ? 'bg-amber-400 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >

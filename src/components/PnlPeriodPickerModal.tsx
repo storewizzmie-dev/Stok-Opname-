@@ -237,7 +237,7 @@ export function PnlPeriodPickerModal({
         className="w-full max-w-xl bg-white dark:bg-[#17120E] border border-slate-200 dark:border-[#352E28] rounded-3xl overflow-hidden shadow-2xl max-h-[94vh] flex flex-col"
       >
         {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-[#352E28] bg-gradient-to-r from-[#BE490C]/10 via-amber-500/10 to-transparent dark:from-[#29231D] dark:to-[#17120E] flex items-center justify-between gap-3 shrink-0">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-[#352E28] bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-transparent dark:from-[#29231D] dark:to-[#17120E] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-5 h-5" />
@@ -251,7 +251,7 @@ export function PnlPeriodPickerModal({
                   Pilih Tanggal &amp; Bulan Profit Loss
                 </h2>
                 {queueTotal > 1 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-400 text-slate-950 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-400 text-white shrink-0">
                     File {queueIndex + 1}/{queueTotal}
                   </span>
                 )}
@@ -443,7 +443,7 @@ export function PnlPeriodPickerModal({
                     {formatDateId(periodStartIso)}
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-400 text-slate-950">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-400 text-white">
                   1 Hari Penuh
                 </span>
               </div>
@@ -524,11 +524,11 @@ export function PnlPeriodPickerModal({
                       }}
                       className={`relative h-10 rounded-xl flex flex-col items-center justify-center text-xs font-bold tabular-nums transition-all cursor-pointer ${
                         isStart && isEnd
-                          ? 'bg-amber-400 text-slate-950 font-bold ring-1 ring-amber-300 z-10'
+                          ? 'bg-amber-400 text-white font-bold ring-1 ring-amber-300 z-10'
                           : isStart
-                          ? 'bg-amber-400 text-slate-950 font-black shadow-md ring-2 ring-amber-300 z-10'
+                          ? 'bg-amber-400 text-white font-black shadow-md ring-2 ring-amber-300 z-10'
                           : isEnd
-                          ? 'bg-cyan-400 text-slate-950 font-black shadow-md ring-2 ring-cyan-300 z-10'
+                          ? 'bg-purple-600 text-white font-black shadow-md ring-2 ring-purple-300 z-10'
                           : isBetween
                           ? 'bg-amber-400/25 dark:bg-cyan-400/25 text-slate-900 dark:text-white border border-amber-400/40'
                           : existingLabel

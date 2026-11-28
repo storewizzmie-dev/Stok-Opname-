@@ -502,15 +502,15 @@ export function GlobalAiChatWidget({
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-label="Buka Chat Asisten AI"
-          className="group relative flex items-center gap-2.5 pl-3.5 pr-4 py-3 rounded-full bg-amber-400 text-slate-950 font-extrabold shadow-[0_10px_28px_-6px_rgba(149,199,71,0.65),0_4px_0_0_#B45309] hover:brightness-105 active:translate-y-0.5 transition-all cursor-pointer border-2 border-amber-200/90"
+          className="group relative flex items-center gap-2.5 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold shadow-[0_10px_24px_-6px_rgba(219,39,119,0.55)] hover:brightness-105 active:translate-y-0.5 transition-all cursor-pointer border border-pink-400/50"
         >
           {/* Pulse Online Dot */}
           <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-slate-950" />
+            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white" />
           </span>
 
-          <div className="w-8 h-8 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shadow-inner shrink-0">
+          <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center shadow-inner shrink-0">
             {isOpen ? (
               <X className="w-4 h-4 stroke-[2.5]" />
             ) : (
@@ -519,11 +519,11 @@ export function GlobalAiChatWidget({
           </div>
 
           <div className="text-left leading-tight">
-            <div className="flex items-center gap-1 text-xs sm:text-sm font-black tracking-tight text-slate-950">
+            <div className="flex items-center gap-1 text-xs sm:text-sm font-black tracking-tight text-white">
               <span>Tanya AI</span>
-              <Sparkles className="w-3.5 h-3.5 text-slate-900 shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-white shrink-0" />
             </div>
-            <div className="text-[10px] font-bold text-slate-900/80 hidden sm:block">
+            <div className="text-[10px] font-bold text-white/85 hidden sm:block">
               Semua Menu &amp; Fitur
             </div>
           </div>
@@ -544,12 +544,12 @@ export function GlobalAiChatWidget({
           }`}
         >
           {/* Premium Pop-up Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-[#16110D] via-[#231C17] to-[#2B241F] text-white border-b border-[#3B332E] shrink-0">
+          <div className="px-4 py-3 bg-gradient-to-r from-pink-600 via-fuchsia-600 to-purple-700 text-white border-b border-pink-500/30 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative w-9 h-9 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-md shrink-0">
+                <div className="relative w-9 h-9 rounded-2xl bg-white/20 text-white flex items-center justify-center shadow-md shrink-0">
                   <Bot className="w-5 h-5 stroke-[2.2]" />
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#16110D]" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-pink-600" />
                 </div>
                 <h3 className="text-sm sm:text-base font-black tracking-tight text-white truncate">
                   Asisten AI Pintar
@@ -558,7 +558,7 @@ export function GlobalAiChatWidget({
 
               <div className="flex items-center gap-1.5 shrink-0">
                 {/* Pilihan Engine AI: Otomatis / Gemini / Groq / OpenAI */}
-                <div className="inline-flex items-center rounded-lg bg-[#0E0B08] p-0.5 border border-white/10 shrink-0">
+                <div className="inline-flex items-center rounded-lg bg-black/25 p-0.5 border border-white/15 shrink-0">
                   {(
                     [
                       { id: 'auto', label: 'Auto' },
@@ -573,8 +573,8 @@ export function GlobalAiChatWidget({
                       onClick={() => setProviderChoice(opt.id)}
                       className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold transition-colors cursor-pointer ${
                         providerChoice === opt.id
-                          ? 'bg-amber-400 text-slate-950'
-                          : 'text-slate-300 hover:text-white'
+                          ? 'bg-white text-pink-700'
+                          : 'text-white/80 hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -633,7 +633,7 @@ export function GlobalAiChatWidget({
                   <div
                     className={`max-w-[90%] rounded-2xl px-3.5 py-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
                       isUser
-                        ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-semibold rounded-br-xs'
+                        ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white font-semibold rounded-br-xs'
                         : msg.isError
                         ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 rounded-bl-xs'
                         : 'bg-white dark:bg-[#1B1511] border border-slate-200/90 dark:border-[#352E28] text-slate-800 dark:text-slate-100 rounded-bl-xs'

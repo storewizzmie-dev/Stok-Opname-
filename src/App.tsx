@@ -3820,7 +3820,7 @@ function SelisihFormulaModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm transition-colors shadow-sm cursor-pointer"
+            className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-extrabold text-xs sm:text-sm transition-colors shadow-sm cursor-pointer"
           >
             Tutup Rincian Rumus
           </button>
@@ -3953,7 +3953,7 @@ function BerandaProfitLossCard({
         <button
           type="button"
           onClick={() => onOpenProfitLoss(report.id)}
-          className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px] cursor-pointer"
+          className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all min-h-[38px] cursor-pointer"
         >
           <span>Buka Detail Laba Rugi</span>
           <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
