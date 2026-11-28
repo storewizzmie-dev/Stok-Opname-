@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
-  CalendarDays,
   CalendarRange,
   Check,
   ChevronLeft,
@@ -16,9 +15,9 @@ import {
   formatPnlPeriodRange,
   formatSignedRupiah,
 } from '../lib/profitLoss';
-import { formatDateId, formatMonthId } from '../lib/stockOpname';
+import { formatDateId, formatDateRangeLabel } from '../lib/stockOpname';
 
-const WEEKDAYS_ID = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const SHORT_DOW_ID = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 const MONTHS_ID = [
   { num: '01', name: 'Januari', short: 'Jan' },
@@ -71,18 +70,16 @@ export function PnlPeriodPickerModal({
     return '2026-11';
   }, [item, defaultMonthKey]);
 
-  const [selectedYear, setSelectedYear] = useState<number>(() =>
-    Number(initialMonthKey.slice(0, 4)) || 2026
+  const [selectedYear, setSelectedYear] = useState<number>(
+    () => Number(initialMonthKey.slice(0, 4)) || 2026
   );
-  const [selectedMonthNum, setSelectedMonthNum] = useState<string>(() =>
-    initialMonthKey.slice(5, 7) || '11'
+  const [selectedMonthNum, setSelectedMonthNum] = useState<string>(
+    () => initialMonthKey.slice(5, 7) || '11'
   );
-  const [mode, setMode] = useState<'range' | 'single'>('range');
   const [startDay, setStartDay] = useState<number>(1);
   const [endDay, setEndDay] = useState<number>(16);
-  const [activeSlot, setActiveSlot] = useState<'start' | 'end'>('start');
+  const [selectionPhase, setSelectionPhase] = useState<'complete' | 'awaitingSecond'>('complete');
 
-  // Dragging across the calendar grid
   const dragAnchorDayRef = useRef<number | null>(null);
   const isDraggingRef = useRef<boolean>(false);
   const hasDraggedRef = useRef<boolean>(false);
@@ -92,14 +89,12 @@ export function PnlPeriodPickerModal({
     return new Date(selectedYear, Number(selectedMonthNum), 0).getDate() || 30;
   }, [selectedYear, selectedMonthNum]);
 
-  // Existing periods already saved in this month
   const existingReportsInMonth = useMemo(() => {
     return Object.values(existingPnlData)
       .filter((r) => r.monthKey === monthKey)
       .sort((a, b) => a.periodStart.localeCompare(b.periodStart));
   }, [existingPnlData, monthKey]);
 
-  // Set of day numbers (1..31) already covered by existing reports in this month
   const coveredDaysMap = useMemo(() => {
     const map = new Map<number, string>();
     for (const rep of existingReportsInMonth) {
@@ -113,7 +108,6 @@ export function PnlPeriodPickerModal({
     return map;
   }, [existingReportsInMonth]);
 
-  // Reset intelligent default period whenever a new pending file opens
   useEffect(() => {
     if (!item) return;
     const yr = Number(initialMonthKey.slice(0, 4)) || 2026;
@@ -128,15 +122,13 @@ export function PnlPeriodPickerModal({
       .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
 
     if (reportsInMo.length > 0) {
-      // Find highest day already saved in that month and suggest the next available day
       const maxExistingEnd = Math.max(
         ...reportsInMo.map((r) => Number(r.periodEnd.slice(8, 10)) || 1)
       );
       const nextSuggestedDay = Math.min(totalDays, maxExistingEnd + 1);
       setStartDay(nextSuggestedDay);
       setEndDay(nextSuggestedDay);
-      setMode('single');
-      setActiveSlot('start');
+      setSelectionPhase('complete');
     } else {
       const fileStartDay = Number(item.report.periodStart.slice(8, 10)) || 1;
       const fileEndDay = Number(item.report.periodEnd.slice(8, 10)) || 16;
@@ -144,12 +136,10 @@ export function PnlPeriodPickerModal({
       const clampedEnd = Math.max(clampedStart, Math.min(totalDays, fileEndDay));
       setStartDay(clampedStart);
       setEndDay(clampedEnd);
-      setMode(clampedStart === clampedEnd ? 'single' : 'range');
-      setActiveSlot('start');
+      setSelectionPhase('complete');
     }
   }, [item, initialMonthKey, existingPnlData]);
 
-  // Clamp days if user changes month (e.g. to Feb with 28 days)
   useEffect(() => {
     setStartDay((prev) => Math.min(prev, daysInMonth));
     setEndDay((prev) => Math.min(prev, daysInMonth));
@@ -159,6 +149,9 @@ export function PnlPeriodPickerModal({
     if (!item) return;
     const finishDrag = () => {
       if (!isDraggingRef.current) return;
+      if (hasDraggedRef.current) {
+        setSelectionPhase('complete');
+      }
       isDraggingRef.current = false;
       hasDraggedRef.current = false;
       dragAnchorDayRef.current = null;
@@ -174,13 +167,12 @@ export function PnlPeriodPickerModal({
   if (!item) return null;
 
   const normStartDay = Math.min(startDay, endDay);
-  const normEndDay = mode === 'single' ? normStartDay : Math.max(startDay, endDay);
+  const normEndDay = Math.max(startDay, endDay);
   const periodStartIso = `${monthKey}-${String(normStartDay).padStart(2, '0')}`;
   const periodEndIso = `${monthKey}-${String(normEndDay).padStart(2, '0')}`;
   const totalSelectedDays = normEndDay - normStartDay + 1;
-  const dailyNetSales = item.report.netSales / Math.max(1, totalSelectedDays);
+  const isSingleDay = normStartDay === normEndDay;
 
-  // Check if any selected day overlaps with an existing report in the same month (unless identical ID)
   const overlappingLabels = (() => {
     const labels = new Set<string>();
     for (let d = normStartDay; d <= normEndDay; d++) {
@@ -190,128 +182,119 @@ export function PnlPeriodPickerModal({
     return Array.from(labels);
   })();
 
-  const calendarCells = (() => {
-    const firstWeekdaySun0 = new Date(
-      selectedYear,
-      Number(selectedMonthNum) - 1,
-      1
-    ).getDay();
-    const leadingBlanks = (firstWeekdaySun0 + 6) % 7;
-    const cells: (number | null)[] = [];
-    for (let i = 0; i < leadingBlanks; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-    return cells;
-  })();
-
-  const handleDayClick = (day: number) => {
-    if (mode === 'single') {
+  const handleTileTap = (day: number) => {
+    if (selectionPhase === 'complete') {
       setStartDay(day);
       setEndDay(day);
-      return;
-    }
-    if (activeSlot === 'start') {
-      setStartDay(day);
-      if (day > endDay) setEndDay(day);
-      setActiveSlot('end');
+      setSelectionPhase('awaitingSecond');
     } else {
-      if (day < startDay) {
-        setEndDay(startDay);
+      if (day === startDay) {
         setStartDay(day);
-      } else {
         setEndDay(day);
+      } else {
+        setStartDay(Math.min(startDay, day));
+        setEndDay(Math.max(startDay, day));
       }
-      setActiveSlot('start');
+      setSelectionPhase('complete');
     }
   };
+
+  const quickPresets = [
+    { id: 'full-month', label: '1 Bulan Penuh', start: 1, end: daysInMonth },
+    { id: 'first-half', label: 'Tgl 1–15', start: 1, end: Math.min(15, daysInMonth) },
+    { id: 'second-half', label: `Tgl 16–${daysInMonth}`, start: Math.min(16, daysInMonth), end: daysInMonth },
+  ];
+
+  const daysArray = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dowIdx = new Date(selectedYear, Number(selectedMonthNum) - 1, day).getDay();
+    return {
+      day,
+      dow: SHORT_DOW_ID[dowIdx],
+      isWeekend: dowIdx === 0 || dowIdx === 6,
+    };
+  });
+
+  const trackLeftPct = ((normStartDay - 1) / Math.max(1, daysInMonth - 1)) * 100;
+  const trackWidthPct =
+    ((normEndDay - normStartDay) / Math.max(1, daysInMonth - 1)) * 100;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="pnl-period-modal-title"
+      aria-label="Pilih Periode Laba Rugi"
       data-lenis-prevent
-      className="s3-modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs"
+      className="s3-modal fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-md"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl bg-white dark:bg-[#17120E] border border-slate-200 dark:border-[#352E28] rounded-3xl overflow-hidden shadow-2xl max-h-[94vh] flex flex-col"
+        className="w-full max-w-[420px] bg-white dark:bg-[#141018] border border-pink-200/80 dark:border-pink-500/25 rounded-3xl overflow-hidden shadow-[0_24px_60px_-15px_rgba(219,39,119,0.28)] flex flex-col"
       >
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-[#352E28] bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-transparent dark:from-[#29231D] dark:to-[#17120E] flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="w-5 h-5" />
+        {/* Top Glowing Live Capsule Header */}
+        <div className="px-4 py-3 bg-gradient-to-r from-pink-600 via-fuchsia-600 to-purple-600 text-white flex items-center justify-between gap-2">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2
-                  id="pnl-period-modal-title"
-                  className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white truncate"
-                >
-                  Pilih Tanggal &amp; Bulan Profit Loss
-                </h2>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm sm:text-base font-extrabold tracking-tight truncate">
+                  {isSingleDay
+                    ? formatDateId(periodStartIso)
+                    : formatDateRangeLabel(periodStartIso, periodEndIso)}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-white/20 text-white shrink-0">
+                  {isSingleDay ? '1 Hari' : `${totalSelectedDays} Hari`}
+                </span>
                 {queueTotal > 1 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-400 text-white shrink-0">
-                    File {queueIndex + 1}/{queueTotal}
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-white text-pink-600 shrink-0">
+                    {queueIndex + 1}/{queueTotal}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
-                File: <strong>{item.fileName}</strong> · Net Sales:{' '}
-                <strong className="text-emerald-700 dark:text-emerald-300 font-mono">
-                  {formatSignedRupiah(item.report.netSales)}
-                </strong>
-              </p>
+              <div className="text-[10px] text-pink-100 font-medium truncate">
+                {item.fileName} · Net Sales {formatSignedRupiah(item.report.netSales)}
+              </div>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Batal upload file ini"
-            className="btn-3d-soft p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0 cursor-pointer"
+            aria-label="Batal"
+            className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white shrink-0 cursor-pointer transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div
-          data-lenis-prevent
-          className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm"
-        >
-          {/* Step 1: Pilih Bulan & Tahun */}
-          <div className="rounded-2xl p-3.5 bg-slate-50 dark:bg-[#130E0B] border border-slate-200 dark:border-[#352E28] space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-amber-300">
-                1. Pilih Bulan &amp; Tahun Laporan
+        <div className="p-3.5 space-y-3">
+          {/* Compact Single-Row Year + Month Horizontal Ribbon */}
+          <div className="flex items-center gap-1.5">
+            <div className="inline-flex items-center bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-xl px-1 py-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedYear((y) => y - 1)}
+                className="p-0.5 rounded-lg hover:bg-white dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 cursor-pointer"
+                aria-label="Tahun sebelumnya"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-1.5 font-mono font-extrabold text-[11px] text-slate-800 dark:text-white">
+                {selectedYear}
               </span>
-
-              {/* Year switcher */}
-              <div className="inline-flex items-center gap-1 bg-white dark:bg-[#1B1511] border border-slate-200 dark:border-[#37302A] rounded-xl px-1.5 py-0.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedYear((y) => y - 1)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2A231E] text-slate-700 dark:text-slate-200 cursor-pointer"
-                  aria-label="Tahun sebelumnya"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="px-2 font-mono font-extrabold text-xs text-slate-900 dark:text-white">
-                  {selectedYear}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedYear((y) => y + 1)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2A231E] text-slate-700 dark:text-slate-200 cursor-pointer"
-                  aria-label="Tahun berikutnya"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedYear((y) => y + 1)}
+                className="p-0.5 rounded-lg hover:bg-white dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 cursor-pointer"
+                aria-label="Tahun berikutnya"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+            <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
               {MONTHS_ID.map((m) => {
                 const isSelected = m.num === selectedMonthNum;
                 return (
@@ -319,282 +302,176 @@ export function PnlPeriodPickerModal({
                     key={m.num}
                     type="button"
                     onClick={() => setSelectedMonthNum(m.num)}
-                    className={`py-2 px-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold shrink-0 transition-all cursor-pointer ${
                       isSelected
-                        ? 'btn-3d-primary shadow-xs'
-                        : 'bg-white dark:bg-[#1B1511] border border-slate-200 dark:border-[#37302A] text-slate-700 dark:text-slate-200 hover:border-amber-400'
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs'
+                        : 'bg-slate-100/80 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-800'
                     }`}
                   >
-                    {m.name}
+                    {m.short}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Existing saved periods in this month (so user sees previous uploads like 1-16 Nov) */}
-          {existingReportsInMonth.length > 0 && (
-            <div className="rounded-2xl p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/35 space-y-1.5">
-              <div className="text-[11px] font-extrabold uppercase tracking-wider text-blue-800 dark:text-blue-300">
-                Periode yang Sudah Tersimpan di {formatMonthId(monthKey)}:
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {existingReportsInMonth.map((rep) => (
-                  <span
-                    key={rep.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-[#1D1712] border border-blue-300 dark:border-blue-500/40 text-blue-900 dark:text-blue-200"
-                  >
-                    <CalendarDays className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>{formatPnlPeriodRange(rep)}</span>
-                    <span className="font-mono text-[11px] opacity-80">
-                      ({formatSignedRupiah(rep.netSales)})
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Mode Tanggal (Rentang Tanggal vs 1 Hari) */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-amber-300">
-                2. Tentukan Periode Tanggal ({formatMonthId(monthKey)})
-              </span>
-
-              <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-[#130E0B] border border-slate-200 dark:border-[#352E28]">
+          {/* 1-Tap Smart Presets Strip */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {quickPresets.map((preset) => {
+              const isPresetActive =
+                normStartDay === preset.start && normEndDay === preset.end;
+              return (
                 <button
+                  key={preset.id}
                   type="button"
                   onClick={() => {
-                    setMode('range');
-                    setActiveSlot('start');
+                    setStartDay(preset.start);
+                    setEndDay(preset.end);
+                    setSelectionPhase('complete');
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    mode === 'range'
-                      ? 'btn-3d-primary'
-                      : 'text-slate-600 dark:text-slate-300'
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer border ${
+                    isPresetActive
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white'
+                      : 'bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10 hover:border-pink-400'
                   }`}
                 >
-                  <CalendarRange className="w-3.5 h-3.5" />
-                  <span>Rentang Tanggal (Misal 1–16)</span>
+                  {preset.label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('single');
-                    setEndDay(startDay);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    mode === 'single'
-                      ? 'btn-3d-primary'
-                      : 'text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  <span>1 Tanggal (Misal 18 Nov)</span>
-                </button>
-              </div>
-            </div>
+              );
+            })}
+          </div>
 
-            {/* Start / End Selector Cards */}
-            {mode === 'range' ? (
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setActiveSlot('start')}
-                  className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                    activeSlot === 'start'
-                      ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-500/15 ring-2 ring-amber-400/30'
-                      : 'border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#1B1511]'
-                  }`}
-                >
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                    Dari Tanggal Mulai
-                  </div>
-                  <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
-                    {formatDateId(periodStartIso)}
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSlot('end')}
-                  className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                    activeSlot === 'end'
-                      ? 'border-cyan-400 bg-cyan-50/70 dark:bg-cyan-500/15 ring-2 ring-cyan-400/30'
-                      : 'border-slate-200 dark:border-[#352E28] bg-white dark:bg-[#1B1511]'
-                  }`}
-                >
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
-                    Sampai Tanggal Akhir
-                  </div>
-                  <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
-                    {formatDateId(periodEndIso)}
-                  </div>
-                </button>
-              </div>
-            ) : (
-              <div className="p-3 rounded-2xl border-2 border-amber-400 bg-amber-50/70 dark:bg-amber-500/15 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                    Tanggal Laporan (1 Hari)
-                  </div>
-                  <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
-                    {formatDateId(periodStartIso)}
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-400 text-white">
-                  1 Hari Penuh
-                </span>
-              </div>
-            )}
-
-            {/* Calendar Grid 1..30/31 */}
-            <div className="rounded-2xl p-3.5 bg-slate-50/90 dark:bg-[#130E0B] border border-slate-200 dark:border-[#352E28] space-y-2 select-none">
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                <span>
-                  {mode === 'range'
-                    ? 'Klik atau tarik dari tanggal mulai ke tanggal akhir'
-                    : 'Klik tanggal laporan pada kalender di bawah'}
-                </span>
-                <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
-                  {totalSelectedDays} hari dipilih
-                </span>
-              </div>
-
-              <div className="grid grid-cols-7 gap-1 text-center">
-                {WEEKDAYS_ID.map((w) => (
-                  <div
-                    key={w}
-                    className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 py-1"
-                  >
-                    {w}
-                  </div>
-                ))}
-              </div>
-
+          {/* Interactive Range Timeline Ribbon */}
+          <div className="px-1">
+            <div className="relative h-2 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
               <div
-                onPointerMove={(e) => {
-                  if (
-                    mode !== 'range' ||
-                    !isDraggingRef.current ||
-                    dragAnchorDayRef.current === null
-                  ) {
-                    return;
-                  }
-                  const el = document.elementFromPoint(e.clientX, e.clientY);
-                  const btn = el?.closest('[data-pnl-day]');
-                  const dayAttr = btn?.getAttribute('data-pnl-day');
-                  if (!dayAttr) return;
-                  const targetDay = Number(dayAttr);
-                  if (!targetDay) return;
-                  const anchor = dragAnchorDayRef.current;
-                  if (targetDay !== anchor) {
-                    hasDraggedRef.current = true;
-                  }
-                  if (hasDraggedRef.current) {
-                    setStartDay(Math.min(anchor, targetDay));
-                    setEndDay(Math.max(anchor, targetDay));
-                  }
+                className="absolute top-0 bottom-0 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-600 transition-all duration-150"
+                style={{
+                  left: `${trackLeftPct}%`,
+                  width: `${Math.max(4, trackWidthPct)}%`,
                 }}
-                className="grid grid-cols-7 gap-1.5 touch-none"
-              >
-                {calendarCells.map((day, idx) => {
-                  if (day === null) {
-                    return <div key={`blank-${idx}`} className="h-10" />;
-                  }
-                  const isStart = day === normStartDay;
-                  const isEnd = day === normEndDay;
-                  const isBetween = day > normStartDay && day < normEndDay;
-                  const existingLabel = coveredDaysMap.get(day);
-
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      data-pnl-day={day}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        if (mode === 'range') {
-                          dragAnchorDayRef.current = day;
-                          isDraggingRef.current = true;
-                          hasDraggedRef.current = false;
-                        }
-                        handleDayClick(day);
-                      }}
-                      className={`relative h-10 rounded-xl flex flex-col items-center justify-center text-xs font-bold tabular-nums transition-all cursor-pointer ${
-                        isStart && isEnd
-                          ? 'bg-amber-400 text-white font-bold ring-1 ring-amber-300 z-10'
-                          : isStart
-                          ? 'bg-amber-400 text-white font-black shadow-md ring-2 ring-amber-300 z-10'
-                          : isEnd
-                          ? 'bg-purple-600 text-white font-black shadow-md ring-2 ring-purple-300 z-10'
-                          : isBetween
-                          ? 'bg-amber-400/25 dark:bg-cyan-400/25 text-slate-900 dark:text-white border border-amber-400/40'
-                          : existingLabel
-                          ? 'bg-blue-100/70 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-300/60 dark:border-blue-500/35'
-                          : 'bg-white dark:bg-[#1B1511] text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-[#2A231E]'
-                      }`}
-                      title={
-                        existingLabel
-                          ? `Sudah ada data periode ${existingLabel}`
-                          : undefined
-                      }
-                    >
-                      <span className="leading-none">{day}</span>
-                      {existingLabel && !isStart && !isEnd && !isBetween && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-0.5" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 dark:text-slate-500 mt-1">
+              <span>
+                {selectionPhase === 'awaitingSecond'
+                  ? 'Ketuk tanggal kedua untuk rentang, atau langsung Simpan'
+                  : 'Ketuk 1× = 1 hari · Ketuk 2 tanggal / geser = rentang'}
+              </span>
+              <span className="font-mono text-pink-600 dark:text-pink-400 font-bold">
+                {normStartDay === normEndDay
+                  ? `Tgl ${normStartDay}`
+                  : `Tgl ${normStartDay}–${normEndDay}`}
+              </span>
             </div>
           </div>
 
-          {/* Warning if overlapping with an already saved period */}
+          {/* Unique 6-Column Tactile Number Matrix */}
+          <div
+            onPointerMove={(e) => {
+              if (!isDraggingRef.current || dragAnchorDayRef.current === null) {
+                return;
+              }
+              const el = document.elementFromPoint(e.clientX, e.clientY);
+              const btn = el?.closest('[data-pnl-matrix-day]');
+              const dayAttr = btn?.getAttribute('data-pnl-matrix-day');
+              if (!dayAttr) return;
+              const targetDay = Number(dayAttr);
+              if (!targetDay) return;
+              const anchor = dragAnchorDayRef.current;
+              if (targetDay !== anchor) {
+                hasDraggedRef.current = true;
+              }
+              if (hasDraggedRef.current) {
+                setStartDay(Math.min(anchor, targetDay));
+                setEndDay(Math.max(anchor, targetDay));
+              }
+            }}
+            className="grid grid-cols-6 gap-1.5 select-none touch-none"
+          >
+            {daysArray.map(({ day, dow, isWeekend }) => {
+              const isStart = day === normStartDay;
+              const isEnd = day === normEndDay;
+              const isBetween = day > normStartDay && day < normEndDay;
+              const existingLabel = coveredDaysMap.get(day);
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  data-pnl-matrix-day={day}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    dragAnchorDayRef.current = day;
+                    isDraggingRef.current = true;
+                    hasDraggedRef.current = false;
+                    handleTileTap(day);
+                  }}
+                  className={`relative h-11 rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer border ${
+                    isStart || isEnd
+                      ? 'bg-gradient-to-br from-pink-500 via-fuchsia-500 to-purple-600 text-white border-pink-400 shadow-[0_6px_16px_-4px_rgba(236,72,153,0.65)] scale-[1.03] z-10'
+                      : isBetween
+                      ? 'bg-gradient-to-r from-pink-500/15 to-purple-500/15 dark:from-pink-500/25 dark:to-purple-500/25 text-pink-700 dark:text-pink-200 border-pink-300/70 dark:border-pink-500/40'
+                      : existingLabel
+                      ? 'bg-pink-50/70 dark:bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-500/30'
+                      : 'bg-white dark:bg-white/[0.04] text-slate-800 dark:text-slate-100 border-slate-200/70 dark:border-white/10 hover:border-pink-400'
+                  }`}
+                >
+                  <span
+                    className={`text-[8px] font-bold uppercase tracking-wider leading-none ${
+                      isStart || isEnd
+                        ? 'text-pink-100'
+                        : isBetween
+                        ? 'text-pink-600/80 dark:text-pink-300/80'
+                        : isWeekend
+                        ? 'text-rose-400 dark:text-rose-400/80'
+                        : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    {dow}
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-mono font-extrabold tabular-nums leading-tight mt-0.5">
+                    {day}
+                  </span>
+                  {existingLabel && (
+                    <span
+                      className={`w-1 h-1 rounded-full mt-0.5 ${
+                        isStart || isEnd ? 'bg-white' : 'bg-pink-500'
+                      }`}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           {overlappingLabels.length > 0 && (
-            <div className="rounded-2xl p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/40 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <strong>Perhatian:</strong> Tanggal yang dipilih beririsan dengan periode yang sudah tersimpan (
-                <strong>{overlappingLabels.join(', ')}</strong>). Jika ini adalah upload kedua di bulan yang sama (misal tanggal <strong>18 {formatMonthId(monthKey)}</strong>), pilih tanggal yang belum terpakai agar tidak bertumpuk.
-              </div>
+            <div className="rounded-xl px-3 py-2 bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/30 flex items-center gap-2 text-[11px] text-pink-800 dark:text-pink-200">
+              <AlertCircle className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+              <span className="truncate">
+                Beririsan dengan periode tersimpan: <strong>{overlappingLabels.join(', ')}</strong>
+              </span>
             </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 dark:border-[#352E28] bg-slate-50/90 dark:bg-[#130E0B] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="space-y-0.5">
-            <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
-              Periode:{' '}
-              {periodStartIso === periodEndIso
-                ? formatDateId(periodStartIso)
-                : `${normStartDay}–${formatDateId(periodEndIso)}`}{' '}
-              ({totalSelectedDays} hari)
-            </div>
-            <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400">
-              Net Sales/Hari di Grafik Beranda:{' '}
-              <strong>{formatSignedRupiah(dailyNetSales)}/hari</strong>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
+          {/* Bottom Compact Action Bar */}
+          <div className="pt-1 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onCancel}
-              className="btn-3d-soft px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-200 min-h-[40px] cursor-pointer"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 cursor-pointer"
             >
               Batal
             </button>
             <button
               type="button"
               onClick={() => onConfirm(periodStartIso, periodEndIso)}
-              className="btn-3d-primary px-5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-1.5 min-h-[40px] cursor-pointer"
+              className="wizzmie-pink-pill px-4 py-2 rounded-xl text-xs font-extrabold text-white inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>Simpan Periode Ini</span>
+              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>
+                Simpan ({isSingleDay ? '1 Hari' : `${totalSelectedDays} Hari`})
+              </span>
             </button>
           </div>
         </div>

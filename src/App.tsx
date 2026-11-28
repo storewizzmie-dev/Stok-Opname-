@@ -53,7 +53,6 @@ import {
 } from './components/BerandaDetailModal';
 import { DateRangePicker } from './components/DateRangePicker';
 import { HarianV2, BarangV2 } from './components/v2/StockViews';
-import { GlobalAiChatWidget } from './components/GlobalAiChatWidget';
 import { InfoButton, InfoDialog, InfoGuideKey } from './components/InfoGuide';
 import { ProfitLossView } from './components/ProfitLossView';
 import {
@@ -2032,349 +2031,76 @@ export default function App() {
 
                   return (
                     <div className="space-y-4">
-                      {/* V2 BERANDA HERO */}
+                      {/* V2 BERANDA HERO & 4 COMPACT KPI CARDS */}
                       {(() => {
                         const acc = summary.totalRowsCount ? Math.round((summary.totalPasRowsCount / summary.totalRowsCount) * 100) : 0;
-                        const lastPnl = pnlReportList[pnlReportList.length - 1];
-                        const worst = worstDay;
-                        const topItem = summary.topDeficits[0];
                         const sign = (v: number) => (v < -0.5 ? '−' : v > 0.5 ? '+' : '');
                         return (
                           <>
                             <section className="v2-hero">
                               <div className="v2-hero-glow" />
-                              <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                              <div className="relative flex items-center justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="v2-eyebrow">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`v2-hero-num ${summary.netTotal < -0.5 ? 'v2-t-neg' : 'v2-t-pos'}`}>
+                                      {sign(summary.netTotal)}{formatCompactRupiah(Math.abs(summary.netTotal))}
+                                    </div>
                                     <InfoButton guideKey="overview" onOpen={setActiveInfoKey} />
                                   </div>
-                                  <div className={`v2-hero-num ${summary.netTotal < -0.5 ? 'v2-t-neg' : 'v2-t-pos'}`}>
-                                    {sign(summary.netTotal)}{formatCompactRupiah(Math.abs(summary.netTotal))}
-                                  </div>
-                                  <p className="v2-hero-sub">
+                                  <p className="v2-hero-sub truncate">
                                     Selisih stok bersih ·{' '}
                                     {viewScope === 'day' ? formatDateId(activeDay) : formatDateRangeFullLabel(activeRange.start, activeRange.end)}
                                   </p>
                                 </div>
-                                <div className="v2-controls">
-                                  <div className="v2-seg">
-                                    {(['range', 'day'] as ViewScope[]).map((sc) => (
-                                      <button key={sc} type="button" className={viewScope === sc ? 'is-on' : ''} onClick={() => { setViewScope(sc); if (sc === 'day') setIsRangePickerOpen(false); }}>
-                                        {sc === 'range' ? 'Rentang' : '1 Hari'}
-                                      </button>
-                                    ))}
-                                  </div>
+                                <div className="v2-controls shrink-0">
                                   <button type="button" className="v2-ghost" onClick={() => setIsRangePickerOpen(true)}>
-                                    <CalendarRange className="w-4 h-4" /> Ubah Tanggal
+                                    <CalendarRange className="w-3.5 h-3.5" /> Ubah Tanggal
                                   </button>
                                 </div>
                               </div>
                             </section>
 
                             <div className="v2-kpis">
-                              <button type="button" className="v2-kpi v2-neg text-left" onClick={() => setBerandaModal('neg')}>
-                                <div className="v2-kpi-icon"><TrendingDown /></div>
-                                <div className="v2-kpi-label">Kekurangan Stok</div>
+                              <button type="button" className="v2-kpi v2-neg text-left cursor-pointer" onClick={() => setBerandaModal('neg')}>
+                                <div className="v2-kpi-head">
+                                  <div className="v2-kpi-icon"><TrendingDown /></div>
+                                  <div className="v2-kpi-label">Kekurangan Stok</div>
+                                </div>
                                 <div className="v2-kpi-value">−{formatCompactRupiah(Math.abs(summary.totalNeg))}</div>
                                 <div className="v2-kpi-sub">{summary.negProductCount} barang · ketuk detail</div>
                               </button>
-                              <button type="button" className="v2-kpi v2-pos text-left" onClick={() => setBerandaModal('pos')}>
-                                <div className="v2-kpi-icon"><TrendingUp /></div>
-                                <div className="v2-kpi-label">Kelebihan Stok</div>
+                              <button type="button" className="v2-kpi v2-pos text-left cursor-pointer" onClick={() => setBerandaModal('pos')}>
+                                <div className="v2-kpi-head">
+                                  <div className="v2-kpi-icon"><TrendingUp /></div>
+                                  <div className="v2-kpi-label">Kelebihan Stok</div>
+                                </div>
                                 <div className="v2-kpi-value">+{formatCompactRupiah(summary.totalPos)}</div>
                                 <div className="v2-kpi-sub">{summary.posProductCount} barang · ketuk detail</div>
                               </button>
-                              <button type="button" className="v2-kpi v2-ok text-left" onClick={() => setBerandaModal('net')}>
-                                <div className="v2-kpi-icon"><Scale /></div>
-                                <div className="v2-kpi-label">Hasil Gabungan</div>
+                              <button type="button" className="v2-kpi v2-ok text-left cursor-pointer" onClick={() => setBerandaModal('net')}>
+                                <div className="v2-kpi-head">
+                                  <div className="v2-kpi-icon"><Scale /></div>
+                                  <div className="v2-kpi-label">Hasil Gabungan</div>
+                                </div>
                                 <div className="v2-kpi-value">{sign(summary.netTotal)}{formatCompactRupiah(Math.abs(summary.netTotal))}</div>
-                                <div className="v2-kpi-sub">minus + lebih · ketuk detail</div>
+                                <div className="v2-kpi-sub">minus + lebih · detail</div>
                               </button>
-                              <button type="button" className="v2-kpi v2-acc text-left" onClick={() => { setActiveKeperluanPageId(null); setActiveTab('barang'); }}>
-                                <div className="v2-kpi-icon"><Check /></div>
-                                <div className="v2-kpi-label">Akurasi Stok Pas</div>
+                              <button type="button" className="v2-kpi v2-acc text-left cursor-pointer" onClick={() => { setActiveKeperluanPageId(null); setActiveTab('barang'); }}>
+                                <div className="v2-kpi-head">
+                                  <div className="v2-kpi-icon"><Check /></div>
+                                  <div className="v2-kpi-label">Akurasi Stok Pas</div>
+                                </div>
                                 <div className="v2-kpi-value">{acc}%</div>
-                                <div className="v2-kpi-sub">{summary.pasProductCount} barang pas · buka Cek Barang</div>
-                              </button>
-                            </div>
-
-                            <div className="v2-attn">
-                              <button type="button" className="v2-attn-card" onClick={() => { if (worst) { setSelectedDay(worst.date); setViewScope('day'); setActiveTab('harian'); } }}>
-                                <span className="v2-attn-tag v2-t-neg">Hari terburuk</span>
-                                <b>{worst ? formatDateId(worst.date) : '—'}</b>
-                                <small>{worst ? `−${formatCompactRupiah(Math.abs(worst.negVal))} kekurangan` : 'Belum ada data'}</small>
-                              </button>
-                              <button type="button" className="v2-attn-card" onClick={() => { if (topItem) { setSelectedProduct(topItem.name); setActiveTab('barang'); } }}>
-                                <span className="v2-attn-tag v2-t-neg">Minus terbesar</span>
-                                <b className="truncate">{topItem ? topItem.name : 'Tidak ada'}</b>
-                                <small>{topItem ? `−${formatCompactRupiah(Math.abs(topItem.netVal))} · ${topItem.negDays} hari` : 'Semua aman'}</small>
-                              </button>
-                              <button type="button" className="v2-attn-card" onClick={() => setActiveTab(lastPnl ? 'labarugi' : 'pengaturan')}>
-                                <span className="v2-attn-tag" style={{ color: 'var(--ember)' }}>Laba bersih</span>
-                                <b>{lastPnl ? `${lastPnl.netProfit < 0 ? '−' : ''}${formatCompactRupiah(Math.abs(lastPnl.netProfit))}` : 'Belum upload'}</b>
-                                <small>{lastPnl ? formatPnlPeriodRange(lastPnl) : 'Upload laporan Laba Rugi'}</small>
+                                <div className="v2-kpi-sub">{summary.pasProductCount} barang pas</div>
                               </button>
                             </div>
                           </>
                         );
                       })()}
 
-                      {/* ROW 2: KURANG VS LEBIH HARIAN (7 cols, Jelas & Mudah Dipahami) + RINCIAN PER KEPERLUAN (5 cols, Horizontal Bars + Indikasi) */}
-                      <section className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-                        {/* Left (7 cols): KURANG VS LEBIH HARIAN — Diverging Atas (Hijau Lebih) & Bawah (Merah Kurang) + Kotak Info Tanggal */}
-                        <MotionSection className="lg:col-span-7 rounded-2xl bg-white dark:bg-[#18130F] border border-[#F8C8B6] dark:border-[#3E3731] p-4 sm:p-5 flex flex-col justify-between gap-3.5 shadow-xs">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.14em] text-[#BE490C] dark:text-[#ACE25B]">
-                                  GRAFIK KURANG VS LEBIH HARIAN
-                                </h2>
-                                <InfoButton
-                                  guideKey="dailyChart"
-                                  onOpen={setActiveInfoKey}
-                                />
-                              </div>
-                              <p className="text-[11px] text-[#924D32] dark:text-[#BEB6AC] mt-0.5">
-                                Batang <strong className="text-emerald-600 dark:text-emerald-400">Hijau ke atas = Stok Lebih (+)</strong> · Batang <strong className="text-rose-600 dark:text-rose-400">Merah ke bawah = Stok Kurang (−)</strong>. Ketuk tanggal untuk lihat angkanya.
-                              </p>
-                            </div>
-
-                            <div className="inline-flex items-center gap-3 text-[11px] font-bold">
-                              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                                <span className="w-3 h-3 rounded-xs bg-emerald-500" />
-                                <span>Lebih (+)</span>
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-                                <span className="w-3 h-3 rounded-xs bg-rose-500" />
-                                <span>Kurang (−)</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Kotak Rincian Tanggal yang Dipilih */}
-                          {selectedDailyBar && (
-                            <div className="rounded-xl bg-[#FCF8F3] dark:bg-[#1F1914] border border-[#F8C8B6] dark:border-[#3E3731] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                              <div className="flex items-center justify-between sm:justify-start gap-2.5">
-                                <div className="px-2.5 py-1 rounded-lg bg-[#D65106] dark:bg-amber-400 text-white dark:text-slate-950 font-extrabold text-xs">
-                                  {formatDateId(selectedDailyBar.date)}
-                                </div>
-                                <span className="text-xs font-semibold text-[#814730] dark:text-[#BEB6AC]">
-                                  {selectedDailyBar.diffCount} barang selisih ·{' '}
-                                  {selectedDailyBar.pasCount} barang pas
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs font-mono tabular-nums tracking-wide">
-                                <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 font-bold text-emerald-700 dark:text-emerald-300">
-                                  Lebih: +{formatRupiah(selectedDailyBar.posVal)}
-                                </span>
-                                <span className="px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 font-bold text-rose-700 dark:text-rose-300">
-                                  Kurang: -{formatRupiah(selectedDailyBar.negVal)}
-                                </span>
-                                <span
-                                  className={`px-3 py-1.5 rounded-lg border font-extrabold ${
-                                    selectedDailyBar.negVal +
-                                      selectedDailyBar.posVal <
-                                    -0.5
-                                      ? 'bg-rose-100/80 dark:bg-rose-500/20 border-rose-300 dark:border-rose-500/40 text-rose-800 dark:text-rose-200'
-                                      : 'bg-emerald-100/80 dark:bg-emerald-500/20 border-emerald-300 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200'
-                                  }`}
-                                >
-                                  Hasil:{' '}
-                                  {selectedDailyBar.negVal +
-                                    selectedDailyBar.posVal <
-                                  -0.5
-                                    ? `-${formatRupiah(selectedDailyBar.negVal + selectedDailyBar.posVal)}`
-                                    : `+${formatRupiah(selectedDailyBar.negVal + selectedDailyBar.posVal)}`}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleOpenDayInHarian(selectedDailyBar.date)
-                                  }
-                                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2D2620] border border-[#F8C8B6] dark:border-amber-400/40 font-sans font-extrabold text-[#BE490C] dark:text-[#ACE25B] hover:underline cursor-pointer"
-                                >
-                                  Buka Barang →
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Diverging Up/Down Bar Chart Area */}
-                          <div className="flex gap-3 items-stretch">
-                            {/* Left Y-Axis Labels */}
-                            <div className="flex flex-col justify-between py-1 text-[10px] font-mono font-bold tabular-nums tracking-wide select-none shrink-0 text-right pr-1.5">
-                              <span className="text-emerald-600 dark:text-emerald-400">
-                                +{formatCompactRupiah(maxDailySideVal)}
-                              </span>
-                              <span className="text-[#924D32] dark:text-[#BEB6AC]">
-                                Rp 0
-                              </span>
-                              <span className="text-rose-600 dark:text-rose-400">
-                                -{formatCompactRupiah(maxDailySideVal)}
-                              </span>
-                            </div>
-
-                            {/* Scrollable Columns */}
-                            <div className="flex-1 overflow-x-auto pb-1.5">
-                              <div
-                                className="flex items-stretch justify-between gap-2.5 px-2"
-                                style={{
-                                  minWidth: `${Math.max(340, chartDays.length * 44)}px`,
-                                }}
-                              >
-                                {chartDays.map((day) => {
-                                  const posRatio =
-                                    Math.abs(day.posVal) / maxDailySideVal;
-                                  const negRatio =
-                                    Math.abs(day.negVal) / maxDailySideVal;
-                                  const posPx =
-                                    day.posVal > 0.5
-                                      ? Math.max(6, Math.round(posRatio * 64))
-                                      : 2;
-                                  const negPx =
-                                    day.negVal < -0.5
-                                      ? Math.max(6, Math.round(negRatio * 64))
-                                      : 2;
-                                  const isSelected =
-                                    selectedDailyBar?.date === day.date;
-                                  const dayNet = day.negVal + day.posVal;
-
-                                  return (
-                                    <button
-                                      key={day.date}
-                                      type="button"
-                                      onClick={() => setActiveBarDate(day.date)}
-                                      onDoubleClick={() =>
-                                        handleOpenDayInHarian(day.date)
-                                      }
-                                      title={`${formatDateId(day.date)}: Lebih +${formatRupiah(day.posVal)} | Kurang -${formatRupiah(day.negVal)}`}
-                                      className={`group flex-1 min-w-[36px] rounded-xl py-2 px-1 flex flex-col items-center transition-all cursor-pointer ${
-                                        isSelected
-                                          ? 'bg-[#FEEAE2] dark:bg-amber-400/15 ring-2 ring-[#D65106] dark:ring-amber-400'
-                                          : 'hover:bg-[#FBF7F2] dark:hover:bg-[#26201B]/60'
-                                      }`}
-                                    >
-                                      {/* Top Zone: Lebih (+) Green Bar growing UP from center line */}
-                                      <div className="h-[68px] w-full flex flex-col justify-end items-center">
-                                        {day.posVal > 0.5 && isSelected && (
-                                          <span className="text-[9px] font-mono font-extrabold tracking-wide text-emerald-700 dark:text-emerald-300 mb-1 leading-none">
-                                            +{formatCompactRupiah(day.posVal)}
-                                          </span>
-                                        )}
-                                        <div
-                                          className={`w-4 sm:w-4.5 rounded-t-md transition-all ${
-                                            day.posVal > 0.5
-                                              ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-xs'
-                                              : 'bg-slate-200 dark:bg-slate-700'
-                                          }`}
-                                          style={{ height: `${posPx}px` }}
-                                        />
-                                      </div>
-
-                                      {/* Zero Line Divider */}
-                                      <div className="w-full h-[2px] bg-[#EAA88F] dark:bg-[#4C453F]" />
-
-                                      {/* Bottom Zone: Kurang (-) Red Bar growing DOWN from center line */}
-                                      <div className="h-[68px] w-full flex flex-col justify-start items-center">
-                                        <div
-                                          className={`w-4 sm:w-4.5 rounded-b-md transition-all ${
-                                            day.negVal < -0.5
-                                              ? 'bg-gradient-to-b from-rose-500 to-rose-600 shadow-xs'
-                                              : 'bg-slate-200 dark:bg-slate-700'
-                                          }`}
-                                          style={{ height: `${negPx}px` }}
-                                        />
-                                        {day.negVal < -0.5 && isSelected && (
-                                          <span className="text-[9px] font-mono font-extrabold tracking-wide text-rose-700 dark:text-rose-300 mt-1 leading-none">
-                                            -{formatCompactRupiah(day.negVal)}
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      {/* Date Number Badge */}
-                                      <span
-                                        className={`mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-extrabold tabular-nums tracking-wide ${
-                                          isSelected
-                                            ? 'bg-[#D65106] dark:bg-amber-400 text-white dark:text-slate-950'
-                                            : dayNet < -0.5
-                                            ? 'text-rose-700 dark:text-rose-300'
-                                            : 'text-emerald-700 dark:text-emerald-300'
-                                        }`}
-                                      >
-                                        {Number(day.date.slice(8))}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 3 Quick Insight Pills Footer */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#ECE7E2] dark:border-[#322B25] text-xs">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (worstMinusDay) {
-                                  setActiveBarDate(worstMinusDay.date);
-                                }
-                              }}
-                              className="text-left rounded-xl p-3.5 bg-rose-50/70 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 transition-colors cursor-pointer"
-                            >
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                                Hari Minus Terbesar
-                              </div>
-                              <div className="font-mono font-black text-rose-700 dark:text-rose-300 mt-1.5 tabular-nums tracking-wide">
-                                {worstMinusDay
-                                  ? `${formatDateId(worstMinusDay.date)} (-${formatCompactRupiah(worstMinusDay.negVal)})`
-                                  : '-'}
-                              </div>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (bestPlusDay) {
-                                  setActiveBarDate(bestPlusDay.date);
-                                }
-                              }}
-                              className="text-left rounded-xl p-3.5 bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200/80 dark:border-emerald-500/25 hover:border-emerald-400 transition-colors cursor-pointer"
-                            >
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                                Hari Hasil Terbaik
-                              </div>
-                              <div className="font-mono font-black text-emerald-700 dark:text-emerald-300 mt-1.5 tabular-nums tracking-wide">
-                                {bestPlusDay
-                                  ? `${formatDateId(bestPlusDay.date)} (${
-                                      bestPlusDay.negVal + bestPlusDay.posVal >=
-                                      0
-                                        ? '+'
-                                        : '-'
-                                    }${formatCompactRupiah(bestPlusDay.negVal + bestPlusDay.posVal)})`
-                                  : '-'}
-                              </div>
-                            </button>
-
-                            <div className="rounded-xl p-3.5 bg-[#FBF6F1] dark:bg-[#1F1914] border border-[#F8C8B6] dark:border-[#3E3731]">
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-[#814730] dark:text-[#BEB6AC]">
-                                Rata-rata Per Hari ({chartDays.length} hr)
-                              </div>
-                              <div className="font-mono font-bold text-xs mt-1.5 tabular-nums tracking-wide flex items-center gap-2.5">
-                                <span className="text-rose-600 dark:text-rose-400">
-                                  -{formatCompactRupiah(avgDailyNeg)}/hr
-                                </span>
-                                <span className="text-slate-400">·</span>
-                                <span className="text-emerald-600 dark:text-emerald-400">
-                                  +{formatCompactRupiah(avgDailyPos)}/hr
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </MotionSection>
-
-                        {/* Right (5 cols): RINCIAN PER KEPERLUAN — Horizontal Bar Chart + Indikasi Penyebab (Bahan Makanan vs Kemasan vs Minuman vs Operasional) */}
-                        <MotionSection className="lg:col-span-5 rounded-2xl bg-white dark:bg-[#18130F] border border-[#F8C8B6] dark:border-[#3E3731] p-4 sm:p-5 flex flex-col justify-between gap-3 shadow-xs">
+                      {/* RINCIAN PER KEPERLUAN */}
+                      <section className="grid grid-cols-1 gap-3.5 items-stretch">
+                        <MotionSection className="rounded-2xl bg-white dark:bg-[#18130F] border border-[#F8C8B6] dark:border-[#3E3731] p-4 sm:p-5 flex flex-col justify-between gap-3 shadow-xs">
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.14em] text-[#BE490C] dark:text-[#ACE25B]">
@@ -2705,9 +2431,6 @@ export default function App() {
                           </div>
                         </MotionSection>
                       </section>
-
-                      {/* ROW 4: GRAFIK KEUNTUNGAN (Dominant White Surface · Pink & Purple Wizzmie Theme · Net Sales Based on Upload Dates) */}
-                      {renderProfitChartSection()}
                     </div>
                   );
                 })()}
@@ -2885,8 +2608,10 @@ export default function App() {
             setDateRange({ start, end });
             if (start === end) {
               setSelectedDay(start);
+              setViewScope('day');
+            } else {
+              setViewScope('range');
             }
-            setViewScope('range');
             setIsRangePickerOpen(false);
           }}
         />
@@ -2916,20 +2641,6 @@ export default function App() {
         activeMonth={activeMonth}
         activeDay={activeDay}
         viewScope={viewScope}
-      />
-
-      {/* Global Premium AI Chat Floating Button & Pop-up (Reads All Menus & App Features) */}
-      <GlobalAiChatWidget
-        activeTab={activeTab}
-        viewScope={viewScope}
-        activeMonth={activeMonth}
-        activeDay={activeDay}
-        activeRange={activeRange}
-        selectedProduct={selectedProduct}
-        summary={summary}
-        data={data}
-        pnlData={pnlData}
-        selectedPnlMonth={selectedPnlMonth}
       />
       </div>
     </LenisGsapProvider>
@@ -3850,7 +3561,7 @@ function BerandaProfitLossCard({
       </div>
 
       <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-        Ketuk <strong>Buka Detail Laba Rugi</strong> untuk melihat seluruh baris Description ÷ Net Sales (%) beserta penjelasan sederhana langsung dari aplikasi atau analisa tambahan Gemini / Groq / OpenAI.
+        Ketuk <strong>Buka Detail Laba Rugi</strong> untuk melihat seluruh baris Description ÷ Net Sales (%) beserta penjelasan sederhana langsung dari aplikasi.
       </p>
     </MotionSection>
   );
