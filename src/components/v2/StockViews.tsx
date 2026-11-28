@@ -448,16 +448,33 @@ export function HarianV2(p: StockViewProps) {
 
   const catMax = Math.max(1, ...s.categoryStats.map((c) => Math.abs(c.negVal)));
   const prodStat = openProd ? s.productMap[openProd] : undefined;
+  const dataKey = `${p.activeMonth}-${p.viewScope}-${isDay ? p.activeDay : `${p.activeRange.start}_${p.activeRange.end}`}`;
+  const listKey = `${dataKey}-${filter}-${purpose}-${session}-${sort}`;
 
   return (
-    <div className="s3-page">
+    <motion.div
+      className="s3-page"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease }}
+    >
       <DateTape {...p} maxNeg={maxNeg} />
 
       <div className="s3-cols">
         <div className="s3-col-side">
-          <SummaryTicket s={s} label={periodLabel(p)} extra={p.onOpenInfo && (
-            <button type="button" className="s3-link" onClick={() => p.onOpenInfo?.('harian')}><Info className="w-3.5 h-3.5" /> Cara membaca halaman ini</button>
-          )} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={dataKey}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.24, ease }}
+            >
+              <SummaryTicket s={s} label={periodLabel(p)} extra={p.onOpenInfo && (
+                <button type="button" className="s3-link" onClick={() => p.onOpenInfo?.('harian')}><Info className="w-3.5 h-3.5" /> Cara membaca halaman ini</button>
+              )} />
+            </motion.div>
+          </AnimatePresence>
 
           {!isDay && s.dailyStats.length > 1 && (
             <Section title="Arus selisih harian" hint="ketuk batang untuk buka hari">
@@ -535,13 +552,23 @@ export function HarianV2(p: StockViewProps) {
                 {session && <button type="button" onClick={() => setSession('')}>SO: {session.split('|')[0] || 'Tanpa nomor'} ✕</button>}
               </div>
             )}
-            <ul className="s3-items">
-              {shown.slice(0, limit).map((it, i) => (
-                <ItemLine key={it.key} it={it} i={i} onOpen={() => (it.rec ? setOpenRec(it.rec) : setOpenProd(it.name))} />
-              ))}
-            </ul>
-            {!shown.length && <div className="s3-empty">Tidak ada barang untuk saringan ini.</div>}
-            {shown.length > limit && <button type="button" className="s3-more" onClick={() => setLimit(limit + 60)}>Tampilkan {Math.min(60, shown.length - limit)} lagi</button>}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={listKey}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.24, ease }}
+              >
+                <ul className="s3-items">
+                  {shown.slice(0, limit).map((it, i) => (
+                    <ItemLine key={it.key} it={it} i={i} onOpen={() => (it.rec ? setOpenRec(it.rec) : setOpenProd(it.name))} />
+                  ))}
+                </ul>
+                {!shown.length && <div className="s3-empty">Tidak ada barang untuk saringan ini.</div>}
+                {shown.length > limit && <button type="button" className="s3-more" onClick={() => setLimit(limit + 60)}>Tampilkan {Math.min(60, shown.length - limit)} lagi</button>}
+              </motion.div>
+            </AnimatePresence>
           </section>
         </div>
       </div>
@@ -561,7 +588,7 @@ export function HarianV2(p: StockViewProps) {
       <Sheet open={!!prodStat} onClose={() => setOpenProd('')} eyebrow={prodStat ? `${prodStat.code || 'Tanpa kode'} · ${prodStat.category}` : ''} title={prodStat?.name} wide>
         {prodStat && <ProductDetail ps={prodStat} recs={isDay ? allRecs.filter((r) => s.activeDates.includes(r.date) || r.date === p.activeDay) : recs} onOpenRec={(r) => { setOpenProd(''); setTimeout(() => setOpenRec(r), 250); }} />}
       </Sheet>
-    </div>
+    </motion.div>
   );
 }
 
@@ -599,22 +626,38 @@ export function BarangV2(p: StockViewProps & { selected: string; onSelect: (n: s
   const sel = s.productMap[p.selected] ?? (shown[0] ? s.productMap[shown[0].name] : undefined);
 
   const open = (n: string) => { p.onSelect(n); if (!desktop) setSheetOpen(true); };
+  const dataKey = `${p.activeMonth}-${p.viewScope}-${p.viewScope === 'day' ? p.activeDay : `${p.activeRange.start}_${p.activeRange.end}`}`;
+  const listKey = `${dataKey}-${f}-${cat}-${sort}`;
 
   return (
-    <div className="s3-page">
+    <motion.div
+      className="s3-page"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease }}
+    >
       <DateTape {...p} maxNeg={maxNeg} />
-      <motion.section className="s3-ticket s3-ticket-row" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
-        <div>
-          <div className="s3-eyebrow"><PackageSearch className="w-3.5 h-3.5" /> Cek barang · {periodLabel(p)}</div>
-          <div className="s3-big">{all.length}<span className="s3-unit"> barang</span></div>
-        </div>
-        <dl className="s3-stats s3-stats-3">
-          <div><dt>Minus</dt><dd className="s3-t-neg">{s.negProductCount}</dd></div>
-          <div><dt>Lebih</dt><dd className="s3-t-pos">{s.posProductCount}</dd></div>
-          <div><dt>Pas</dt><dd>{s.pasProductCount}</dd></div>
-        </dl>
-        {p.onOpenInfo && <button type="button" className="s3-link" onClick={() => p.onOpenInfo?.('cekBarang')}><Info className="w-3.5 h-3.5" /> Panduan</button>}
-      </motion.section>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.section
+          key={dataKey}
+          className="s3-ticket s3-ticket-row"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.24, ease }}
+        >
+          <div>
+            <div className="s3-eyebrow"><PackageSearch className="w-3.5 h-3.5" /> Cek barang · {periodLabel(p)}</div>
+            <div className="s3-big">{all.length}<span className="s3-unit"> barang</span></div>
+          </div>
+          <dl className="s3-stats s3-stats-3">
+            <div><dt>Minus</dt><dd className="s3-t-neg">{s.negProductCount}</dd></div>
+            <div><dt>Lebih</dt><dd className="s3-t-pos">{s.posProductCount}</dd></div>
+            <div><dt>Pas</dt><dd>{s.pasProductCount}</dd></div>
+          </dl>
+          {p.onOpenInfo && <button type="button" className="s3-link" onClick={() => p.onOpenInfo?.('cekBarang')}><Info className="w-3.5 h-3.5" /> Panduan</button>}
+        </motion.section>
+      </AnimatePresence>
 
       <div className="s3-cols s3-cols-explorer">
         <section className="s3-card s3-list-card s3-sticky-list">
@@ -627,22 +670,32 @@ export function BarangV2(p: StockViewProps & { selected: string; onSelect: (n: s
               {cats.map((c) => <button key={c} type="button" className={cat === c ? 'is-on' : ''} onClick={() => setCat(cat === c ? '' : c)}>{c}</button>)}
             </div>
           </div>
-          <ul className="s3-items">
-            {shown.slice(0, limit).map((it, i) => (
-              <div key={it.key} className={desktop && sel?.name === it.name ? 's3-item-on' : ''}>
-                <ItemLine it={it} i={i} onOpen={() => open(it.name)} />
-              </div>
-            ))}
-          </ul>
-          {!shown.length && <div className="s3-empty">Tidak ada barang.</div>}
-          {shown.length > limit && <button type="button" className="s3-more" onClick={() => setLimit(limit + 60)}>Tampilkan {Math.min(60, shown.length - limit)} lagi</button>}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={listKey}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.24, ease }}
+            >
+              <ul className="s3-items">
+                {shown.slice(0, limit).map((it, i) => (
+                  <div key={it.key} className={desktop && sel?.name === it.name ? 's3-item-on' : ''}>
+                    <ItemLine it={it} i={i} onOpen={() => open(it.name)} />
+                  </div>
+                ))}
+              </ul>
+              {!shown.length && <div className="s3-empty">Tidak ada barang.</div>}
+              {shown.length > limit && <button type="button" className="s3-more" onClick={() => setLimit(limit + 60)}>Tampilkan {Math.min(60, shown.length - limit)} lagi</button>}
+            </motion.div>
+          </AnimatePresence>
         </section>
 
         {desktop && (
           <section className="s3-card s3-detail-pane">
             <AnimatePresence mode="wait">
               {sel ? (
-                <motion.div key={sel.name} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3, ease }}>
+                <motion.div key={sel.name} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease }}>
                   <div className="s3-eyebrow">{sel.code || 'Tanpa kode'} · {sel.category}{sel.subcategory ? ` · ${sel.subcategory}` : ''}</div>
                   <h2 className="s3-sheet-title mb-4">{sel.name}</h2>
                   {sel.location && <p className="s3-sub mb-3"><MapPin className="w-3.5 h-3.5 inline" /> {sel.location}</p>}
@@ -660,6 +713,6 @@ export function BarangV2(p: StockViewProps & { selected: string; onSelect: (n: s
       <Sheet open={!!openRec} onClose={() => setOpenRec(null)} eyebrow={openRec ? formatDateId(openRec.date) : ''} title={openRec?.row[0]}>
         {openRec && <RecordDetail rec={openRec} />}
       </Sheet>
-    </div>
+    </motion.div>
   );
 }

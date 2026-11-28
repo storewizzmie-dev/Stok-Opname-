@@ -1,5 +1,6 @@
 // @ts-nocheck -- imported legacy code written for a looser tsconfig
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowDown,
   ArrowRight,
@@ -899,14 +900,23 @@ export default function App() {
       <header className="wz-topbar">
         <div className="flex items-center gap-3 min-w-0">
           <span className="md:hidden"><span className="wz-logo">W</span></span>
-          <div className="min-w-0">
-            <div className="wz-crumb">Wizzmie / {navItems.find((n) => n.id === activeTab)?.label}</div>
-            {activeTab !== 'beranda' && (
-              <h1 className="wz-page-title truncate">
-                {({ harian: 'Opname Harian', barang: 'Cek per Barang', labarugi: 'Laba & Rugi', pengaturan: 'Data & Pengaturan' } as Record<string, string>)[activeTab]}
-              </h1>
-            )}
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="min-w-0"
+            >
+              <div className="wz-crumb">Wizzmie / {navItems.find((n) => n.id === activeTab)?.label}</div>
+              {activeTab !== 'beranda' && (
+                <h1 className="wz-page-title truncate">
+                  {({ harian: 'Opname Harian', barang: 'Cek per Barang', labarugi: 'Laba & Rugi', pengaturan: 'Data & Pengaturan' } as Record<string, string>)[activeTab]}
+                </h1>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </header>
 
@@ -932,6 +942,15 @@ export default function App() {
           </div>
         )}
 
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="space-y-5"
+          >
         {/* PAGE 1: BERANDA (Removed from navigation as requested by user) */}
         {activeTab === 'beranda' &&
           (() => {
@@ -2874,6 +2893,8 @@ export default function App() {
             onOpenInfo={setActiveInfoKey}
           />
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
       </div>
 
