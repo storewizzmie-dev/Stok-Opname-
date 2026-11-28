@@ -921,35 +921,7 @@ export default function App() {
             );
           })}
         </nav>
-        <div className="wz-side-label">Sumber Data</div>
-        <div className="wz-data-card">
-          <div className="flex items-center justify-between">
-            <span>Stok Opname</span>
-            <span className={allMonths.length ? 'wz-dot-on' : 'wz-dot-off'} />
-          </div>
-          <div className="wz-data-num">{allMonths.length} <small>bulan</small></div>
-          <button type="button" className="wz-mini-btn" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-3.5 h-3.5" /> Upload Excel
-          </button>
-        </div>
-        <div className="wz-data-card">
-          <div className="flex items-center justify-between">
-            <span>Laba Rugi</span>
-            <span className={pnlMonths.length ? 'wz-dot-on' : 'wz-dot-off'} />
-          </div>
-          <div className="wz-data-num">{pnlMonths.length} <small>periode</small></div>
-          <button type="button" className="wz-mini-btn" onClick={() => pnlFileInputRef.current?.click()}>
-            <Upload className="w-3.5 h-3.5" /> Upload Excel
-          </button>
-        </div>
         <div className="mt-auto flex flex-col gap-2">
-          <button type="button" className="wz-ai-cta" onClick={() => window.dispatchEvent(new Event('wz-open-ai'))}>
-            <span className="wz-ai-orb" />
-            <span className="text-left leading-tight">
-              <b className="block">Tanya AI</b>
-              <small>Analisis stok & laba rugi</small>
-            </span>
-          </button>
           <button type="button" className="wz-side-item" onClick={() => setIsDark((prev) => !prev)}>
             <span className="wz-side-icon">{isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</span>
             <span>{isDark ? 'Mode Terang' : 'Mode Gelap'}</span>
@@ -971,9 +943,6 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2">
           <span className="wz-chip hidden lg:inline-flex"><span className="wz-dot-on" /> Live · {new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-          <button type="button" className="wz-icon-btn" aria-label="Upload stok" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-4 h-4" />
-          </button>
           <button type="button" className="wz-icon-btn md:hidden" aria-label="Ganti tema" onClick={() => setIsDark((prev) => !prev)}>
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -3094,18 +3063,8 @@ function EmptyStateCard({
               <GsapWordTitle text="Pantau Stok Gudang Jadi Lebih Gampang" />
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-              Upload file Excel stok opname harian Anda. Aplikasi langsung menghitung mana barang yang kurang, mana yang lebih, dan membantu mengecek kemungkinan salah hitung dengan bahasa sederhana.
+              Silakan buka menu <strong>Pengaturan</strong> untuk mengupload file Excel stok opname harian Anda. Aplikasi langsung menghitung mana barang yang kurang, mana yang lebih, dan membantu mengecek kemungkinan salah hitung dengan bahasa sederhana.
             </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={onUploadClick}
-              className="btn-3d-primary px-5 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2 min-h-[44px] whitespace-nowrap cursor-pointer"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload di Menu Pengaturan</span>
-            </button>
           </div>
         </div>
 
@@ -3905,14 +3864,6 @@ function BerandaProfitLossCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onUploadClick}
-            className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 min-h-[40px] whitespace-nowrap cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload di Pengaturan</span>
-          </button>
           <button
             type="button"
             onClick={() => onOpenProfitLoss()}
